@@ -55,6 +55,13 @@ def main(argv: list[str] | None = None) -> int:
     tw.add_argument("--no-web", action="store_true")
     tw.add_argument("--record", action="store_true", help="save LLM calls as local fine-tuning data")
 
+    gf = sub.add_parser("gif", help="record a gameplay GIF of a built project (autopilot; needs a display)")
+    gf.add_argument("project", type=Path)
+    gf.add_argument("-o", "--out", type=Path, help="output file (default: <project>/demo.gif)")
+    gf.add_argument("--seconds", type=float, default=8.0)
+    gf.add_argument("--fps", type=int, default=20)
+    gf.add_argument("--width", type=int, default=640)
+
     sp = sub.add_parser("sprites", help="import, generate or preview sprites")
     sps = sp.add_subparsers(dest="sprites_cmd", required=True)
     si = sps.add_parser("import", help="turn a sprite sheet or a folder of frames into a SpriteSet")
@@ -97,7 +104,7 @@ def main(argv: list[str] | None = None) -> int:
         return {"validate": _validate, "build": _build, "run": _run, "components": _components,
                 "manifest": _manifest, "create": studio_cli.create, "tweak": studio_cli.tweak,
                 "serve": studio_cli.serve, "dataset": studio_cli.dataset,
-                "sprites": _sprites}[args.cmd](args)
+                "sprites": _sprites, "gif": _gif}[args.cmd](args)
     except godot.GodotError as e:
         print(f"error: {e}", file=sys.stderr)
         if e.output:
@@ -167,6 +174,15 @@ def _components(args) -> int:
             print(f"    signal {s.name}({', '.join(a.name for a in s.args)})")
         for mt in c.methods.values():
             print(f"    {mt.name}({', '.join(a.name for a in mt.args)})")
+    return 0
+
+
+def _gif(args) -> int:
+    from .gif import record_gif
+
+    out = args.out or args.project / "demo.gif"
+    path = record_gif(args.project.resolve(), out.resolve(), args.seconds, args.fps, args.width)
+    print(f"Wrote {out} ({path.stat().st_size / 1e6:.1f} MB)")
     return 0
 
 

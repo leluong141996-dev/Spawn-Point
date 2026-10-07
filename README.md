@@ -2,6 +2,14 @@
 
 **Compile a small JSON "game graph" into a juicy, runnable Godot 4 game — in seconds.**
 
+<p align="center">
+  <img src="docs/media/pixel-hopper.gif" width="48%" alt="Pixel Hopper — generated platformer">
+  <img src="docs/media/pixel-arena.gif" width="48%" alt="Pixel Arena — generated top-down shooter">
+</p>
+<p align="center"><sub>Both games are built from <code>examples/pixel_hopper.json</code> and
+<code>examples/pixel_arena.json</code>: generated sprites, collision traced from pixels, juice on by
+default. Recorded with <code>spawnpoint gif</code> (autopilot).</sub></p>
+
 Spawn Point is the foundation of an autonomous game-studio agent. Instead of asking an LLM to type
 hundreds of lines of GDScript (slow, expensive, and easy to break with Godot 3/4 mix-ups), the LLM
 assembles **pre-tested components** like LEGO, places them on an **ASCII map**, and wires gameplay
@@ -89,6 +97,12 @@ spawnpoint sprites import hero.png --grid 32x32 --anim idle=0-3 --anim run=4-9
 spawnpoint sprites import sheet.png --rows idle,run,jump           # auto-sliced by transparent gutters
 spawnpoint sprites import kenney_frames/                           # idle_0.png, walk_1.png, ...
 spawnpoint sprites preview assets/sprites/Knight.sprite.json       # contact sheet + collision outline
+```
+
+Record a clip of any built game to share it (a window opens for a few seconds; autopilot plays):
+
+```bash
+spawnpoint gif out/pixel-hopper -o demo.gif --seconds 8 --fps 20 --width 640
 ```
 
 Use one in a graph with `"sprite": "assets/sprites/Knight.sprite.json"` (relative to the graph file)

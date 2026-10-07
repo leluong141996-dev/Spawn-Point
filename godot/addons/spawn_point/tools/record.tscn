@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://addons/spawn_point/tools/record.gd" id="1_record"]
+
+[node name="Record" type="Node"]
+script = ExtResource("1_record")
