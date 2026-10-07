@@ -1,0 +1,1459 @@
+{
+  "godot": "4.6.2-stable (official)",
+  "components": [
+    {
+      "name": "Aim",
+      "class": "AimComponent",
+      "script": "res://addons/spawn_point/components/aim_component.gd",
+      "base": "Node",
+      "hosts": [],
+      "requires": [
+        "Weapon"
+      ],
+      "category": "controller",
+      "entity_params": [],
+      "params": [
+        {
+          "name": "mode",
+          "type": "String",
+          "hint": "enum",
+          "hint_string": "mouse,nearest_enemy,movement",
+          "default": "mouse",
+          "doc": "\"mouse\", \"nearest_enemy\" or \"movement\"."
+        },
+        {
+          "name": "rotate_visual",
+          "type": "bool",
+          "hint": "",
+          "hint_string": "",
+          "default": true,
+          "doc": "Rotate the visual to face the aim direction (top-down games)."
+        },
+        {
+          "name": "max_range",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,5000.0,1.0",
+          "default": 600.0,
+          "doc": "Max distance for nearest_enemy targeting (px)."
+        }
+      ],
+      "state": [],
+      "signals": [],
+      "methods": [],
+      "doc": "Points the entity's Weapon (and visual) at the mouse, the nearest enemy, or the movement direction."
+    },
+    {
+      "name": "ChaseAI",
+      "class": "ChaseAIComponent",
+      "script": "res://addons/spawn_point/components/chase_ai_component.gd",
+      "base": "Node",
+      "hosts": [
+        "CharacterBody2D"
+      ],
+      "requires": [],
+      "category": "controller",
+      "entity_params": [],
+      "params": [
+        {
+          "name": "detect_radius",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,5000.0,1.0",
+          "default": 300.0,
+          "doc": "Distance at which the player is noticed (px)."
+        },
+        {
+          "name": "lose_radius",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,5000.0,1.0",
+          "default": 480.0,
+          "doc": "Distance at which the chase is abandoned (px)."
+        },
+        {
+          "name": "keep_distance",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,2000.0,1.0",
+          "default": 0.0,
+          "doc": "Stop approaching inside this distance (ranged enemies keep their distance)."
+        },
+        {
+          "name": "fire_range",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,5000.0,1.0",
+          "default": 380.0,
+          "doc": "Weapon fires when the player is within this distance (px)."
+        },
+        {
+          "name": "wander",
+          "type": "bool",
+          "hint": "",
+          "hint_string": "",
+          "default": true,
+          "doc": "Wander around while idle."
+        },
+        {
+          "name": "wander_speed",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,1.0,0.05",
+          "default": 0.35,
+          "doc": "Fraction of max speed used while wandering."
+        },
+        {
+          "name": "needs_line_of_sight",
+          "type": "bool",
+          "hint": "",
+          "hint_string": "",
+          "default": true,
+          "doc": "Require an unobstructed line to the player to chase/shoot."
+        }
+      ],
+      "state": [
+        {
+          "name": "state",
+          "type": "int"
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "doc": "Enemy brain: wanders until the player comes close, then chases (and shoots, if the entity has a Weapon and a clear line of sight). Works top-down; in platformers it only moves horizontally."
+    },
+    {
+      "name": "Collectible",
+      "class": "CollectibleComponent",
+      "script": "res://addons/spawn_point/components/collectible_component.gd",
+      "base": "Node",
+      "hosts": [
+        "Area2D"
+      ],
+      "requires": [],
+      "category": "core",
+      "entity_params": [],
+      "params": [
+        {
+          "name": "kind",
+          "type": "String",
+          "hint": "",
+          "hint_string": "",
+          "default": "coin",
+          "doc": "Free-form kind, usable in rules (\"coin\", \"key\", \"heart\")."
+        },
+        {
+          "name": "score",
+          "type": "int",
+          "hint": "range",
+          "hint_string": "0.0,100000.0",
+          "default": 1,
+          "doc": "Score added on pickup (0 = none)."
+        },
+        {
+          "name": "heal",
+          "type": "int",
+          "hint": "range",
+          "hint_string": "0.0,999.0",
+          "default": 0,
+          "doc": "Health restored to the collector on pickup (0 = none)."
+        },
+        {
+          "name": "bob_height",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,32.0,0.5",
+          "default": 3.0,
+          "doc": "Bobbing height in px (0 = static)."
+        }
+      ],
+      "state": [],
+      "signals": [
+        {
+          "name": "collected",
+          "args": [
+            {
+              "name": "by",
+              "type": "Node"
+            }
+          ],
+          "doc": "Emitted when collected; [param by] is the collecting entity."
+        }
+      ],
+      "methods": [],
+      "doc": "A pickup (coin, gem, key...). Touching it adds [member score], emits [signal collected] and removes it. The visual bobs gently so pickups read as \"take me\"."
+    },
+    {
+      "name": "Gate",
+      "class": "GateComponent",
+      "script": "res://addons/spawn_point/components/gate_component.gd",
+      "base": "Node",
+      "hosts": [
+        "StaticBody2D"
+      ],
+      "requires": [],
+      "category": "core",
+      "entity_params": [],
+      "params": [
+        {
+          "name": "starts_open",
+          "type": "bool",
+          "hint": "",
+          "hint_string": "",
+          "default": false,
+          "doc": "Start open."
+        }
+      ],
+      "state": [
+        {
+          "name": "is_open",
+          "type": "bool"
+        }
+      ],
+      "signals": [
+        {
+          "name": "opened",
+          "args": [],
+          "doc": "Emitted when the gate opens."
+        },
+        {
+          "name": "closed",
+          "args": [],
+          "doc": "Emitted when the gate closes."
+        }
+      ],
+      "methods": [
+        {
+          "name": "open",
+          "args": [],
+          "default_count": 0,
+          "returns": "Nil",
+          "doc": "Opens the gate (no collision, faded visual)."
+        },
+        {
+          "name": "close",
+          "args": [],
+          "default_count": 0,
+          "returns": "Nil",
+          "doc": "Closes the gate."
+        },
+        {
+          "name": "toggle",
+          "args": [],
+          "default_count": 0,
+          "returns": "Nil",
+          "doc": "Opens if closed, closes if open."
+        }
+      ],
+      "doc": "A solid barrier that can be opened and closed by rules (doors, bridges, locked exits)."
+    },
+    {
+      "name": "Health",
+      "class": "HealthComponent",
+      "script": "res://addons/spawn_point/components/health_component.gd",
+      "base": "Node",
+      "hosts": [],
+      "requires": [],
+      "category": "core",
+      "entity_params": [],
+      "params": [
+        {
+          "name": "max_health",
+          "type": "int",
+          "hint": "range",
+          "hint_string": "1.0,999.0",
+          "default": 3,
+          "doc": "Maximum (and starting) hit points."
+        },
+        {
+          "name": "invincibility_time",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,5.0,0.01",
+          "default": 0.6,
+          "doc": "Seconds of invincibility after being hit (prevents instant multi-hits)."
+        }
+      ],
+      "state": [
+        {
+          "name": "current",
+          "type": "int"
+        }
+      ],
+      "signals": [
+        {
+          "name": "damaged",
+          "args": [
+            {
+              "name": "amount",
+              "type": "int"
+            }
+          ],
+          "doc": "Emitted after taking damage that was not blocked."
+        },
+        {
+          "name": "healed",
+          "args": [
+            {
+              "name": "amount",
+              "type": "int"
+            }
+          ],
+          "doc": "Emitted after healing."
+        },
+        {
+          "name": "died",
+          "args": [],
+          "doc": "Emitted once when health reaches zero."
+        }
+      ],
+      "methods": [
+        {
+          "name": "damage",
+          "args": [
+            {
+              "name": "amount",
+              "type": "int"
+            }
+          ],
+          "default_count": 0,
+          "returns": "Nil",
+          "doc": "Deals [param amount] damage unless invincible or dead."
+        },
+        {
+          "name": "heal",
+          "args": [
+            {
+              "name": "amount",
+              "type": "int"
+            }
+          ],
+          "default_count": 0,
+          "returns": "Nil",
+          "doc": "Restores up to [param amount] hit points."
+        },
+        {
+          "name": "kill",
+          "args": [],
+          "default_count": 0,
+          "returns": "Nil",
+          "doc": "Kills the entity immediately, ignoring invincibility."
+        },
+        {
+          "name": "reset",
+          "args": [],
+          "default_count": 0,
+          "returns": "Nil",
+          "doc": "Restores full health."
+        },
+        {
+          "name": "grant_invincibility",
+          "args": [
+            {
+              "name": "seconds",
+              "type": "float"
+            }
+          ],
+          "default_count": 0,
+          "returns": "Nil",
+          "doc": "Makes the entity invincible for [param seconds]."
+        },
+        {
+          "name": "is_invincible",
+          "args": [],
+          "default_count": 0,
+          "returns": "bool",
+          "doc": "True while hits are ignored."
+        },
+        {
+          "name": "is_dead",
+          "args": [],
+          "default_count": 0,
+          "returns": "bool",
+          "doc": "True when health is zero."
+        }
+      ],
+      "doc": "Hit points with brief invincibility after each hit. When health reaches zero the entity dies (players respawn while lives remain)."
+    },
+    {
+      "name": "Hitbox",
+      "class": "HitboxComponent",
+      "script": "res://addons/spawn_point/components/hitbox_component.gd",
+      "base": "Area2D",
+      "hosts": [],
+      "requires": [],
+      "category": "core",
+      "entity_params": [],
+      "params": [
+        {
+          "name": "damage",
+          "type": "int",
+          "hint": "range",
+          "hint_string": "0.0,999.0",
+          "default": 1,
+          "doc": "Damage per hit."
+        },
+        {
+          "name": "knockback",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,2000.0,1.0",
+          "default": 260.0,
+          "doc": "Push applied to the victim, in pixels/second."
+        },
+        {
+          "name": "size_scale",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.1,2.0,0.05",
+          "default": 1.0,
+          "doc": "Hitbox size relative to the entity shape."
+        },
+        {
+          "name": "hurts_own_team",
+          "type": "bool",
+          "hint": "",
+          "hint_string": "",
+          "default": false,
+          "doc": "Neutral hitboxes (traps) hurt both teams."
+        }
+      ],
+      "state": [],
+      "signals": [
+        {
+          "name": "hit",
+          "args": [
+            {
+              "name": "target",
+              "type": "Node"
+            }
+          ],
+          "doc": "Emitted when this hitbox damages [param target] (the entity that was hit)."
+        }
+      ],
+      "methods": [],
+      "doc": "Deals damage to hurtboxes of the opposing team on contact (enemy bodies, bullets, spikes)."
+    },
+    {
+      "name": "Hurtbox",
+      "class": "HurtboxComponent",
+      "script": "res://addons/spawn_point/components/hurtbox_component.gd",
+      "base": "Area2D",
+      "hosts": [],
+      "requires": [
+        "Health"
+      ],
+      "category": "core",
+      "entity_params": [],
+      "params": [
+        {
+          "name": "size_scale",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.1,2.0,0.05",
+          "default": 0.85,
+          "doc": "Hurtbox size relative to the entity shape. Below 1 is more forgiving for the player."
+        },
+        {
+          "name": "knockback_scale",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,5.0,0.05",
+          "default": 1.0,
+          "doc": "Multiplies knockback received."
+        }
+      ],
+      "state": [],
+      "signals": [
+        {
+          "name": "hurt",
+          "args": [
+            {
+              "name": "amount",
+              "type": "int"
+            }
+          ],
+          "doc": "Emitted when a hit lands (after invincibility checks)."
+        }
+      ],
+      "methods": [],
+      "doc": "The area where this entity can be hit. Forwards damage to Health and pushes the entity back."
+    },
+    {
+      "name": "Juice",
+      "class": "JuiceComponent",
+      "script": "res://addons/spawn_point/components/juice_component.gd",
+      "base": "Node",
+      "hosts": [],
+      "requires": [],
+      "category": "juice",
+      "entity_params": [],
+      "params": [
+        {
+          "name": "squash",
+          "type": "bool",
+          "hint": "",
+          "hint_string": "",
+          "default": true,
+          "doc": "Squash & stretch on jump, land and hit."
+        },
+        {
+          "name": "squash_amount",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,0.8,0.01",
+          "default": 0.28,
+          "doc": "Squash strength (0.3 = 30% deformation)."
+        },
+        {
+          "name": "flash",
+          "type": "bool",
+          "hint": "",
+          "hint_string": "",
+          "default": true,
+          "doc": "Flash white when damaged."
+        },
+        {
+          "name": "shake_on_hurt",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,1.0,0.01",
+          "default": 0.35,
+          "doc": "Screen shake when this entity is hurt (0..1 trauma)."
+        },
+        {
+          "name": "shake_on_death",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,1.0,0.01",
+          "default": 0.45,
+          "doc": "Screen shake when this entity dies."
+        },
+        {
+          "name": "shake_on_fire",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,1.0,0.01",
+          "default": 0.06,
+          "doc": "Screen shake when this entity fires."
+        },
+        {
+          "name": "hitstop_on_hurt",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,0.3,0.005",
+          "default": 0.06,
+          "doc": "Hit-stop (freeze frame) seconds when hurt."
+        },
+        {
+          "name": "hitstop_on_death",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,0.3,0.005",
+          "default": 0.04,
+          "doc": "Hit-stop seconds when killed."
+        },
+        {
+          "name": "particles",
+          "type": "bool",
+          "hint": "",
+          "hint_string": "",
+          "default": true,
+          "doc": "Particle effects (death burst, landing dust, pickup sparkle)."
+        },
+        {
+          "name": "dash_trail",
+          "type": "bool",
+          "hint": "",
+          "hint_string": "",
+          "default": true,
+          "doc": "After-images while dashing."
+        },
+        {
+          "name": "face_movement",
+          "type": "bool",
+          "hint": "",
+          "hint_string": "",
+          "default": true,
+          "doc": "Turn the visual to face the movement direction."
+        },
+        {
+          "name": "sounds",
+          "type": "bool",
+          "hint": "",
+          "hint_string": "",
+          "default": true,
+          "doc": "Play sound effects."
+        },
+        {
+          "name": "pitch_variance",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,0.5,0.01",
+          "default": 0.1,
+          "doc": "Random pitch variation for sounds (0.1 = ±10%)."
+        },
+        {
+          "name": "sound_jump",
+          "type": "String",
+          "hint": "",
+          "hint_string": "",
+          "default": "jump",
+          "doc": "Sound played on jump."
+        },
+        {
+          "name": "sound_land",
+          "type": "String",
+          "hint": "",
+          "hint_string": "",
+          "default": "land",
+          "doc": "Sound played on a hard landing."
+        },
+        {
+          "name": "sound_hurt",
+          "type": "String",
+          "hint": "",
+          "hint_string": "",
+          "default": "hurt",
+          "doc": "Sound played when damaged."
+        },
+        {
+          "name": "sound_death",
+          "type": "String",
+          "hint": "",
+          "hint_string": "",
+          "default": "explosion",
+          "doc": "Sound played on death."
+        },
+        {
+          "name": "sound_fire",
+          "type": "String",
+          "hint": "",
+          "hint_string": "",
+          "default": "shoot",
+          "doc": "Sound played when the Weapon fires."
+        },
+        {
+          "name": "sound_collect",
+          "type": "String",
+          "hint": "",
+          "hint_string": "",
+          "default": "coin",
+          "doc": "Sound played when collected (pitch rises on quick chains)."
+        },
+        {
+          "name": "sound_dash",
+          "type": "String",
+          "hint": "",
+          "hint_string": "",
+          "default": "dash",
+          "doc": "Sound played on dash."
+        }
+      ],
+      "state": [],
+      "signals": [],
+      "methods": [
+        {
+          "name": "squash_stretch",
+          "args": [
+            {
+              "name": "amount",
+              "type": "float"
+            },
+            {
+              "name": "duration",
+              "type": "float"
+            }
+          ],
+          "default_count": 1,
+          "returns": "Nil",
+          "doc": "Squash (x wider, y shorter) when [param amount] > 0, stretch when < 0, then spring back."
+        },
+        {
+          "name": "flash_white",
+          "args": [
+            {
+              "name": "duration",
+              "type": "float"
+            }
+          ],
+          "default_count": 1,
+          "returns": "Nil",
+          "doc": "Flashes the visual white for [param duration] seconds."
+        }
+      ],
+      "doc": "Game feel for one entity. Wires itself to whatever sibling components exist and adds feedback: squash & stretch on jump/land, white flash + shake + hit-stop when hurt, after-images on dash, particle bursts on death and pickup, recoil shake and sounds. Attached automatically to every entity unless the game disables juice."
+    },
+    {
+      "name": "PatrolAI",
+      "class": "PatrolAIComponent",
+      "script": "res://addons/spawn_point/components/patrol_ai_component.gd",
+      "base": "Node",
+      "hosts": [
+        "CharacterBody2D"
+      ],
+      "requires": [
+        "PlatformerMovement"
+      ],
+      "category": "controller",
+      "entity_params": [],
+      "params": [
+        {
+          "name": "start_direction",
+          "type": "String",
+          "hint": "enum",
+          "hint_string": "left,right",
+          "default": "left",
+          "doc": "Initial walking direction."
+        },
+        {
+          "name": "turn_at_ledges",
+          "type": "bool",
+          "hint": "",
+          "hint_string": "",
+          "default": true,
+          "doc": "Turn around instead of walking off ledges."
+        },
+        {
+          "name": "speed_scale",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,1.0,0.05",
+          "default": 1.0,
+          "doc": "Fraction of the movement max_speed to walk at."
+        },
+        {
+          "name": "jump_interval",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,30.0,0.1",
+          "default": 0.0,
+          "doc": "Seconds between hops (0 = never hop)."
+        }
+      ],
+      "state": [
+        {
+          "name": "direction",
+          "type": "int"
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "doc": "Platformer enemy brain: walks back and forth, turning at walls and (optionally) ledges. Can hop periodically."
+    },
+    {
+      "name": "PlatformerMovement",
+      "class": "PlatformerMovementComponent",
+      "script": "res://addons/spawn_point/components/platformer_movement_component.gd",
+      "base": "Node",
+      "hosts": [
+        "CharacterBody2D"
+      ],
+      "requires": [],
+      "category": "movement",
+      "entity_params": [],
+      "params": [
+        {
+          "name": "max_speed",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,2000.0,1.0",
+          "default": 230.0,
+          "doc": "Top running speed (px/s)."
+        },
+        {
+          "name": "acceleration",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,20000.0,10.0",
+          "default": 2200.0,
+          "doc": "Ground acceleration toward max speed (px/s²)."
+        },
+        {
+          "name": "deceleration",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,20000.0,10.0",
+          "default": 2600.0,
+          "doc": "Ground deceleration when no input (px/s²)."
+        },
+        {
+          "name": "air_acceleration",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,20000.0,10.0",
+          "default": 1500.0,
+          "doc": "Air acceleration (px/s²). Lower = less air control."
+        },
+        {
+          "name": "air_deceleration",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,20000.0,10.0",
+          "default": 800.0,
+          "doc": "Air deceleration when no input (px/s²)."
+        },
+        {
+          "name": "jump_velocity",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,3000.0,1.0",
+          "default": 620.0,
+          "doc": "Initial jump speed (px/s). Jump height ≈ jump_velocity² / (2·gravity)."
+        },
+        {
+          "name": "gravity_scale",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,5.0,0.05",
+          "default": 1.0,
+          "doc": "Multiplies the project gravity for this entity."
+        },
+        {
+          "name": "fall_gravity_multiplier",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "1.0,5.0,0.05",
+          "default": 1.7,
+          "doc": "Extra gravity while falling — makes jumps feel weighty instead of floaty."
+        },
+        {
+          "name": "jump_cut",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,1.0,0.05",
+          "default": 0.45,
+          "doc": "Vertical speed is multiplied by this when jump is released while rising (short hop)."
+        },
+        {
+          "name": "apex_gravity_multiplier",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.1,1.0,0.05",
+          "default": 0.6,
+          "doc": "Gravity multiplier near the top of a held jump (a little hang time)."
+        },
+        {
+          "name": "apex_threshold",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,500.0,1.0",
+          "default": 70.0,
+          "doc": "Vertical speed below which the apex hang applies (px/s)."
+        },
+        {
+          "name": "max_fall_speed",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "50.0,5000.0,1.0",
+          "default": 900.0,
+          "doc": "Terminal fall speed (px/s)."
+        },
+        {
+          "name": "coyote_time",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,0.5,0.01",
+          "default": 0.1,
+          "doc": "Seconds after leaving a ledge during which jumping still works."
+        },
+        {
+          "name": "jump_buffer",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,0.5,0.01",
+          "default": 0.12,
+          "doc": "Seconds a jump press is remembered before landing."
+        },
+        {
+          "name": "air_jumps",
+          "type": "int",
+          "hint": "range",
+          "hint_string": "0.0,5.0",
+          "default": 0,
+          "doc": "Extra jumps in the air (1 = double jump)."
+        },
+        {
+          "name": "dash_speed",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,3000.0,1.0",
+          "default": 0.0,
+          "doc": "Dash speed (px/s). 0 disables dashing."
+        },
+        {
+          "name": "dash_duration",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.02,1.0,0.01",
+          "default": 0.14,
+          "doc": "Dash duration in seconds."
+        },
+        {
+          "name": "dash_cooldown",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,5.0,0.01",
+          "default": 0.45,
+          "doc": "Seconds between dashes."
+        }
+      ],
+      "state": [
+        {
+          "name": "move_vector",
+          "type": "Vector2"
+        },
+        {
+          "name": "jump_held",
+          "type": "bool"
+        },
+        {
+          "name": "facing",
+          "type": "int"
+        }
+      ],
+      "signals": [
+        {
+          "name": "jumped",
+          "args": [],
+          "doc": "Emitted when a jump starts (ground, coyote or air jump)."
+        },
+        {
+          "name": "landed",
+          "args": [
+            {
+              "name": "impact_speed",
+              "type": "float"
+            }
+          ],
+          "doc": "Emitted when touching the floor after being airborne. [param impact_speed] is the fall speed."
+        },
+        {
+          "name": "dashed",
+          "args": [],
+          "doc": "Emitted when a dash starts."
+        }
+      ],
+      "methods": [
+        {
+          "name": "request_jump",
+          "args": [],
+          "default_count": 0,
+          "returns": "Nil",
+          "doc": "Asks for a jump; it happens as soon as it is allowed (buffered)."
+        },
+        {
+          "name": "request_dash",
+          "args": [],
+          "default_count": 0,
+          "returns": "Nil",
+          "doc": "Asks for a dash in the move / facing direction."
+        },
+        {
+          "name": "bounce",
+          "args": [
+            {
+              "name": "speed",
+              "type": "float"
+            }
+          ],
+          "default_count": 0,
+          "returns": "Nil",
+          "doc": "Launches the entity upward (e.g. after stomping an enemy). Not cut by releasing jump."
+        },
+        {
+          "name": "apply_knockback",
+          "args": [
+            {
+              "name": "impulse",
+              "type": "Vector2"
+            }
+          ],
+          "default_count": 0,
+          "returns": "Nil",
+          "doc": "Pushes the entity; player control is reduced briefly so the push is felt."
+        },
+        {
+          "name": "is_dashing",
+          "args": [],
+          "default_count": 0,
+          "returns": "bool",
+          "doc": "True while dashing."
+        }
+      ],
+      "doc": "Side-view running and jumping tuned for good game feel.\nIncludes coyote time (jump shortly after leaving a ledge), jump buffering (press jump shortly before landing), variable jump height (release early for a short hop), stronger gravity when falling, a little hang time at the apex, snappy turning and an optional dash. Reads intent (move_vector, jump requests) from a controller such as PlayerInput or PatrolAI."
+    },
+    {
+      "name": "PlayerInput",
+      "class": "PlayerInputComponent",
+      "script": "res://addons/spawn_point/components/player_input_component.gd",
+      "base": "Node",
+      "hosts": [
+        "CharacterBody2D"
+      ],
+      "requires": [],
+      "category": "controller",
+      "entity_params": [],
+      "params": [],
+      "state": [],
+      "signals": [],
+      "methods": [],
+      "doc": "Keyboard/mouse controller for the player. Writes intent into the movement component and pulls weapon triggers. Registers its own input actions, so no project setup is needed.\nDefault keys: move = WASD / arrows, jump = Space / Z / W / Up, dash = Shift / C / K, shoot = X / J / left mouse."
+    },
+    {
+      "name": "Projectile",
+      "class": "ProjectileComponent",
+      "script": "res://addons/spawn_point/components/projectile_component.gd",
+      "base": "Node",
+      "hosts": [
+        "Area2D"
+      ],
+      "requires": [],
+      "category": "core",
+      "entity_params": [],
+      "params": [
+        {
+          "name": "speed",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,5000.0,1.0",
+          "default": 620.0,
+          "doc": "Speed in px/s."
+        },
+        {
+          "name": "lifetime",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.05,20.0,0.05",
+          "default": 1.4,
+          "doc": "Seconds before disappearing."
+        },
+        {
+          "name": "pierce",
+          "type": "int",
+          "hint": "range",
+          "hint_string": "0.0,99.0",
+          "default": 0,
+          "doc": "Number of extra targets it passes through."
+        }
+      ],
+      "state": [
+        {
+          "name": "direction",
+          "type": "Vector2"
+        }
+      ],
+      "signals": [
+        {
+          "name": "expired",
+          "args": [],
+          "doc": "Emitted when the projectile disappears (wall, lifetime or last hit)."
+        }
+      ],
+      "methods": [
+        {
+          "name": "expire",
+          "args": [],
+          "default_count": 0,
+          "returns": "Nil",
+          "doc": "Removes the projectile now."
+        }
+      ],
+      "doc": "Moves its entity in a straight line; disappears on walls, after its lifetime, or after hitting [member pierce] + 1 targets. Pair with a Hitbox to deal damage."
+    },
+    {
+      "name": "Spawner",
+      "class": "SpawnerComponent",
+      "script": "res://addons/spawn_point/components/spawner_component.gd",
+      "base": "Node",
+      "hosts": [],
+      "requires": [],
+      "category": "core",
+      "entity_params": [
+        "entity"
+      ],
+      "params": [
+        {
+          "name": "entity",
+          "type": "String",
+          "hint": "",
+          "hint_string": "",
+          "default": "",
+          "doc": "Entity type to spawn."
+        },
+        {
+          "name": "interval",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.05,600.0,0.05",
+          "default": 3.0,
+          "doc": "Seconds between spawns."
+        },
+        {
+          "name": "start_delay",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,600.0,0.05",
+          "default": 1.0,
+          "doc": "Seconds before the first spawn."
+        },
+        {
+          "name": "max_alive",
+          "type": "int",
+          "hint": "range",
+          "hint_string": "1.0,500.0",
+          "default": 5,
+          "doc": "Do not spawn while this many spawned entities are alive."
+        },
+        {
+          "name": "total",
+          "type": "int",
+          "hint": "range",
+          "hint_string": "0.0,10000.0",
+          "default": 0,
+          "doc": "Total spawns before stopping (0 = unlimited)."
+        },
+        {
+          "name": "radius",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,2000.0,1.0",
+          "default": 0.0,
+          "doc": "Random offset radius around the spawner (px)."
+        }
+      ],
+      "state": [],
+      "signals": [
+        {
+          "name": "spawned",
+          "args": [
+            {
+              "name": "node",
+              "type": "Node"
+            }
+          ],
+          "doc": "Emitted after each spawn with the new node."
+        }
+      ],
+      "methods": [
+        {
+          "name": "spawn_now",
+          "args": [],
+          "default_count": 0,
+          "returns": "Object",
+          "doc": "Spawns one entity immediately. Returns it (or null)."
+        }
+      ],
+      "doc": "Spawns entities at its position on a timer (enemy waves, portals, hazards)."
+    },
+    {
+      "name": "Stomp",
+      "class": "StompComponent",
+      "script": "res://addons/spawn_point/components/stomp_component.gd",
+      "base": "Area2D",
+      "hosts": [
+        "CharacterBody2D"
+      ],
+      "requires": [
+        "PlatformerMovement"
+      ],
+      "category": "core",
+      "entity_params": [],
+      "params": [
+        {
+          "name": "damage",
+          "type": "int",
+          "hint": "range",
+          "hint_string": "0.0,999.0",
+          "default": 1,
+          "doc": "Damage dealt by a stomp."
+        },
+        {
+          "name": "bounce_velocity",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,3000.0,1.0",
+          "default": 480.0,
+          "doc": "Upward speed after a stomp (px/s). Holding jump does not add to it."
+        },
+        {
+          "name": "size_scale",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.1,2.0,0.05",
+          "default": 1.0,
+          "doc": "Stomp area size relative to the entity shape."
+        }
+      ],
+      "state": [],
+      "signals": [
+        {
+          "name": "stomped",
+          "args": [
+            {
+              "name": "target",
+              "type": "Node"
+            }
+          ],
+          "doc": "Emitted after a successful stomp on [param target]."
+        }
+      ],
+      "methods": [],
+      "doc": "Platformer \"jump on their head\" attack: landing on an enemy from above damages it and bounces this entity up. Grants a moment of invincibility so the enemy's contact damage does not trigger in the same frame."
+    },
+    {
+      "name": "TopDownMovement",
+      "class": "TopDownMovementComponent",
+      "script": "res://addons/spawn_point/components/top_down_movement_component.gd",
+      "base": "Node",
+      "hosts": [
+        "CharacterBody2D"
+      ],
+      "requires": [],
+      "category": "movement",
+      "entity_params": [],
+      "params": [
+        {
+          "name": "max_speed",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,2000.0,1.0",
+          "default": 240.0,
+          "doc": "Top speed (px/s)."
+        },
+        {
+          "name": "acceleration",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,20000.0,10.0",
+          "default": 2400.0,
+          "doc": "Acceleration toward the input direction (px/s²)."
+        },
+        {
+          "name": "friction",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,20000.0,10.0",
+          "default": 2800.0,
+          "doc": "Deceleration when there is no input (px/s²)."
+        },
+        {
+          "name": "dash_speed",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,3000.0,1.0",
+          "default": 0.0,
+          "doc": "Dash speed (px/s). 0 disables dashing."
+        },
+        {
+          "name": "dash_duration",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.02,1.0,0.01",
+          "default": 0.12,
+          "doc": "Dash duration in seconds."
+        },
+        {
+          "name": "dash_cooldown",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,5.0,0.01",
+          "default": 0.5,
+          "doc": "Seconds between dashes."
+        }
+      ],
+      "state": [
+        {
+          "name": "move_vector",
+          "type": "Vector2"
+        },
+        {
+          "name": "facing_dir",
+          "type": "Vector2"
+        },
+        {
+          "name": "facing",
+          "type": "int"
+        }
+      ],
+      "signals": [
+        {
+          "name": "dashed",
+          "args": [],
+          "doc": "Emitted when a dash starts."
+        }
+      ],
+      "methods": [
+        {
+          "name": "request_dash",
+          "args": [],
+          "default_count": 0,
+          "returns": "Nil",
+          "doc": "Asks for a dash in the movement (or facing) direction."
+        },
+        {
+          "name": "apply_knockback",
+          "args": [
+            {
+              "name": "impulse",
+              "type": "Vector2"
+            }
+          ],
+          "default_count": 0,
+          "returns": "Nil",
+          "doc": "Pushes the entity; control is reduced briefly."
+        },
+        {
+          "name": "is_dashing",
+          "args": [],
+          "default_count": 0,
+          "returns": "bool",
+          "doc": "True while dashing."
+        }
+      ],
+      "doc": "Eight-direction movement seen from above, with acceleration, friction and an optional dash. Reads intent (move_vector, dash requests) from a controller such as PlayerInput or ChaseAI."
+    },
+    {
+      "name": "TriggerZone",
+      "class": "TriggerZoneComponent",
+      "script": "res://addons/spawn_point/components/trigger_zone_component.gd",
+      "base": "Node",
+      "hosts": [
+        "Area2D"
+      ],
+      "requires": [],
+      "category": "core",
+      "entity_params": [],
+      "params": [
+        {
+          "name": "group",
+          "type": "String",
+          "hint": "",
+          "hint_string": "",
+          "default": "player",
+          "doc": "Only bodies in this group trigger the zone (\"player\", an entity name, or \"\" for any)."
+        },
+        {
+          "name": "once",
+          "type": "bool",
+          "hint": "",
+          "hint_string": "",
+          "default": true,
+          "doc": "Trigger only the first time."
+        }
+      ],
+      "state": [],
+      "signals": [
+        {
+          "name": "triggered",
+          "args": [
+            {
+              "name": "body",
+              "type": "Node"
+            }
+          ],
+          "doc": "Emitted when a matching body enters."
+        }
+      ],
+      "methods": [],
+      "doc": "An invisible-or-visible zone that fires [signal triggered] when an entity of [member group] enters (exit doors, checkpoints, kill zones, tutorial hints)."
+    },
+    {
+      "name": "Weapon",
+      "class": "WeaponComponent",
+      "script": "res://addons/spawn_point/components/weapon_component.gd",
+      "base": "Node2D",
+      "hosts": [],
+      "requires": [],
+      "category": "core",
+      "entity_params": [
+        "projectile"
+      ],
+      "params": [
+        {
+          "name": "projectile",
+          "type": "String",
+          "hint": "",
+          "hint_string": "",
+          "default": "Bullet",
+          "doc": "Entity type spawned as the projectile (must have a Projectile component)."
+        },
+        {
+          "name": "fire_rate",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.1,60.0,0.1",
+          "default": 6.0,
+          "doc": "Shots per second."
+        },
+        {
+          "name": "spread_deg",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,180.0,0.5",
+          "default": 4.0,
+          "doc": "Random spread in degrees (total cone width)."
+        },
+        {
+          "name": "projectile_count",
+          "type": "int",
+          "hint": "range",
+          "hint_string": "1.0,32.0",
+          "default": 1,
+          "doc": "Projectiles per shot (shotgun when > 1, spread evenly over spread_deg)."
+        },
+        {
+          "name": "muzzle_distance",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,200.0,1.0",
+          "default": 20.0,
+          "doc": "Spawn distance from the entity center (px)."
+        },
+        {
+          "name": "auto_fire",
+          "type": "bool",
+          "hint": "",
+          "hint_string": "",
+          "default": false,
+          "doc": "Fire continuously without input (enemies, turrets)."
+        },
+        {
+          "name": "recoil",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,2000.0,1.0",
+          "default": 0.0,
+          "doc": "Push applied to the shooter opposite to the shot (px/s). 0 = none."
+        }
+      ],
+      "state": [
+        {
+          "name": "trigger_held",
+          "type": "bool"
+        },
+        {
+          "name": "aim_direction",
+          "type": "Vector2"
+        }
+      ],
+      "signals": [
+        {
+          "name": "fired",
+          "args": [],
+          "doc": "Emitted every time the weapon fires."
+        }
+      ],
+      "methods": [
+        {
+          "name": "fire",
+          "args": [],
+          "default_count": 0,
+          "returns": "Nil",
+          "doc": "Fires immediately (ignores the trigger, respects nothing else)."
+        }
+      ],
+      "doc": "Fires projectile entities. Aim comes from aim_direction (set by Aim or ChaseAI), otherwise from the movement facing. Projectiles inherit the shooter's team."
+    }
+  ]
+}

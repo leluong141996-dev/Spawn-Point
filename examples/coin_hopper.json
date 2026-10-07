@@ -1,0 +1,229 @@
+{
+  "spawnpoint": 1,
+  "name": "Coin Hopper",
+  "genre": "platformer",
+  "settings": {
+    "tile_size": 32,
+    "lives": 3,
+    "seed": 7
+  },
+  "entities": {
+    "Player": {
+      "shape": {
+        "type": "capsule",
+        "size": [
+          22,
+          34
+        ]
+      },
+      "components": {
+        "PlatformerMovement": {
+          "air_jumps": 1,
+          "dash_speed": 620
+        },
+        "PlayerInput": {},
+        "Health": {
+          "max_health": 3
+        },
+        "Hurtbox": {},
+        "Stomp": {}
+      }
+    },
+    "Slime": {
+      "shape": {
+        "type": "rect",
+        "size": [
+          28,
+          20
+        ]
+      },
+      "components": {
+        "PlatformerMovement": {
+          "max_speed": 60
+        },
+        "PatrolAI": {},
+        "Health": {
+          "max_health": 1
+        },
+        "Hurtbox": {
+          "size_scale": 1.0
+        },
+        "Hitbox": {
+          "damage": 1
+        }
+      }
+    },
+    "Frog": {
+      "shape": {
+        "type": "circle",
+        "size": [
+          26,
+          22
+        ],
+        "color": "#00e436"
+      },
+      "team": "enemy",
+      "components": {
+        "PlatformerMovement": {
+          "max_speed": 90,
+          "jump_velocity": 480
+        },
+        "PatrolAI": {
+          "jump_interval": 1.4
+        },
+        "Health": {
+          "max_health": 2
+        },
+        "Hurtbox": {
+          "size_scale": 1.0
+        },
+        "Hitbox": {
+          "damage": 1
+        }
+      }
+    },
+    "Spikes": {
+      "body": "area",
+      "team": "neutral",
+      "shape": {
+        "type": "spikes",
+        "size": [
+          30,
+          14
+        ],
+        "color": "#c2c3c7"
+      },
+      "components": {
+        "Hitbox": {
+          "damage": 1,
+          "knockback": 420,
+          "hurts_own_team": true
+        }
+      },
+      "juice": "none"
+    },
+    "Coin": {
+      "body": "area",
+      "shape": {
+        "type": "circle",
+        "size": [
+          14,
+          14
+        ]
+      },
+      "components": {
+        "Collectible": {
+          "score": 1
+        }
+      }
+    },
+    "Heart": {
+      "body": "area",
+      "shape": {
+        "type": "rect",
+        "size": [
+          16,
+          14
+        ],
+        "color": "#ff77a8"
+      },
+      "components": {
+        "Collectible": {
+          "kind": "heart",
+          "score": 0,
+          "heal": 1
+        }
+      }
+    },
+    "Door": {
+      "body": "static",
+      "shape": {
+        "type": "rect",
+        "size": [
+          18,
+          136
+        ]
+      },
+      "components": {
+        "Gate": {}
+      }
+    },
+    "Exit": {
+      "body": "area",
+      "shape": {
+        "type": "rect",
+        "size": [
+          28,
+          48
+        ]
+      },
+      "components": {
+        "TriggerZone": {}
+      }
+    }
+  },
+  "level": {
+    "map": [
+      "....................................................",
+      "....................................................",
+      "....................................................",
+      "....................................................",
+      "............................................C.......",
+      "............CC.............................===......",
+      "...........====.....................................",
+      ".............................CC........CC...........",
+      ".......CC...............C...====......====..........",
+      "......====.........C................................",
+      ".......................###..........................",
+      "..P............S.......###.S...^^...CS....F.H...D.E.",
+      "##################...############..#################",
+      "##################...############..#################"
+    ],
+    "legend": {
+      "#": "solid",
+      "=": "oneway",
+      "P": "Player",
+      "S": "Slime",
+      "F": "Frog",
+      "^": "Spikes",
+      "C": "Coin",
+      "H": "Heart",
+      "D": "Door",
+      "E": "Exit"
+    }
+  },
+  "rules": [
+    {
+      "on": "Game.ready",
+      "do": [
+        "message('Collect every coin to open the door!')"
+      ]
+    },
+    {
+      "on": "Coin.collected",
+      "if": "count('Coin') == 0",
+      "do": [
+        "Door.open()",
+        "message('The door is open!')"
+      ]
+    },
+    {
+      "on": "Slime.died",
+      "do": [
+        "add_score(5)"
+      ]
+    },
+    {
+      "on": "Frog.died",
+      "do": [
+        "add_score(10)"
+      ]
+    },
+    {
+      "on": "Exit.triggered",
+      "do": [
+        "win()"
+      ]
+    }
+  ]
+}

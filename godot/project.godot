@@ -1,0 +1,23 @@
+; Development project hosting the Spawn Point component library and its tests.
+config_version=5
+
+[application]
+
+config/name="Spawn Point Library"
+config/features=PackedStringArray("4.6")
+
+[autoload]
+
+GameState="*res://addons/spawn_point/runtime/game_state.gd"
+World="*res://addons/spawn_point/runtime/world.gd"
+FX="*res://addons/spawn_point/runtime/fx.gd"
+Sfx="*res://addons/spawn_point/runtime/sfx.gd"
+
+[physics]
+
+2d/default_gravity=1600.0
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"

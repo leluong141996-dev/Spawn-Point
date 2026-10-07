@@ -1,0 +1,251 @@
+{
+  "spawnpoint": 1,
+  "name": "Neon Arena",
+  "genre": "topdown",
+  "settings": {
+    "tile_size": 32,
+    "lives": 3,
+    "seed": 21
+  },
+  "entities": {
+    "Player": {
+      "shape": {
+        "type": "circle",
+        "size": [
+          24,
+          24
+        ],
+        "color": "#29adff"
+      },
+      "components": {
+        "TopDownMovement": {
+          "max_speed": 250,
+          "dash_speed": 720
+        },
+        "PlayerInput": {},
+        "Aim": {
+          "mode": "mouse"
+        },
+        "Weapon": {
+          "projectile": "Bullet",
+          "fire_rate": 9,
+          "spread_deg": 5
+        },
+        "Health": {
+          "max_health": 5,
+          "invincibility_time": 0.8
+        },
+        "Hurtbox": {}
+      }
+    },
+    "Bullet": {
+      "body": "area",
+      "shape": {
+        "type": "circle",
+        "size": [
+          8,
+          8
+        ],
+        "color": "#fff1e8"
+      },
+      "components": {
+        "Projectile": {
+          "speed": 760,
+          "lifetime": 1.0
+        },
+        "Hitbox": {
+          "damage": 1,
+          "knockback": 160
+        }
+      }
+    },
+    "Chaser": {
+      "shape": {
+        "type": "circle",
+        "size": [
+          24,
+          24
+        ],
+        "color": "#ff004d"
+      },
+      "components": {
+        "TopDownMovement": {
+          "max_speed": 130
+        },
+        "ChaseAI": {
+          "detect_radius": 380
+        },
+        "Health": {
+          "max_health": 2,
+          "invincibility_time": 0.05
+        },
+        "Hurtbox": {
+          "size_scale": 1.0
+        },
+        "Hitbox": {
+          "damage": 1,
+          "knockback": 300
+        }
+      }
+    },
+    "Shooter": {
+      "shape": {
+        "type": "rect",
+        "size": [
+          26,
+          26
+        ],
+        "color": "#ff77a8"
+      },
+      "team": "enemy",
+      "components": {
+        "TopDownMovement": {
+          "max_speed": 90
+        },
+        "ChaseAI": {
+          "detect_radius": 420,
+          "keep_distance": 220,
+          "fire_range": 380
+        },
+        "Weapon": {
+          "projectile": "EnemyBullet",
+          "fire_rate": 1.3,
+          "spread_deg": 8,
+          "muzzle_distance": 22
+        },
+        "Health": {
+          "max_health": 3,
+          "invincibility_time": 0.05
+        },
+        "Hurtbox": {
+          "size_scale": 1.0
+        }
+      }
+    },
+    "EnemyBullet": {
+      "body": "area",
+      "team": "enemy",
+      "shape": {
+        "type": "circle",
+        "size": [
+          10,
+          10
+        ]
+      },
+      "components": {
+        "Projectile": {
+          "speed": 300,
+          "lifetime": 3.0
+        },
+        "Hitbox": {
+          "damage": 1,
+          "knockback": 200
+        }
+      }
+    },
+    "Portal": {
+      "body": "area",
+      "shape": {
+        "type": "circle",
+        "size": [
+          40,
+          40
+        ],
+        "color": "#83769c"
+      },
+      "components": {
+        "Spawner": {
+          "entity": "Chaser",
+          "interval": 4.0,
+          "start_delay": 3.0,
+          "max_alive": 3,
+          "total": 6
+        }
+      },
+      "juice": "none"
+    },
+    "HealthPack": {
+      "body": "area",
+      "shape": {
+        "type": "rect",
+        "size": [
+          18,
+          18
+        ],
+        "color": "#00e436"
+      },
+      "components": {
+        "Collectible": {
+          "kind": "heart",
+          "score": 0,
+          "heal": 2
+        }
+      }
+    }
+  },
+  "level": {
+    "map": [
+      "########################################",
+      "#......................................#",
+      "#..O...................................#",
+      "#...................X..................#",
+      "#....Z............####............Z....#",
+      "#......................................#",
+      "#.......##....................##.......#",
+      "#.......##....................##.......#",
+      "#...................+..................#",
+      "#......................................#",
+      "#......................................#",
+      "#...#..............................#...#",
+      "#...#.......X.......P.......X......#...#",
+      "#...#..............................#...#",
+      "#......................................#",
+      "#......................................#",
+      "#.......##..........+.........##.......#",
+      "#.......##....................##.......#",
+      "#......................................#",
+      "#....Z............####............Z....#",
+      "#......................................#",
+      "#...................................O..#",
+      "#......................................#",
+      "########################################"
+    ],
+    "legend": {
+      "#": "solid",
+      "P": "Player",
+      "Z": "Chaser",
+      "X": "Shooter",
+      "O": "Portal",
+      "+": "HealthPack"
+    }
+  },
+  "rules": [
+    {
+      "on": "Game.ready",
+      "do": [
+        "message('Score 200 to clear the arena!')"
+      ]
+    },
+    {
+      "on": "Chaser.died",
+      "do": [
+        "add_score(10)"
+      ]
+    },
+    {
+      "on": "Shooter.died",
+      "do": [
+        "add_score(25)",
+        "shake(0.3)"
+      ]
+    },
+    {
+      "on": "GameState.score_changed",
+      "if": "score >= 200",
+      "do": [
+        "message('Arena cleared!')",
+        "win()"
+      ]
+    }
+  ]
+}
