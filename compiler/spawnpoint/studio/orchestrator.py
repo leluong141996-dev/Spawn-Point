@@ -17,6 +17,7 @@ from . import web
 from .assemble import LAYERS, assemble, chunks_fit, plan_chunks
 from .brief import GameBrief, json_schema, normalize
 from .creative import CreativeResult, creative_pass
+from .dataset import Recorder
 from .llm import ChatModel, LLMError, Usage
 from .prompts import (TRANSLATE_SCHEMA, brief_messages, needs_translation, translate_messages,
                       tweak_messages)
@@ -100,13 +101,29 @@ def default_seed(prompt: str) -> int:
 def create(prompt: str, out_dir: Path | Callable[[GameBrief], Path], llm: ChatModel, *, seed: int | None = None, creative: bool = False,
            brief: GameBrief | None = None, web_export: bool = True,
            on_layer: LayerCallback | None = None, on_brief: Callable[[GameBrief, list[str]], None] | None = None,
-           manifest: Manifest | None = None) -> StudioResult:
+           manifest: Manifest | None = None, recorder: Recorder | None = None) -> StudioResult:
+    if recorder is None:
+        return _create(prompt, out_dir, llm, seed, creative, brief, web_export, on_layer, on_brief, manifest, None)
+    result = None
+    try:
+        result = _create(prompt, out_dir, recorder.wrap(llm), seed, creative, brief, web_export, on_layer,
+                         on_brief, manifest, recorder)
+        return result
+    finally:
+        recorder.flush(accepted=bool(result and result.ok),
+                       meta={"op": "create", "prompt": prompt, "seed": result.seed if result else None})
+
+
+def _create(prompt, out_dir, llm, seed, creative, brief, web_export, on_layer, on_brief, manifest,
+            recorder: Recorder | None) -> StudioResult:
     manifest = manifest or manifest_mod.load()
     t0 = time.perf_counter()
     timings: dict[str, float] = {}
     english = prompt
     if brief is None:
         brief, notes, english = design_brief(prompt, llm)
+        if recorder:
+            _annotate_design(recorder, brief, notes)
     else:
         brief, notes = normalize(brief)
     timings["design"] = time.perf_counter() - t0
@@ -125,6 +142,12 @@ def create(prompt: str, out_dir: Path | Callable[[GameBrief], Path], llm: ChatMo
             creative_result = creative_pass(graph, english, llm, manifest)
             timings["creative"] = time.perf_counter() - t
             graph = creative_result.graph
+            if recorder:
+                for rec, h in zip(recorder.all("creative"), creative_result.history):
+                    rec.errors = h["errors"]
+                    rec.accepted = not h["errors"]
+                    rec.target = h["patch"] if not h["errors"] else None
+                    rec.corrected = bool(h["errors"])
         report = _build_layer(layer, graph, out_dir, manifest, web_export)
         result.layers.append(report)
         if on_layer:
@@ -139,6 +162,17 @@ def create(prompt: str, out_dir: Path | Callable[[GameBrief], Path], llm: ChatMo
                             "creative_patch": creative_result.patch if creative_result else None,
                             "model": llm.name, "history": []})
     return result
+
+
+def _annotate_design(recorder: Recorder, brief: GameBrief, notes: list[str]) -> None:
+    tr = recorder.last("translate")
+    if tr:
+        tr.target, tr.corrected = tr.raw, False
+    rec = recorder.last("brief")
+    if rec:
+        rec.target = brief.model_dump()  # the normalized brief is the answer the model should have given
+        rec.notes = notes
+        rec.corrected = rec.target != GameBrief.model_validate(rec.raw).model_dump()
 
 
 def _build_layer(layer: int, graph: dict, out_dir: Path, manifest: Manifest, web_export: bool) -> LayerReport:
@@ -161,7 +195,20 @@ def tweak_schema() -> dict:
 
 
 def tweak(out_dir: Path, request: str, llm: ChatModel, *, web_export: bool = True,
-          on_layer: LayerCallback | None = None, manifest: Manifest | None = None) -> StudioResult:
+          on_layer: LayerCallback | None = None, manifest: Manifest | None = None,
+          recorder: Recorder | None = None) -> StudioResult:
+    if recorder is None:
+        return _tweak(out_dir, request, llm, web_export, on_layer, manifest, None)
+    result = None
+    try:
+        result = _tweak(out_dir, request, recorder.wrap(llm), web_export, on_layer, manifest, recorder)
+        return result
+    finally:
+        recorder.flush(accepted=bool(result and result.ok),
+                       meta={"op": "tweak", "request": request, "changes": result.changes if result else None})
+
+
+def _tweak(out_dir, request, llm, web_export, on_layer, manifest, recorder: Recorder | None) -> StudioResult:
     manifest = manifest or manifest_mod.load()
     session = load_session(out_dir)
     old = GameBrief.model_validate(session["brief"])
@@ -177,6 +224,15 @@ def tweak(out_dir: Path, request: str, llm: ChatModel, *, web_export: bool = Tru
     except Exception as e:
         raise StudioError(f"the LLM produced an invalid brief update: {e}") from e
     new, notes = normalize(new)
+    if recorder:
+        tr = recorder.last("translate")
+        if tr:
+            tr.target, tr.corrected = tr.raw, False
+        rec = recorder.last("tweak")
+        if rec:
+            rec.target = {"brief": new.model_dump(), "new_level": bool(raw.get("new_level"))}
+            rec.notes = notes
+            rec.corrected = rec.target["brief"] != GameBrief.model_validate(raw["brief"]).model_dump()
     seed, chunks = session["seed"], session.get("chunks")
     if raw.get("new_level"):
         seed, chunks = choose_seed(new, seed + 1000, manifest)

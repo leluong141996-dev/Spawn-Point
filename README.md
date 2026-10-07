@@ -71,6 +71,19 @@ Web builds need the Godot **web export templates** (Editor → Manage Export Tem
 `web_*.zip` from the official `.tpz` into `~/.local/share/godot/export_templates/<version>/`);
 use `--no-web` to skip and play natively with `spawnpoint run`.
 
+### Collecting fine-tuning data (opt-in, local only)
+
+```bash
+spawnpoint create "..." --record        # or export SPAWNPOINT_RECORD=1 for every create/tweak
+spawnpoint dataset stats                # records per task, accepted, corrected by the pipeline
+```
+
+Each LLM call is appended to `~/.local/share/spawnpoint/dataset/<date>.jsonl` (override with
+`SPAWNPOINT_DATASET_DIR`) with the exact `messages`, the model's `raw` answer, and the `target` the
+pipeline actually used — the normalized brief, or the patch the compiler accepted — plus `notes`,
+compiler `errors`, `accepted` and `corrected`. Training on `messages → target` teaches the model to
+stop making the mistakes the normalizer and compiler had to fix (roadmap item 7). Nothing is uploaded.
+
 ## Quick start (hand-written graphs)
 
 Requirements: Python ≥ 3.10 and [Godot 4.6](https://godotengine.org/download) on your `PATH`

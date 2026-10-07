@@ -9,7 +9,7 @@ import webbrowser
 from pathlib import Path
 
 from .project import slugify
-from .studio import web
+from .studio import dataset as dataset_mod, web
 from .studio.brief import GameBrief
 from .studio.llm import LLMError, OpenAICompatible
 from .studio.orchestrator import LayerReport, StudioError, create as do_create, tweak as do_tweak
@@ -67,10 +67,12 @@ def create(args) -> int:
             if not args.no_open:
                 webbrowser.open(server.url)
 
+    recorder = _recorder(args)
     _say(f"Designing with {llm.base_url} ..." if brief is None else "Using the given brief ...")
     try:
         result = do_create(args.prompt, out_dir_for, llm, seed=args.seed, creative=args.creative,
-                           brief=brief, web_export=not args.no_web, on_layer=on_layer, on_brief=on_brief)
+                           brief=brief, web_export=not args.no_web, on_layer=on_layer, on_brief=on_brief,
+                           recorder=recorder)
     except (LLMError, StudioError) as e:
         _say(f"error: {e}")
         return 2
@@ -99,7 +101,8 @@ def tweak(args) -> int:
     project = args.project.resolve()
     _say(f"Tweaking {project} ...")
     try:
-        result = do_tweak(project, args.request, llm, web_export=not args.no_web, on_layer=_report_layer)
+        result = do_tweak(project, args.request, llm, web_export=not args.no_web, on_layer=_report_layer,
+                          recorder=_recorder(args))
     except (LLMError, StudioError) as e:
         _say(f"error: {e}")
         return 2
@@ -114,6 +117,30 @@ def tweak(args) -> int:
     _say(f"Done in {result.timings.get('total', 0):.1f}s (LLM {result.usage}). "
          "An open browser tab reloads automatically; otherwise run `spawnpoint serve`.")
     return 0 if result.ok else 1
+
+
+def _recorder(args) -> dataset_mod.Recorder | None:
+    if not (getattr(args, "record", False) or dataset_mod.enabled_by_env()):
+        return None
+    rec = dataset_mod.Recorder()
+    _say(f"Recording LLM calls as training data in {rec.directory} (local only)")
+    return rec
+
+
+def dataset(args) -> int:
+    if args.action == "path":
+        _say(str(dataset_mod.default_dir()))
+        return 0
+    st = dataset_mod.stats()
+    if args.json:
+        print(json.dumps(st, indent=2))
+        return 0
+    _say(f"{st['records']} record(s) in {dataset_mod.default_dir()}")
+    for task, t in st["tasks"].items():
+        _say(f"  {task:<9} {t['count']:>5}  accepted {t['accepted']:>5}  corrected by the pipeline {t['corrected']:>5}")
+    if st["models"]:
+        _say("  models: " + ", ".join(f"{m} ({n})" for m, n in st["models"].items()))
+    return 0
 
 
 def serve(args) -> int:

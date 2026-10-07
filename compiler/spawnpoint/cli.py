@@ -47,11 +47,17 @@ def main(argv: list[str] | None = None) -> int:
     cr.add_argument("--no-open", action="store_true", help="do not open the browser")
     cr.add_argument("--no-serve", action="store_true", help="exit after building instead of serving")
     cr.add_argument("--port", type=int, default=8060)
+    cr.add_argument("--record", action="store_true", help="save LLM calls as local fine-tuning data")
 
     tw = sub.add_parser("tweak", help="change a created game with a text request (uses the LLM)")
     tw.add_argument("project", type=Path)
     tw.add_argument("request")
     tw.add_argument("--no-web", action="store_true")
+    tw.add_argument("--record", action="store_true", help="save LLM calls as local fine-tuning data")
+
+    ds = sub.add_parser("dataset", help="recorded fine-tuning data")
+    ds.add_argument("action", choices=["stats", "path"])
+    ds.add_argument("--json", action="store_true")
 
     sv = sub.add_parser("serve", help="serve a project's web build with live reload")
     sv.add_argument("project", type=Path)
@@ -63,7 +69,7 @@ def main(argv: list[str] | None = None) -> int:
         from . import studio_cli
         return {"validate": _validate, "build": _build, "run": _run, "components": _components,
                 "manifest": _manifest, "create": studio_cli.create, "tweak": studio_cli.tweak,
-                "serve": studio_cli.serve}[args.cmd](args)
+                "serve": studio_cli.serve, "dataset": studio_cli.dataset}[args.cmd](args)
     except godot.GodotError as e:
         print(f"error: {e}", file=sys.stderr)
         if e.output:

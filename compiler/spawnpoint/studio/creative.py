@@ -50,6 +50,7 @@ class CreativeResult:
     patch: dict | None = None
     rounds: int = 0
     errors: list[str] = field(default_factory=list)
+    history: list[dict] = field(default_factory=list)  # per round: {"patch", "errors"}
 
 
 def apply_patch(graph: dict, patch: dict) -> dict:
@@ -100,16 +101,18 @@ def reference(graph: dict, manifest: Manifest) -> str:
 def creative_pass(graph: dict, prompt: str, llm: ChatModel, manifest: Manifest, max_repairs: int = 2) -> CreativeResult:
     messages = creative_messages(prompt, summarize_graph(graph), reference(graph, manifest))
     errors: list[str] = []
+    history: list[dict] = []
     for round_no in range(1 + max_repairs):
         try:
             patch = llm.chat_json(messages, PATCH_SCHEMA, "GraphPatch", temperature=0.5, max_tokens=800)
         except LLMError as e:
-            return CreativeResult(graph, False, None, round_no, [str(e)])
+            return CreativeResult(graph, False, None, round_no, [str(e)], history)
         candidate = apply_patch(graph, patch)
         analysis = analyze(candidate, manifest)
         errors = [str(d) for d in analysis.diagnostics.errors]
-        new_warnings = [str(d) for d in analysis.diagnostics.warnings if d.code == "W_UNREACHABLE"]
-        if not errors and not new_warnings:
-            return CreativeResult(candidate, True, patch, round_no + 1)
-        messages = messages + [{"role": "assistant", "content": json.dumps(patch)}, repair_message(errors + new_warnings)]
-    return CreativeResult(graph, False, None, 1 + max_repairs, errors)
+        errors += [str(d) for d in analysis.diagnostics.warnings if d.code == "W_UNREACHABLE"]
+        history.append({"patch": patch, "errors": errors})
+        if not errors:
+            return CreativeResult(candidate, True, patch, round_no + 1, [], history)
+        messages = messages + [{"role": "assistant", "content": json.dumps(patch)}, repair_message(errors)]
+    return CreativeResult(graph, False, None, 1 + max_repairs, errors, history)

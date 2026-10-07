@@ -221,3 +221,46 @@ def test_create_and_tweak_with_scripted_llm(tmp_path, manifest):
     assert math.isclose(graph["entities"]["Player"]["components"]["PlatformerMovement"]["jump_velocity"],
                         jump_velocity(4.2))
     assert load_session(out)["history"][0]["request"] == "jump 20% higher"
+
+
+# --- dataset recording ------------------------------------------------------------------------
+
+@pytest.mark.skipif(not godot.available(), reason="Godot not installed")
+def test_recorder_captures_corrected_targets(tmp_path, manifest):
+    from spawnpoint.studio.dataset import Recorder, iter_records, stats
+
+    raw = brief(enemies=[{"name": "Slimes", "archetype": "walker", "count": 3}]).model_dump()
+    bad_patch = {"set_params": [{"entity": "Slime", "component": "Health", "param": "max_hp", "value": 2}],
+                 "add_rules": []}
+    good_patch = {"set_params": [{"entity": "Slime", "component": "Health", "param": "max_health", "value": 2}],
+                  "add_rules": []}
+    llm = ScriptedModel([{"english": "slime game"}, raw, bad_patch, good_patch])
+    rec = Recorder(tmp_path / "ds")
+    res = create("game slime ăn xu", tmp_path / "game", llm, web_export=False, creative=True,
+                 manifest=manifest, recorder=rec)
+    assert res.ok
+    records = list(iter_records(tmp_path / "ds"))
+    assert [r["task"] for r in records] == ["translate", "brief", "creative", "creative"]
+    b = records[1]
+    assert b["raw"]["enemies"][0]["name"] == "Slimes"
+    assert b["target"]["enemies"][0]["name"] == "Slime"  # normalized answer is the training target
+    assert any("Slimes" in n for n in b["notes"])
+    assert b["accepted"] is True and b["corrected"] is True and b["meta"]["prompt"] == "game slime ăn xu"
+    assert records[0]["corrected"] is False
+    bad, good = records[2], records[3]
+    assert bad["accepted"] is False and bad["target"] is None and bad["errors"]
+    assert good["accepted"] is True and good["target"] == good_patch
+    st = stats(tmp_path / "ds")
+    assert st["records"] == 4 and st["tasks"]["brief"]["corrected"] == 1
+
+
+def test_recorder_flushes_even_when_the_llm_fails(tmp_path, manifest):
+    from spawnpoint.studio.dataset import Recorder, iter_records
+    from spawnpoint.studio.orchestrator import StudioError
+
+    llm = ScriptedModel([{"title": 5}])  # not a valid brief
+    rec = Recorder(tmp_path / "ds")
+    with pytest.raises(StudioError):
+        create("x", tmp_path / "game", llm, web_export=False, manifest=manifest, recorder=rec)
+    (r,) = list(iter_records(tmp_path / "ds"))
+    assert r["task"] == "brief" and r["accepted"] is False and r["target"] is None
