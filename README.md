@@ -198,6 +198,12 @@ constants, `##` docs on everything public), add tests in `godot/tests/`, then ru
 4. Asset pipeline — sprite-sheet auto-slicing, contour → `CollisionPolygon2D`, `AnimationPlayer` generation
 5. Playtester agent — headless play with scripted/learned input, tunes parameters (e.g. coyote time) from telemetry
 6. Web cockpit — live WebGL arcade, click an entity and describe the change
+7. **Spawn Point Coder** — a fine-tuned 7B model (QLoRA, trainable and servable on a
+   single 12 GB consumer GPU such as an RTX 3060) specialised in briefs, tweaks and graph patches, so
+   the whole studio runs well offline for free. The compiler acts as the data filter and the judge:
+   every training example must compile, and evaluation measures first-try validity, how often the
+   normalizer has to repair output, and whether tweaks change only what was asked.
+   Hosted providers (Claude, OpenAI, any OpenAI-compatible API) stay supported via `SPAWNPOINT_LLM_*`.
 
 ## License
 
