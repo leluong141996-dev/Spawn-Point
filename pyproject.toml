@@ -25,3 +25,4 @@ spawnpoint = ["py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["compiler/tests"]
+markers = ["llm: needs a running OpenAI-compatible LLM server (deselect with -m 'not llm')"]

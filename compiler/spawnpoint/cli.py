@@ -37,10 +37,33 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("manifest", help="regenerate the component manifest from the Godot library")
 
+    cr = sub.add_parser("create", help="design and build a game from a text prompt (uses the LLM)")
+    cr.add_argument("prompt")
+    cr.add_argument("-o", "--out", type=Path, help="output directory (default: out/<title>)")
+    cr.add_argument("--seed", type=int, help="level seed (default: derived from the prompt)")
+    cr.add_argument("--brief", type=Path, help="skip the LLM and use this GameBrief JSON")
+    cr.add_argument("--creative", action="store_true", help="let the LLM add a validated creative patch")
+    cr.add_argument("--no-web", action="store_true", help="skip the web export (play with `spawnpoint run`)")
+    cr.add_argument("--no-open", action="store_true", help="do not open the browser")
+    cr.add_argument("--no-serve", action="store_true", help="exit after building instead of serving")
+    cr.add_argument("--port", type=int, default=8060)
+
+    tw = sub.add_parser("tweak", help="change a created game with a text request (uses the LLM)")
+    tw.add_argument("project", type=Path)
+    tw.add_argument("request")
+    tw.add_argument("--no-web", action="store_true")
+
+    sv = sub.add_parser("serve", help="serve a project's web build with live reload")
+    sv.add_argument("project", type=Path)
+    sv.add_argument("--port", type=int, default=8060)
+    sv.add_argument("--no-open", action="store_true")
+
     args = ap.parse_args(argv)
     try:
+        from . import studio_cli
         return {"validate": _validate, "build": _build, "run": _run, "components": _components,
-                "manifest": _manifest}[args.cmd](args)
+                "manifest": _manifest, "create": studio_cli.create, "tweak": studio_cli.tweak,
+                "serve": studio_cli.serve}[args.cmd](args)
     except godot.GodotError as e:
         print(f"error: {e}", file=sys.stderr)
         if e.output:

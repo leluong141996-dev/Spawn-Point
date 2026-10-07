@@ -22,7 +22,56 @@ graph.json ──► validate (Python) ──► build scenes (Godot headless) �
 | Hitboxes | drift from visuals | derived from the same shape as the visual |
 | Failure mode | crashes, syntax errors | structured diagnostics *before* Godot runs |
 
-## Quick start
+## Make a game from a sentence
+
+```bash
+scripts/llm-up.sh                     # local LLM (local 7B model on vLLM, ~11 GB VRAM) — or any OpenAI-compatible API
+spawnpoint create "a ninja platformer where you collect stars"
+```
+
+```
+Design:
+  “Ninja Star Dash” — platformer, palette candy, goal collect_all, short, difficulty 2
+  player: double_jump, stomp; jump 4.0 tiles; speed fast; feel floaty; juice subtle
+  enemies: 4x Goblin (walker), 2x Spider (hopper); pickups: 10x Star; hazards: spikes
+  [L0 core loop] ok in 5.5s (build 3.1s, web 2.4s)
+  ▶ playing at http://localhost:8060/  (the page reloads as layers land)
+  [L1 goals & enemies] ok in 5.1s
+  [L2 feel & polish] ok in 5.1s
+Done in 25.7s (design 10.0s; LLM 2 call(s), 977 prompt + 256 completion tokens).
+```
+
+The browser opens on the first playable layer and reloads as the next ones land. Then iterate:
+
+```bash
+spawnpoint tweak out/ninja-star-dash "jump 20% higher and add a dash, night colors"
+#   palette: "candy" -> "night"
+#   player.abilities: ["double_jump", "stomp"] -> ["double_jump", "stomp", "dash"]
+#   player.jump_tiles: 4.0 -> 4.8
+```
+
+Only what you asked for changes, and the level layout is kept. Prompts can be in any language
+(non-English prompts are translated first). How it works:
+
+1. **Design** — the LLM fills a small, enumerated **GameBrief** (genre, palette, abilities, enemy
+   archetypes, pickups, goal, feel…) using guided JSON decoding, so even a 7B model cannot produce
+   malformed output. A normalizer repairs typical small-model mistakes (plural names, archetypes that
+   don't exist in the genre, impossible goals).
+2. **Assemble** — deterministic: archetypes become tuned component bundles, goals become rules,
+   levels are generated (platformer chunks tagged with the jump they need; top-down arenas whose
+   floor is always connected) and re-seeded until the compiler finds everything reachable.
+3. **Layers** — L0 core movement → L1 enemies, pickups, goal → L2 feel & juice; each one is compiled,
+   exported to the web and live-reloaded.
+4. **Creative pass** (`--creative`) — the LLM proposes a small graph patch (parameters, rules); the
+   compiler's diagnostics drive up to two repair rounds; if it still fails, it is dropped.
+
+LLM settings: `SPAWNPOINT_LLM_BASE_URL` (default `http://localhost:8000/v1`),
+`SPAWNPOINT_LLM_MODEL` (default: the server's first model), `SPAWNPOINT_LLM_API_KEY`.
+Web builds need the Godot **web export templates** (Editor → Manage Export Templates, or unpack
+`web_*.zip` from the official `.tpz` into `~/.local/share/godot/export_templates/<version>/`);
+use `--no-web` to skip and play natively with `spawnpoint run`.
+
+## Quick start (hand-written graphs)
 
 Requirements: Python ≥ 3.10 and [Godot 4.6](https://godotengine.org/download) on your `PATH`
 (`godot4` or `godot`, or set `GODOT_BIN`).
@@ -122,6 +171,7 @@ godot/                     Godot project hosting the component library and its t
   addons/spawn_point/      components/, runtime/, tools/ (build, smoke, capture), manifest.json
   tests/                   headless GDScript tests
 compiler/spawnpoint/       Python compiler: graph schema, analysis, rules codegen, sfx, CLI
+compiler/spawnpoint/studio LLM orchestrator: brief, assembler, level generators, web export, browser check
 compiler/tests/            pytest (includes end-to-end builds and the GDScript suite)
 examples/                  example graphs
 docs/                      design specs
@@ -130,7 +180,8 @@ docs/                      design specs
 ## Development
 
 ```bash
-pytest                      # everything: compiler, end-to-end builds, GDScript component suite
+pytest                      # everything: compiler, studio, end-to-end builds, web + browser, GDScript suite
+pytest -m "not llm"         # without the live-LLM tests
 spawnpoint manifest         # regenerate manifest.json after changing a component
 godot4 --headless --path godot --fixed-fps 60 res://tests/run_tests.tscn   # GDScript suite only
 ```
@@ -143,7 +194,7 @@ constants, `##` docs on everything public), add tests in `godot/tests/`, then ru
 
 1. ✅ Component library with juice
 2. ✅ Graph compiler (validation, rules, levels, SFX, smoke test)
-3. LLM orchestrator — prompt → graph in layers (core loop → win/lose → art & audio), web export, targeted re-patching from feedback
+3. ✅ Studio orchestrator — prompt → brief → layered builds, web export with live reload, tweaks, creative pass
 4. Asset pipeline — sprite-sheet auto-slicing, contour → `CollisionPolygon2D`, `AnimationPlayer` generation
 5. Playtester agent — headless play with scripted/learned input, tunes parameters (e.g. coyote time) from telemetry
 6. Web cockpit — live WebGL arcade, click an entity and describe the change

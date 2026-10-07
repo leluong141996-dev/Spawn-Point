@@ -24,7 +24,7 @@ COLORS = {
 }
 GENRE_DEFAULTS = {
     "platformer": {"gravity": 1600.0, "background": "#1d2b53", "solid": "#5f574f", "solid_top": "#00e436",
-                   "oneway": "#ab5236", "walls": ["left", "right"]},
+                   "oneway": "#ab5236", "walls": ["left", "right", "top"]},
     "topdown": {"gravity": 0.0, "background": "#1a1c2c", "solid": "#5f574f", "solid_top": "#83769c",
                 "oneway": "#ab5236", "walls": ["left", "right", "top", "bottom"]},
 }
@@ -291,10 +291,11 @@ class _Analyzer:
                 y = (p.y + 0.5) * ts
             placements.append({"entity": p.entity, "x": x, "y": y})
 
+        solid, oneway = s.tiles.get("solid"), s.tiles.get("oneway")
         tiles_style = {
-            "solid": {"color": (s.tiles.get("solid").color if s.tiles.get("solid") and s.tiles["solid"].color else self.genre["solid"]),
-                      "top": self.genre["solid_top"]},
-            "oneway": {"color": (s.tiles.get("oneway").color if s.tiles.get("oneway") and s.tiles["oneway"].color else self.genre["oneway"])},
+            "solid": {"color": (solid and solid.color) or self.genre["solid"],
+                      "top": (solid and solid.top) or self.genre["solid_top"]},
+            "oneway": {"color": (oneway and oneway.color) or self.genre["oneway"]},
         }
         return {
             "format": PLAN_FORMAT,

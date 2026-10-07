@@ -84,7 +84,7 @@
     },
     "Spikes": {
       "body": "area",
-      "team": "neutral",
+      "team": "enemy",
       "shape": {
         "type": "spikes",
         "size": [
@@ -96,8 +96,7 @@
       "components": {
         "Hitbox": {
           "damage": 1,
-          "knockback": 420,
-          "hurts_own_team": true
+          "knockback": 420
         }
       },
       "juice": "none"

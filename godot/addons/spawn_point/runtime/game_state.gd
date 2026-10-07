@@ -5,6 +5,8 @@ signal score_changed(score: int)
 signal lives_changed(lives: int)
 signal var_changed(name: String, value: Variant)
 signal message_posted(text: String)
+## Emitted once per whole second of play time (survival goals, timed events).
+signal second_passed(seconds: int)
 signal game_won
 signal game_lost
 
@@ -36,7 +38,10 @@ func begin_level(level_lives: int) -> void:
 
 func _process(delta: float) -> void:
 	if phase == Phase.PLAYING:
+		var before := int(time)
 		time += delta
+		if int(time) > before:
+			second_passed.emit(int(time))
 
 
 func is_playing() -> bool:

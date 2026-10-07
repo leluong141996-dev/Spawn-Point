@@ -62,7 +62,8 @@ class Rule(_Model):
 
 class TileStyle(_Model):
     color: str | None = None
-    _color = field_validator("color")(_check_color)
+    top: str | None = None
+    _color = field_validator("color", "top")(_check_color)
 
 
 class Settings(_Model):

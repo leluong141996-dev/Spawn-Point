@@ -52,8 +52,12 @@ func instances(entity_type: StringName) -> Array[Node]:
 	if not is_inside_tree():
 		return out
 	for n in get_tree().get_nodes_in_group(entity_type):
-		if not n.is_queued_for_deletion() and n.is_in_group(SP.ENTITY_GROUP):
-			out.append(n)
+		if n.is_queued_for_deletion() or not n.is_in_group(SP.ENTITY_GROUP):
+			continue
+		var c := SP.core(n)
+		if c and c.dead:
+			continue  # Dying this frame: rules reacting to "died" must not count it.
+		out.append(n)
 	return out
 
 

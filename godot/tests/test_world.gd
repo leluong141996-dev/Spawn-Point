@@ -78,3 +78,19 @@ func test_patrol_turns_at_ledge() -> void:
 	assert_true(e.position.y < 100, "must not fall off (y=%.1f)" % e.position.y)
 	assert_true(absf(e.position.x) < 100, "stays on platform (x=%.1f)" % e.position.x)
 	assert_true(ai.direction == -1 or e.position.x < 80, "should have turned")
+
+
+func test_dying_entity_not_counted_by_died_listeners() -> void:
+	var e := make_entity("Slime", "character", SP.TEAM_ENEMY, Vector2(10, 10), {"Health": {"max_health": 1}})
+	await frames(1)
+	var seen := [-1]
+	World.bind_signal(&"Slime", &"Health", &"died", func(_src: Node) -> void: seen[0] = World.count(&"Slime"))
+	(SP.component(e, &"Health") as HealthComponent).damage(1)
+	assert_eq(seen[0], 0)
+
+
+func test_second_passed_signal() -> void:
+	var got := []
+	GameState.second_passed.connect(func(s: int) -> void: got.append(s))
+	await frames(130)
+	assert_eq(got, [1, 2])

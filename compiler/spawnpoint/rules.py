@@ -18,6 +18,7 @@ GAMESTATE_EVENTS: dict[str, list[str]] = {
     "score_changed": ["score"],
     "lives_changed": ["lives"],
     "var_changed": ["name", "value"],
+    "second_passed": ["seconds"],
     "game_won": [],
     "game_lost": [],
 }
