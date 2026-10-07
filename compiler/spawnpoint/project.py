@@ -16,7 +16,7 @@ AUTOLOADS = {
     "Sfx": "res://addons/spawn_point/runtime/sfx.gd",
 }
 LAYER_NAMES = ["world", "player", "enemy", "player_hurtbox", "enemy_hurtbox", "pickup"]
-GENERATED_DIRS = ("entities", "levels", "rules")
+GENERATED_DIRS = ("entities", "levels", "rules", "sprites")
 
 
 def slugify(name: str) -> str:
@@ -66,12 +66,14 @@ def project_godot(plan: dict, godot_feature: str = "4.6") -> str:
         'renderer/rendering_method="gl_compatibility"',
         'renderer/rendering_method.mobile="gl_compatibility"',
         f"environment/defaults/default_clear_color={_color(plan['background'])}",
+        "textures/canvas_textures/default_texture_filter=0",  # nearest: crisp pixel art
         "",
     ]
     return "\n".join(lines)
 
 
-def write(out: Path, graph_data: dict, plan: dict, rules_source: str, godot_feature: str = "4.6") -> None:
+def write(out: Path, graph_data: dict, plan: dict, rules_source: str, godot_feature: str = "4.6",
+          sprites: dict | None = None) -> None:
     out.mkdir(parents=True, exist_ok=True)
     for d in GENERATED_DIRS:
         shutil.rmtree(out / d, ignore_errors=True)
@@ -81,6 +83,8 @@ def write(out: Path, graph_data: dict, plan: dict, rules_source: str, godot_feat
     (out / "project.godot").write_text(project_godot(plan, godot_feature))
     (out / "build_plan.json").write_text(json.dumps(plan, indent=1))
     (out / "rules" / "main_rules.gd").write_text(rules_source)
+    for entity, sprite in (sprites or {}).items():
+        sprite.sheet.save(out / "sprites" / f"{entity}.png")
     (out / "spawnpoint.json").write_text(json.dumps(graph_data, indent=2, ensure_ascii=False) + "\n")
     gi = out / ".gitignore"
     if not gi.exists():

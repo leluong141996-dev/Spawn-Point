@@ -84,15 +84,38 @@ static func opposing_hurtbox_mask(team: String) -> int:
 	return LAYER_PLAYER_HURTBOX | LAYER_ENEMY_HURTBOX
 
 
-## Half extents of the entity's main collision shape (falls back to 16x16).
+## Half extents of the entity's body (from builder metadata or its collision shape).
 static func half_size(entity: Node) -> Vector2:
+	if entity.has_meta(&"sp_half_size"):
+		return entity.get_meta(&"sp_half_size")
 	var cs := entity.get_node_or_null(^"CollisionShape2D") as CollisionShape2D
 	if cs and cs.shape:
 		return cs.shape.get_rect().size * 0.5
 	return Vector2(8, 8)
 
 
-## Base color of the entity's placeholder visual (white if none).
+## Main color of the entity's visual (sprite's dominant color or placeholder color).
 static func color_of(entity: Node) -> Color:
+	var visual := entity.get_node_or_null(^"Visual")
+	if visual and visual.has_meta(&"sp_color"):
+		return visual.get_meta(&"sp_color")
 	var shape := entity.get_node_or_null(^"Visual/Shape") as Polygon2D
 	return shape.color if shape else Color.WHITE
+
+
+## True when the entity is drawn with a sprite (flip to face) instead of a placeholder shape.
+static func has_sprite(entity: Node) -> bool:
+	return entity.has_node(^"Visual/Shape/Sprite")
+
+
+## Turns the entity's visual toward [param dir]: sprites flip horizontally, placeholder shapes
+## rotate (top-down) — side-view pixel art must never be rotated.
+static func face(entity: Node, dir: Vector2, allow_rotation: bool, weight := 0.5) -> void:
+	var shape := entity.get_node_or_null(^"Visual/Shape") as Node2D
+	if shape == null or dir.length() < 0.01:
+		return
+	if has_sprite(entity) or not allow_rotation:
+		if absf(dir.x) > 0.05:
+			shape.scale.x = 1.0 if dir.x > 0.0 else -1.0
+	else:
+		shape.rotation = lerp_angle(shape.rotation, dir.angle(), weight)

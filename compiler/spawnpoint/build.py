@@ -44,14 +44,16 @@ def load_graph(path: Path) -> Any:
     return json.loads(Path(path).read_text())
 
 
-def validate(data: Any, manifest: Manifest | None = None) -> Analysis:
-    return analyze(data, manifest or manifest_mod.load())
+def validate(data: Any, manifest: Manifest | None = None, base_dir: Path | None = None) -> Analysis:
+    return analyze(data, manifest or manifest_mod.load(), base_dir)
 
 
-def build(data: Any, out_dir: Path, *, manifest: Manifest | None = None, smoke: bool = True) -> BuildResult:
+def build(data: Any, out_dir: Path, *, manifest: Manifest | None = None, smoke: bool = True,
+          base_dir: Path | None = None) -> BuildResult:
+    """`base_dir` is the graph file's folder (for relative sprite paths)."""
     timings: dict[str, float] = {}
     t0 = time.perf_counter()
-    analysis = validate(data, manifest)
+    analysis = validate(data, manifest, base_dir)
     timings["validate"] = time.perf_counter() - t0
     if not analysis.ok:
         return BuildResult(None, analysis.diagnostics, timings)
@@ -61,7 +63,7 @@ def build(data: Any, out_dir: Path, *, manifest: Manifest | None = None, smoke: 
 
     t = time.perf_counter()
     feature = _godot_feature()
-    project.write(out_dir, data, plan, analysis.rules_source, feature)
+    project.write(out_dir, data, plan, analysis.rules_source, feature, analysis.sprites)
     sfx.write_all(out_dir / "sfx", seed=analysis.graph.settings.seed)
     timings["write"] = time.perf_counter() - t
 

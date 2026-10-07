@@ -75,12 +75,30 @@ func _build_entity(e: Dictionary) -> Node2D:
 	var shape_type := String(e.shape.type)
 	var size := Vector2(e.shape.size[0], e.shape.size[1])
 	var color := Color(String(e.shape.color))
+	var sprite: Variant = e.get("sprite")
+	var polygon := PackedVector2Array()
+	if sprite != null:
+		for p in sprite.polygon:
+			polygon.append(Vector2(p[0], p[1]))
+	body.set_meta(&"sp_half_size", size * 0.5)
 	if shape_type != "none":
-		var cs := CollisionShape2D.new()
-		cs.name = "CollisionShape2D"
-		cs.shape = _collision_shape(shape_type, size, 1.0)
-		_own(body, cs, body)
-		var visual := _visual(shape_type, size, color, e.eye, String(e.pivot) == "bottom")
+		if polygon.size() >= 3 and String(e.body) != "character":
+			# Pickups, hazards and static bodies collide with the drawing's outline.
+			var cp := CollisionPolygon2D.new()
+			cp.name = "CollisionPolygon2D"
+			cp.polygon = polygon
+			_own(body, cp, body)
+		else:
+			# Moving bodies keep a smooth shape fitted to the sprite (no snagging on tile seams).
+			var cs := CollisionShape2D.new()
+			cs.name = "CollisionShape2D"
+			cs.shape = _collision_shape(shape_type, size, 1.0)
+			_own(body, cs, body)
+		var visual: Node2D
+		if sprite != null:
+			visual = _sprite_visual(sprite, size, String(e.pivot) == "bottom")
+		else:
+			visual = _visual(shape_type, size, color, e.eye, String(e.pivot) == "bottom")
 		_own(body, visual, body)
 		_own_tree(visual, body)
 
@@ -93,7 +111,16 @@ func _build_entity(e: Dictionary) -> Node2D:
 		node.name = c.name
 		_apply_params(node, c.params, "%s.%s" % [e.name, c.name])
 		_own(body, node, body)
-		if c.area_scale != null and shape_type != "none":
+		if c.area_scale != null and shape_type != "none" and polygon.size() >= 3:
+			# Hit/hurt areas follow the sprite outline: the hitbox matches the drawing.
+			var acp := CollisionPolygon2D.new()
+			acp.name = "CollisionPolygon2D"
+			var scaled := PackedVector2Array()
+			for p in polygon:
+				scaled.append(p * float(c.area_scale))
+			acp.polygon = scaled
+			_own(node, acp, body)
+		elif c.area_scale != null and shape_type != "none":
 			var acs := CollisionShape2D.new()
 			acs.name = "CollisionShape2D"
 			acs.shape = _collision_shape(shape_type, size, float(c.area_scale))
@@ -186,6 +213,49 @@ func _visual(type: String, size: Vector2, color: Color, eye: bool, pivot_bottom:
 		pupil.color = Color("#1d2b53")
 		pupil.position = Vector2(r * 0.35, 0)
 		white.add_child(pupil)
+	return visual
+
+
+func _sprite_visual(sprite: Dictionary, size: Vector2, pivot_bottom: bool) -> Node2D:
+	var visual := Node2D.new()
+	visual.name = "Visual"
+	visual.set_meta(&"sp_color", Color(String(sprite.color)))
+	var holder := Node2D.new()  # flipped to face left/right; the sprite inside keeps its scale
+	holder.name = "Shape"
+	visual.add_child(holder)
+	if pivot_bottom:
+		visual.position = Vector2(0, size.y * 0.5)
+		holder.position = Vector2(0, -size.y * 0.5)
+	var tex := load(String(sprite.texture)) as Texture2D
+	if tex == null:
+		_errors.append("cannot load sprite texture %s" % sprite.texture)
+		return visual
+	var fw := int(sprite.frame_size[0])
+	var fh := int(sprite.frame_size[1])
+	var frames := SpriteFrames.new()
+	for anim_name: String in sprite.animations:
+		var a: Dictionary = sprite.animations[anim_name]
+		if anim_name != "default":
+			frames.add_animation(anim_name)
+		frames.set_animation_speed(anim_name, float(a.fps))
+		frames.set_animation_loop(anim_name, bool(a.loop))
+		for f in a.frames:
+			var at := AtlasTexture.new()
+			at.atlas = tex
+			at.region = Rect2(int(f[0]) * fw, int(f[1]) * fh, fw, fh)
+			frames.add_frame(anim_name, at)
+	if not sprite.animations.has("default"):
+		frames.remove_animation(&"default")
+	var spr := AnimatedSprite2D.new()
+	spr.name = "Sprite"
+	spr.sprite_frames = frames
+	var first: String = "idle" if sprite.animations.has("idle") else String(sprite.animations.keys()[0])
+	spr.animation = first
+	spr.autoplay = first
+	spr.scale = Vector2(sprite.scale, sprite.scale)
+	spr.position = Vector2(sprite.offset[0], sprite.offset[1])
+	spr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	holder.add_child(spr)
 	return visual
 
 

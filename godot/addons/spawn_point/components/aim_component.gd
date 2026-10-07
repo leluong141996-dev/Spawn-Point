@@ -30,9 +30,7 @@ func _physics_process(_delta: float) -> void:
 	if weapon:
 		weapon.aim_direction = dir
 	if rotate_visual and dir != Vector2.ZERO:
-		var shape := _entity.get_node_or_null(^"Visual/Shape") as Node2D
-		if shape:
-			shape.rotation = lerp_angle(shape.rotation, dir.angle(), 0.5)
+		SP.face(_entity, dir, true)
 
 
 ## Current aim direction (normalized, or zero if there is nothing to aim at).

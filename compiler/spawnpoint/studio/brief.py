@@ -28,6 +28,7 @@ class _Model(BaseModel):
 
 
 class PlayerBrief(_Model):
+    character: str = Field(default="Hero", max_length=24, description="what the player is, e.g. Ninja, Fox, Robot")
     shape: Literal["capsule", "circle", "rect"] = "capsule"
     abilities: list[Ability] = Field(default_factory=list, max_length=4)
     jump_tiles: float = Field(default=3.5, ge=1.5, le=8.0, description="jump height in tiles (platformer)")
@@ -124,6 +125,7 @@ def normalize(brief: GameBrief) -> tuple[GameBrief, list[str]]:
         return fixed
 
     b.collectible.name = unique(b.collectible.name, "Coin", "collectible")
+    b.player.character = pascal_singular(b.player.character, "Hero")
 
     allowed = ARCHETYPES_BY_GENRE[b.genre]
     enemies = []

@@ -55,6 +55,33 @@ def main(argv: list[str] | None = None) -> int:
     tw.add_argument("--no-web", action="store_true")
     tw.add_argument("--record", action="store_true", help="save LLM calls as local fine-tuning data")
 
+    sp = sub.add_parser("sprites", help="import, generate or preview sprites")
+    sps = sp.add_subparsers(dest="sprites_cmd", required=True)
+    si = sps.add_parser("import", help="turn a sprite sheet or a folder of frames into a SpriteSet")
+    si.add_argument("source", type=Path, help="PNG sheet or folder of PNG frames")
+    si.add_argument("--name", help="sprite name (default: from the file name)")
+    si.add_argument("--grid", help="cell size WxH, e.g. 32x32 (default: auto-detect from transparent gutters)")
+    si.add_argument("--spacing", type=int, default=0)
+    si.add_argument("--margin", type=int, default=0)
+    si.add_argument("--anim", action="append", default=[], metavar="NAME=FRAMES",
+                    help="e.g. idle=0-3 (repeatable; frame indices in reading order)")
+    si.add_argument("--rows", help="comma-separated animation names, one per row, e.g. idle,run,jump")
+    si.add_argument("--fps", action="append", default=[], metavar="NAME=FPS")
+    si.add_argument("--scale", type=int, default=2)
+    si.add_argument("--anchor", choices=["bottom", "center"], default="bottom")
+    si.add_argument("-o", "--out", type=Path, default=Path("assets/sprites"))
+    sg = sps.add_parser("generate", help="draw a procedural pixel-art SpriteSet")
+    sg.add_argument("kind")
+    sg.add_argument("--name", required=True)
+    sg.add_argument("--color", default="#29adff")
+    sg.add_argument("--features", help="comma-separated, e.g. mask,tail (default: from the name)")
+    sg.add_argument("--seed", type=int, default=0)
+    sg.add_argument("-o", "--out", type=Path, default=Path("assets/sprites"))
+    sv2 = sps.add_parser("preview", help="render a contact sheet PNG of a SpriteSet with its collision outline")
+    sv2.add_argument("sprite", type=Path)
+    sv2.add_argument("-o", "--out", type=Path)
+    sps.add_parser("kinds", help="list the procedural sprite kinds")
+
     ds = sub.add_parser("dataset", help="recorded fine-tuning data")
     ds.add_argument("action", choices=["stats", "path"])
     ds.add_argument("--json", action="store_true")
@@ -69,7 +96,8 @@ def main(argv: list[str] | None = None) -> int:
         from . import studio_cli
         return {"validate": _validate, "build": _build, "run": _run, "components": _components,
                 "manifest": _manifest, "create": studio_cli.create, "tweak": studio_cli.tweak,
-                "serve": studio_cli.serve, "dataset": studio_cli.dataset}[args.cmd](args)
+                "serve": studio_cli.serve, "dataset": studio_cli.dataset,
+                "sprites": _sprites}[args.cmd](args)
     except godot.GodotError as e:
         print(f"error: {e}", file=sys.stderr)
         if e.output:
@@ -83,7 +111,7 @@ def _print_diags(diags) -> None:
 
 
 def _validate(args) -> int:
-    analysis = validate(load_graph(args.graph))
+    analysis = validate(load_graph(args.graph), base_dir=args.graph.resolve().parent)
     if args.json:
         print(json.dumps([d.to_dict() for d in analysis.diagnostics], indent=2))
     else:
@@ -97,7 +125,7 @@ def _build(args) -> int:
     data = load_graph(args.graph)
     name = data.get("name", args.graph.stem) if isinstance(data, dict) else args.graph.stem
     out = args.out or Path("out") / slugify(str(name))
-    result = build(data, out.resolve(), smoke=not args.no_smoke)
+    result = build(data, out.resolve(), smoke=not args.no_smoke, base_dir=args.graph.resolve().parent)
     if args.json:
         print(json.dumps(result.to_dict(), indent=2))
     else:
@@ -139,6 +167,44 @@ def _components(args) -> int:
             print(f"    signal {s.name}({', '.join(a.name for a in s.args)})")
         for mt in c.methods.values():
             print(f"    {mt.name}({', '.join(a.name for a in mt.args)})")
+    return 0
+
+
+def _sprites(args) -> int:
+    from .sprites import generate as gen, importer
+    from .sprites.spriteset import SpriteError, load
+
+    try:
+        if args.sprites_cmd == "kinds":
+            for k, spec in gen.KINDS.items():
+                print(f"{k:<8} {spec.size[0]}x{spec.size[1]} px  animations: {', '.join(spec.anims)}")
+            return 0
+        if args.sprites_cmd == "preview":
+            s = load(args.sprite)
+            out = args.out or args.sprite.with_suffix("").with_suffix(".preview.png")
+            importer.preview(s).save(out)
+            print(f"Wrote {out}")
+            return 0
+        if args.sprites_cmd == "generate":
+            feats = [f.strip() for f in args.features.split(",")] if args.features else None
+            s = gen.generate(args.name, args.kind, args.color, feats, args.seed)
+        else:
+            fps = {k: float(v) for k, v in (x.split("=", 1) for x in args.fps)}
+            if args.source.is_dir():
+                s = importer.import_folder(args.source, args.name, fps=fps, scale=args.scale, anchor=args.anchor)
+            else:
+                grid = tuple(int(v) for v in args.grid.lower().split("x")) if args.grid else None
+                anims = {k: importer.parse_ranges(v) for k, v in (x.split("=", 1) for x in args.anim)} or None
+                rows = [r.strip() for r in args.rows.split(",")] if args.rows else None
+                s = importer.import_sheet(args.source, args.name, grid=grid, spacing=args.spacing, margin=args.margin,
+                                          anims=anims, row_names=rows, fps=fps, scale=args.scale, anchor=args.anchor)
+    except (SpriteError, ValueError, OSError) as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    path = s.save(args.out)
+    anims = ", ".join(f"{k} ({len(a.frames)})" for k, a in s.animations.items())
+    print(f"Wrote {path}: {s.frame_size[0]}x{s.frame_size[1]} frames, {anims}; outline {len(s.polygon)} points")
+    print(f'Use it in a graph: "sprite": "{path}"')
     return 0
 
 

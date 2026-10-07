@@ -10,6 +10,7 @@ Fields:
 - title: short catchy game title.
 - genre: "platformer" (side view, gravity, jumping between platforms) or "topdown" (seen from above, moves in 8 directions, usually shooting).
 - palette: night | forest | desert | neon | candy | ocean | lava | snow. Pick the one matching the theme.
+- player.character: what the player is, one word in PascalCase (e.g. "Ninja", "Fox", "Astronaut").
 - player.abilities: any of double_jump, dash, stomp (jump on enemies to defeat them), shoot. Top-down games usually have shoot and dash.
 - player.jump_tiles: jump height in tiles, 3-4 is normal. player.speed: slow | normal | fast. player.health: 3 is normal.
 - enemies: 1 to 3 enemy types. Each has
@@ -36,7 +37,7 @@ Common mistakes to avoid:
 BRIEF_EXAMPLE_USER = "a space game where I blast alien bugs in an arena"
 BRIEF_EXAMPLE = {
     "title": "Bug Blaster", "genre": "topdown", "palette": "neon",
-    "player": {"shape": "circle", "abilities": ["shoot", "dash"], "jump_tiles": 3.5, "speed": "normal", "health": 5},
+    "player": {"character": "Astronaut", "shape": "circle", "abilities": ["shoot", "dash"], "jump_tiles": 3.5, "speed": "normal", "health": 5},
     "enemies": [{"name": "Beetle", "archetype": "chaser", "count": 5, "health": 2, "speed": "normal"},
                 {"name": "Spitter", "archetype": "shooter", "count": 2, "health": 3, "speed": "slow"}],
     "collectible": {"name": "Crystal", "count": 8}, "health_pickups": 2, "goal": "score_target",

@@ -10,7 +10,7 @@ from conftest import load_example, minimal
 pytestmark = pytest.mark.skipif(not godot.available(), reason="Godot not installed")
 
 
-@pytest.mark.parametrize("example", ["coin_hopper.json", "neon_arena.json"])
+@pytest.mark.parametrize("example", ["coin_hopper.json", "neon_arena.json", "pixel_hopper.json"])
 def test_examples_build_and_run(tmp_path, example):
     result = build(load_example(example), tmp_path / "game")
     assert result.ok, "\n".join(str(d) for d in result.diagnostics) + "\n" + result.log[-2000:]

@@ -71,6 +71,30 @@ Web builds need the Godot **web export templates** (Editor → Manage Export Tem
 `web_*.zip` from the official `.tpz` into `~/.local/share/godot/export_templates/<version>/`);
 use `--no-web` to skip and play natively with `spawnpoint run`.
 
+## Sprites: generated or your own
+
+Layer 2 replaces placeholder shapes with **procedural pixel-art sprites** — no assets, no GPU. The
+kind follows the entity (`Goblin` → humanoid, `FireBat` → flyer, `LaserBot` → robot, `Crystal` → gem…)
+and details follow the name (`Ninja` → mask, `Fox` → ears and tail, `Spider` → legs). Every sprite has
+idle / run / jump / fall / hurt animations driven automatically by an `Animator` component.
+
+**Collision comes from the pixels.** Hitboxes, hurtboxes, pickups, hazards and static bodies use the
+sprite's traced outline (`CollisionPolygon2D`); moving bodies keep a smooth capsule/circle fitted to
+the sprite's opaque bounds, so characters never snag on tile seams.
+
+```bash
+spawnpoint sprites kinds                                          # hero, slime, hopper, flyer, robot, ...
+spawnpoint sprites generate hero --name Knight --color "#c2c3c7"  # assets/sprites/Knight.sprite.json
+spawnpoint sprites import hero.png --grid 32x32 --anim idle=0-3 --anim run=4-9
+spawnpoint sprites import sheet.png --rows idle,run,jump           # auto-sliced by transparent gutters
+spawnpoint sprites import kenney_frames/                           # idle_0.png, walk_1.png, ...
+spawnpoint sprites preview assets/sprites/Knight.sprite.json       # contact sheet + collision outline
+```
+
+Use one in a graph with `"sprite": "assets/sprites/Knight.sprite.json"` (relative to the graph file)
+or `"sprite": {"generate": {"kind": "slime", "color": "#ff004d"}}` — see `examples/pixel_hopper.json`.
+When an entity has a sprite and no explicit `shape`, its collision size comes from the drawing.
+
 ### Collecting fine-tuning data (opt-in, local only)
 
 ```bash
@@ -185,6 +209,7 @@ godot/                     Godot project hosting the component library and its t
   tests/                   headless GDScript tests
 compiler/spawnpoint/       Python compiler: graph schema, analysis, rules codegen, sfx, CLI
 compiler/spawnpoint/studio LLM orchestrator: brief, assembler, level generators, web export, browser check
+compiler/spawnpoint/sprites SpriteSet format, pixel-art generator, importer, contour → collision
 compiler/tests/            pytest (includes end-to-end builds and the GDScript suite)
 examples/                  example graphs
 docs/                      design specs
@@ -208,7 +233,7 @@ constants, `##` docs on everything public), add tests in `godot/tests/`, then ru
 1. ✅ Component library with juice
 2. ✅ Graph compiler (validation, rules, levels, SFX, smoke test)
 3. ✅ Studio orchestrator — prompt → brief → layered builds, web export with live reload, tweaks, creative pass
-4. Asset pipeline — sprite-sheet auto-slicing, contour → `CollisionPolygon2D`, `AnimationPlayer` generation
+4. ✅ Asset pipeline — procedural pixel-art sprites, sheet/folder import with auto-slicing, outline → `CollisionPolygon2D`, automatic animation (AI image generation later, as a plug-in provider)
 5. Playtester agent — headless play with scripted/learned input, tunes parameters (e.g. coyote time) from telemetry
 6. Web cockpit — live WebGL arcade, click an entity and describe the change
 7. **Spawn Point Coder** — a fine-tuned 7B model (QLoRA, trainable and servable on a

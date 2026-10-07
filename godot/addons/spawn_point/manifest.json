@@ -44,6 +44,51 @@
       "doc": "Points the entity's Weapon (and visual) at the mouse, the nearest enemy, or the movement direction."
     },
     {
+      "name": "Animator",
+      "class": "AnimatorComponent",
+      "script": "res://addons/spawn_point/components/animator_component.gd",
+      "base": "Node",
+      "hosts": [],
+      "requires": [],
+      "category": "juice",
+      "entity_params": [],
+      "params": [
+        {
+          "name": "hurt_time",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,2.0,0.01",
+          "default": 0.25,
+          "doc": "Seconds the hurt animation is shown after taking damage."
+        },
+        {
+          "name": "move_threshold",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,200.0,1.0",
+          "default": 15.0,
+          "doc": "Speed (px/s) above which the entity counts as moving."
+        }
+      ],
+      "state": [
+        {
+          "name": "state",
+          "type": "String"
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "pick_state",
+          "args": [],
+          "default_count": 0,
+          "returns": "String",
+          "doc": "The state the entity is in right now."
+        }
+      ],
+      "doc": "Plays the entity sprite's animations from what the entity is doing: idle, run, jump, fall and hurt. Run speed follows movement speed. Attached automatically to entities that have a sprite."
+    },
+    {
       "name": "ChaseAI",
       "class": "ChaseAIComponent",
       "script": "res://addons/spawn_point/components/chase_ai_component.gd",

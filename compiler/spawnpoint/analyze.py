@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from . import level as lvl
@@ -11,6 +12,8 @@ from .diagnostics import Diagnostics, did_you_mean, join_path
 from .graph import Entity, Graph, parse
 from .manifest import BODY_CLASSES, Component, Manifest, Param
 from .rules import compile_rules
+from .sprites import resolve as sprite_resolve
+from .sprites.spriteset import SpriteError, SpriteSet
 
 PLAN_FORMAT = 1
 ENTITY_NAME = re.compile(r"^[A-Z][A-Za-z0-9]*$")
@@ -41,31 +44,36 @@ class Analysis:
     diagnostics: Diagnostics
     plan: dict | None = None
     rules_source: str | None = None
+    sprites: dict[str, SpriteSet] = field(default_factory=dict)  # entity -> resolved sprite sheet
 
     @property
     def ok(self) -> bool:
         return self.diagnostics.ok and self.plan is not None
 
 
-def analyze(data: Any, manifest: Manifest) -> Analysis:
+def analyze(data: Any, manifest: Manifest, base_dir: Path | None = None) -> Analysis:
+    """`base_dir` resolves relative sprite paths (the graph file's folder)."""
     graph, diags = parse(data)
     if graph is None:
         return Analysis(None, diags)
-    return _Analyzer(graph, manifest, diags).run()
+    return _Analyzer(graph, manifest, diags, base_dir).run()
 
 
 class _Analyzer:
-    def __init__(self, graph: Graph, manifest: Manifest, diags: Diagnostics):
+    def __init__(self, graph: Graph, manifest: Manifest, diags: Diagnostics, base_dir: Path | None = None):
         self.g = graph
         self.m = manifest
         self.d = diags
+        self.base_dir = base_dir
         self.genre = GENRE_DEFAULTS[graph.genre]
+        self.sprites: dict[str, SpriteSet] = {}
 
     # -- entry -----------------------------------------------------------------------------
     def run(self) -> Analysis:
         g = self.g
         comps_by_entity = {name: list(e.components) for name, e in g.entities.items()}
         teams = {name: self._team(e) for name, e in g.entities.items()}
+        self._resolve_sprites(teams)
         params_by_entity: dict[str, dict[str, dict]] = {}
         for name, ent in g.entities.items():
             params_by_entity[name] = self._check_entity(name, ent)
@@ -89,7 +97,24 @@ class _Analyzer:
         if not self.d.ok or data is None:
             return Analysis(g, self.d)
         plan = self._plan(data, teams, params_by_entity, players[0])
-        return Analysis(g, self.d, plan, rules.source)
+        return Analysis(g, self.d, plan, rules.source, self.sprites)
+
+    # -- sprites ---------------------------------------------------------------------------
+    def _resolve_sprites(self, teams: dict[str, str]) -> None:
+        for name, ent in self.g.entities.items():
+            if ent.sprite is None:
+                continue
+            color = ent.shape.color or self._color(ent, teams[name])
+            try:
+                sprite = sprite_resolve.resolve(name, ent, self.base_dir, color)
+            except SpriteError as e:
+                self.d.error("E_SPRITE", join_path("entities", name, "sprite"), str(e),
+                             "Generator kinds: " + ", ".join(sorted(sprite_resolve.KINDS)) if "kind" in str(e) else None)
+                continue
+            self.sprites[name] = sprite
+            if "shape" not in ent.model_fields_set:
+                # No explicit shape: the body collision comes from the drawing.
+                ent.shape = sprite_resolve.derived_shape(ent, sprite, self.g.genre)
 
     # -- entities --------------------------------------------------------------------------
     def _team(self, e: Entity) -> str:
@@ -266,6 +291,10 @@ class _Analyzer:
             if juice_on and ent.juice != "none":
                 comps.append({"name": "Juice", "script": self.m.get("Juice").script,
                               "params": params[name].get("Juice", {}), "area_scale": None})
+            sprite = self.sprites.get(name)
+            if sprite is not None and self.m.get("Animator"):
+                comps.append({"name": "Animator", "script": self.m.get("Animator").script, "params": {},
+                              "area_scale": None})
             entities.append({
                 "name": name,
                 "body": ent.body,
@@ -275,8 +304,9 @@ class _Analyzer:
                 "mask": self._mask(ent),
                 "shape": {"type": ent.shape.type, "size": list(ent.shape.size),
                           "color": ent.shape.color or self._color(ent, team)},
-                "eye": ent.body == "character",
+                "eye": ent.body == "character" and sprite is None,
                 "pivot": "bottom" if g.genre == "platformer" and ent.body == "character" else "center",
+                "sprite": sprite_resolve.plan_entry(name, sprite) if sprite is not None else None,
             })
             entities[-1]["components"] = comps
 

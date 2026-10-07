@@ -48,8 +48,9 @@ func toggle() -> void:
 
 func _set_open(value: bool, animate: bool) -> void:
 	is_open = value
-	for cs in _entity.find_children("*", "CollisionShape2D", false, false):
-		(cs as CollisionShape2D).set_deferred(&"disabled", value)
+	for cs in _entity.get_children():
+		if cs is CollisionShape2D or cs is CollisionPolygon2D:
+			cs.set_deferred(&"disabled", value)
 	var visual := _entity.get_node_or_null(^"Visual") as Node2D
 	if visual == null:
 		return

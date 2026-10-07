@@ -37,10 +37,25 @@ class Shape(_Model):
         return v
 
 
+class SpriteGenerate(_Model):
+    kind: str
+    color: str | None = None
+    features: list[str] | None = None
+    seed: int = 0
+
+    _color = field_validator("color")(_check_color)
+
+
+class SpriteRef(_Model):
+    generate: SpriteGenerate
+
+
 class Entity(_Model):
     body: Literal["character", "static", "area"] = "character"
     team: Literal["player", "enemy", "neutral"] | None = None
     shape: Shape = Field(default_factory=Shape)
+    # Path to a .sprite.json (relative to the graph file) or {"generate": {...}}.
+    sprite: Union[str, SpriteRef, None] = None
     components: dict[str, dict[str, Any]] = Field(default_factory=dict)
     juice: Union[Literal["none"], dict[str, Any], None] = None
 
@@ -95,8 +110,10 @@ def parse(data: Any) -> tuple[Graph | None, Diagnostics]:
     try:
         return Graph.model_validate(data), diags
     except ValidationError as e:
+        found = []
         for err in e.errors():
-            loc = [p for p in err["loc"] if not (isinstance(p, str) and ("[" in p or "-" in p))]
+            # Drop pydantic's union-branch tags ("str", "SpriteRef", "literal['none']", ...).
+            loc = [p for p in err["loc"] if not (isinstance(p, str) and ("[" in p or "-" in p or p in _TYPE_TAGS))]
             path = join_path(*loc) if loc else "(root)"
             msg = err["msg"]
             hint = None
@@ -106,12 +123,21 @@ def parse(data: Any) -> tuple[Graph | None, Diagnostics]:
                 msg = f"unknown field '{field}'"
             elif err["type"] == "missing":
                 msg = f"missing required field '{loc[-1]}'"
-            diags.error("E_SCHEMA", path, msg, hint)
+            found.append((path, msg, hint))
+        # A union reports one error per branch; keep only the most specific ones.
+        paths = {p for p, _, _ in found}
+        for path, msg, hint in dict.fromkeys(found):
+            if not any(o != path and o.startswith(path + ".") for o in paths):
+                diags.error("E_SCHEMA", path, msg, hint)
         return None, diags
 
 
+_TYPE_TAGS = {"str", "int", "float", "bool", "SpriteRef", "SpriteGenerate", "Shape", "Entity"}
+
+
 # Which model lives under a field name (dict/list containers skip their key/index).
-_CHILD = {"settings": (Settings, 1), "shape": (Shape, 1), "level": (Level, 1),
+_CHILD = {"settings": (Settings, 1), "shape": (Shape, 1), "level": (Level, 1), "generate": (SpriteGenerate, 1),
+          "sprite": (SpriteRef, 1),
           "entities": (Entity, 2), "rules": (Rule, 2)}
 
 

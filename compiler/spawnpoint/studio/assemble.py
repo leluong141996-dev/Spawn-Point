@@ -7,6 +7,7 @@ import random
 from typing import Any
 
 from ..level import jump_model
+from ..sprites.generate import features_for
 from . import levelgen
 from .brief import EnemyBrief, GameBrief
 
@@ -415,6 +416,7 @@ class _Assembler:
 
     # -- polish (layer 2) --------------------------------------------------------------------
     def _polish(self) -> None:
+        self._sprites()
         k = JUICE_SCALE[self.b.juice]
         if k == 1.0:
             return
@@ -423,6 +425,66 @@ class _Assembler:
             if ent.get("juice") == "none":
                 continue
             ent["juice"] = dict(params)
+
+
+    def _sprites(self) -> None:
+        """Layer 2 art pass: placeholders become generated pixel-art sprites (collision follows)."""
+        archetypes = {e.name: e.archetype for e in self.b.enemies}
+        for name, ent in self.entities.items():
+            kind = sprite_kind(name, ent, archetypes.get(name), self.b, self.platformer)
+            gen: dict[str, Any] = {"kind": kind, "color": ent["shape"]["color"], "seed": self.seed}
+            if name == "Player":
+                gen["features"] = features_for(self.b.player.character)
+            ent["sprite"] = {"generate": gen}
+            del ent["shape"]
+
+
+HUMANOID_WORDS = {"goblin", "zombie", "knight", "skeleton", "orc", "ninja", "soldier", "pirate", "bandit",
+                  "wizard", "witch", "mage", "guard", "thief", "samurai", "elf", "troll", "vampire", "mummy"}
+FLYER_WORDS = {"bat", "bird", "crow", "ghost", "spirit", "wasp", "bee", "fly", "dragon", "owl", "eagle"}
+ROBOT_WORDS = {"robot", "bot", "droid", "mech", "drone", "android", "cyborg", "machine"}
+BUG_WORDS = {"bug", "beetle", "ant", "spider", "scorpion", "roach", "crab", "insect"}
+HOPPER_WORDS = {"frog", "toad", "bunny", "rabbit", "kangaroo"}
+PICKUP_KINDS = (({"coin", "gold", "money", "cash", "token"}, "coin"), ({"star", "starlight"}, "star"),
+                ({"gem", "crystal", "diamond", "jewel", "ruby", "emerald", "shard", "sapphire"}, "gem"),
+                ({"heart", "life", "health"}, "heart"))
+
+
+def _words(name: str) -> set[str]:
+    import re
+    return {w.lower() for w in re.findall(r"[A-Z][a-z0-9]*|[a-z0-9]+", name)}
+
+
+def sprite_kind(name: str, ent: dict, archetype: str | None, brief: GameBrief, platformer: bool) -> str:
+    words = _words(name)
+    comps = ent.get("components", {})
+    if name == "Player":
+        return "hero"
+    if name in ("Bullet", "EnemyBullet"):
+        return "bullet"
+    if name == "Door":
+        return "door"
+    if name == "Exit":
+        return "exit" if platformer else "portal"
+    if name == "Portal":
+        return "portal"
+    if name == "Spikes":
+        return "spikes"
+    if name == "HealthPack":
+        return "heart"
+    if "Collectible" in comps:
+        for keys, kind in PICKUP_KINDS:
+            if words & keys:
+                return kind
+        return "orb"
+    if archetype == "turret":
+        return "turret"
+    for keys, kind in ((ROBOT_WORDS, "robot"), (FLYER_WORDS, "flyer"), (HUMANOID_WORDS, "hero"),
+                       (HOPPER_WORDS, "hopper"), (BUG_WORDS, "bug" if not platformer else "slime")):
+        if words & keys:
+            return kind
+    return {"walker": "slime", "hopper": "hopper", "chaser": "slime" if platformer else "bug",
+            "shooter": "robot"}.get(archetype or "", "slime")
 
 
 def _render(lay: levelgen.Layout, grid: dict[tuple[int, int], str]) -> list[str]:

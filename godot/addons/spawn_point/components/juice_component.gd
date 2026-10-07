@@ -120,10 +120,9 @@ func _process(delta: float) -> void:
 		return
 	var mv := SP.movement(_entity)
 	if mv is PlatformerMovementComponent:
-		_shape.scale.x = float((mv as PlatformerMovementComponent).facing)
+		SP.face(_entity, Vector2((mv as PlatformerMovementComponent).facing, 0), false)
 	elif mv is TopDownMovementComponent and SP.component(_entity, &"Aim") == null:
-		var dir := (mv as TopDownMovementComponent).facing_dir
-		_shape.rotation = lerp_angle(_shape.rotation, dir.angle(), clampf(delta * 14.0, 0.0, 1.0))
+		SP.face(_entity, (mv as TopDownMovementComponent).facing_dir, true, clampf(delta * 14.0, 0.0, 1.0))
 
 
 ## Squash (x wider, y shorter) when [param amount] > 0, stretch when < 0, then spring back.
