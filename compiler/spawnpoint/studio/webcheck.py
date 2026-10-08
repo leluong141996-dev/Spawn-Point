@@ -38,6 +38,7 @@ class WebCheck:
     errors: list[str] = field(default_factory=list)
     screenshot: bytes | None = None
     canvas_size: tuple[int, int] | None = None
+    value: object = None  # result of `expression`, if given
 
 
 class _WebSocket:
@@ -98,7 +99,8 @@ class _WebSocket:
         self.sock.close()
 
 
-def check(url: str, seconds: float = 12.0, size: tuple[int, int] = (960, 540), keys: list[str] | None = None) -> WebCheck:
+def check(url: str, seconds: float = 12.0, size: tuple[int, int] = (960, 540), keys: list[str] | None = None,
+          expression: str | None = None, clicks: list[tuple[float, float, str]] | None = None) -> WebCheck:
     """Open `url`, wait `seconds` (optionally pressing `keys` midway), return console output and a PNG."""
     chrome = find_chrome()
     if chrome is None:
@@ -136,10 +138,13 @@ def check(url: str, seconds: float = 12.0, size: tuple[int, int] = (960, 540), k
             pressed = False
             ws.sock.settimeout(0.5)
             while time.time() < deadline:
-                if keys and not pressed and time.time() > deadline - seconds / 2:
+                if (keys or clicks) and not pressed and time.time() > deadline - seconds / 2:
                     ws.sock.settimeout(30)
-                    for k in keys:
+                    for k in keys or []:
                         _key(call, k)
+                    for x, y, button in clicks or []:
+                        for t in ("mousePressed", "mouseReleased"):
+                            call("Input.dispatchMouseEvent", type=t, x=x, y=y, button=button, clickCount=1)
                     ws.sock.settimeout(0.5)
                     pressed = True
                 try:
@@ -153,6 +158,9 @@ def check(url: str, seconds: float = 12.0, size: tuple[int, int] = (960, 540), k
                 "(() => { const c = document.querySelector('canvas'); return c ? [c.width, c.height] : null })()"))
             value = dims.get("result", {}).get("value")
             result.canvas_size = tuple(value) if value else None
+            if expression:
+                ev = call("Runtime.evaluate", returnByValue=True, expression=expression)
+                result.value = ev.get("result", {}).get("value")
             ws.close()
         finally:
             proc.terminate()

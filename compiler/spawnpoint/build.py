@@ -53,6 +53,8 @@ def build(data: Any, out_dir: Path, *, manifest: Manifest | None = None, smoke: 
     """`base_dir` is the graph file's folder (for relative sprite paths)."""
     timings: dict[str, float] = {}
     t0 = time.perf_counter()
+    if base_dir is not None:
+        data = absolutize_sprites(data, base_dir)  # the project's spawnpoint.json must stand alone
     analysis = validate(data, manifest, base_dir)
     timings["validate"] = time.perf_counter() - t0
     if not analysis.ok:
@@ -98,6 +100,17 @@ def build(data: Any, out_dir: Path, *, manifest: Manifest | None = None, smoke: 
             _judge_smoke(report, plan, diags)
     timings["total"] = time.perf_counter() - t0
     return BuildResult(out_dir, diags, timings, report, "\n".join(log))
+
+
+def absolutize_sprites(data: Any, base_dir: Path) -> Any:
+    if not isinstance(data, dict) or not isinstance(data.get("entities"), dict):
+        return data
+    out = json.loads(json.dumps(data))
+    for ent in out["entities"].values():
+        ref = ent.get("sprite") if isinstance(ent, dict) else None
+        if isinstance(ref, str) and not Path(ref).is_absolute():
+            ent["sprite"] = str((base_dir / ref).resolve())
+    return out
 
 
 def _godot_feature() -> str:

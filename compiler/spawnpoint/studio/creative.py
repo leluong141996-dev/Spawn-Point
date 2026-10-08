@@ -54,7 +54,13 @@ class CreativeResult:
 
 
 def apply_patch(graph: dict, patch: dict) -> dict:
+    """Applies a graph patch: add_entities, add_components, set_params, add_rules (in that order)."""
     g = copy.deepcopy(graph)
+    for name, ent in (patch.get("add_entities") or {}).items():
+        g["entities"].setdefault(name, copy.deepcopy(ent))
+    for ac in patch.get("add_components", []):
+        ent = g["entities"].setdefault(ac["entity"], {"components": {}})
+        ent.setdefault("components", {}).setdefault(ac["component"], {}).update(ac.get("params") or {})
     for sp in patch.get("set_params", []):
         ent = g["entities"].get(sp["entity"])
         if ent is None:

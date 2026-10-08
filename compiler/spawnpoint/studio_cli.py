@@ -166,6 +166,21 @@ def playtest(args) -> int:
     return 0
 
 
+def studio(args) -> int:
+    from .cockpit.server import Cockpit, CockpitServer
+
+    server = CockpitServer(Cockpit(args.workspace), args.port).start()
+    _say(f"Spawn Point Studio at {server.url} (games in {_rel(args.workspace.resolve())}) — Ctrl+C to stop.")
+    if not args.no_open:
+        webbrowser.open(server.url)
+    try:
+        while True:
+            time.sleep(3600)
+    except KeyboardInterrupt:
+        server.stop()
+    return 0
+
+
 def _recorder(args) -> dataset_mod.Recorder | None:
     if not (getattr(args, "record", False) or dataset_mod.enabled_by_env()):
         return None

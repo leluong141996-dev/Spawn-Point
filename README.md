@@ -30,6 +30,28 @@ graph.json ──► validate (Python) ──► build scenes (Godot headless) �
 | Hitboxes | drift from visuals | derived from the same shape as the visual |
 | Failure mode | crashes, syntax errors | structured diagnostics *before* Godot runs |
 
+## Spawn Point Studio (web cockpit)
+
+```bash
+spawnpoint studio          # opens http://localhost:8070 — games live in ./out
+```
+
+A local "studio floor" around the running game — no terminal needed:
+
+- **Projects**: every game in the workspace; **New game** from a prompt (optionally with the
+  playtester and the creative pass). Progress streams live while the layers land.
+- **Arcade**: the web build in the middle, reloading by itself after every change.
+  **Right-click an enemy or item in the game** to select it, then just say what to change:
+  *"double its health and make it shoot fireballs"* — the LLM returns a patch scoped to that entity,
+  the compiler checks it (with repair rounds), missing projectiles are created, and the game reloads.
+- **Designer**: the brief, rules, tweak history, studio edits and tuning.
+  **Artist**: every sprite sheet. **Developer**: every entity → component → parameter as a typed
+  input with the manifest's ranges; editing one rebuilds the game (no LLM needed).
+  **QA**: run the playtester or run + tune, with the stats table and the death heatmap.
+
+Edits are stored as overrides in `studio.json` and survive later tweaks; they win over the tuner.
+Standard library only on the server, one HTML/JS page on the client, Server-Sent Events for progress.
+
 ## Make a game from a sentence
 
 ```bash
@@ -281,7 +303,7 @@ constants, `##` docs on everything public), add tests in `godot/tests/`, then ru
 3. ✅ Studio orchestrator — prompt → brief → layered builds, web export with live reload, tweaks, creative pass
 4. ✅ Asset pipeline — procedural pixel-art sprites, sheet/folder import with auto-slicing, outline → `CollisionPolygon2D`, automatic animation (AI image generation later, as a plug-in provider)
 5. ✅ Playtester — skill-profiled bots with a jump-aware planner, telemetry, death heatmaps, bounded auto-tuning
-6. Web cockpit — live WebGL arcade, click an entity and describe the change
+6. ✅ Web cockpit — `spawnpoint studio`: live arcade, right-click-to-edit with the LLM, parameter desk, sprite gallery, playtest desk
 7. **Spawn Point Coder** — a fine-tuned 7B model (QLoRA, trainable and servable on a
    single 12 GB consumer GPU such as an RTX 3060) specialised in briefs, tweaks and graph patches, so
    the whole studio runs well offline for free. The compiler acts as the data filter and the judge:

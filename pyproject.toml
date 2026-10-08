@@ -21,7 +21,7 @@ spawnpoint = "spawnpoint.cli:main"
 where = ["compiler"]
 
 [tool.setuptools.package-data]
-spawnpoint = ["py.typed"]
+spawnpoint = ["py.typed", "cockpit/static/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["compiler/tests"]

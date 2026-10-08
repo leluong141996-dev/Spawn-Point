@@ -180,22 +180,24 @@ def _annotate_design(recorder: Recorder, brief: GameBrief, notes: list[str]) -> 
 
 
 def finalize_graph(graph: dict, session: dict, manifest: Manifest, tuning: bool = True) -> dict:
-    """Re-applies the session's creative patch and playtest tuning to a freshly assembled graph.
-    Each is kept only while it still fits the game (a tweak may have removed an entity)."""
+    """Re-applies the session's creative patch, playtest tuning and cockpit overrides (in that order,
+    so a person's edit always wins over the tuner) to a freshly assembled graph. Each is kept only
+    while it still fits the game (a tweak may have removed an entity)."""
     from ..analyze import analyze
     from .creative import apply_patch
 
-    patch = session.get("creative_patch")
-    if patch:
-        candidate = apply_patch(graph, patch)
-        if analyze(candidate, manifest).ok:
-            graph = candidate
+    def try_apply(g: dict, patch: dict) -> dict:
+        candidate = apply_patch(g, patch)
+        return candidate if analyze(candidate, manifest).ok else g
+
+    if session.get("creative_patch"):
+        graph = try_apply(graph, session["creative_patch"])
     entries = [t for t in (session.get("tuning") or []) if tuning
                and t["component"] in graph["entities"].get(t["entity"], {}).get("components", {})]
     if entries:
-        candidate = apply_patch(graph, {"set_params": entries, "add_rules": []})
-        if analyze(candidate, manifest).ok:
-            graph = candidate
+        graph = try_apply(graph, {"set_params": entries, "add_rules": []})
+    for override in session.get("overrides") or []:  # cockpit edits, oldest first
+        graph = try_apply(graph, override)
     return graph
 
 

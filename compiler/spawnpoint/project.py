@@ -14,6 +14,7 @@ AUTOLOADS = {
     "World": "res://addons/spawn_point/runtime/world.gd",
     "FX": "res://addons/spawn_point/runtime/fx.gd",
     "Sfx": "res://addons/spawn_point/runtime/sfx.gd",
+    "Cockpit": "res://addons/spawn_point/runtime/cockpit.gd",
 }
 LAYER_NAMES = ["world", "player", "enemy", "player_hurtbox", "enemy_hurtbox", "pickup"]
 GENERATED_DIRS = ("entities", "levels", "rules", "sprites")

@@ -12,6 +12,7 @@ GameState="*res://addons/spawn_point/runtime/game_state.gd"
 World="*res://addons/spawn_point/runtime/world.gd"
 FX="*res://addons/spawn_point/runtime/fx.gd"
 Sfx="*res://addons/spawn_point/runtime/sfx.gd"
+Cockpit="*res://addons/spawn_point/runtime/cockpit.gd"
 
 [physics]
 

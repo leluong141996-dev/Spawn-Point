@@ -299,3 +299,25 @@ def test_studio_playtest_uses_brief_difficulty(tmp_path, manifest):
     res = studio_playtest(out, runs=1, tune=False, web_export=False, manifest=manifest)
     assert res.difficulty == 4
     assert set(res.final.profiles) == {"novice", "average", "expert"}
+
+
+@pytest.mark.skipif(not godot.available(), reason="Godot not installed")
+def test_cockpit_overrides_persist_and_beat_tuning(tmp_path, manifest):
+    from spawnpoint.studio.edits import apply_override, set_param_patch
+    from spawnpoint.studio.orchestrator import _save_session
+
+    out = tmp_path / "game"
+    assert create("slimes", out, ScriptedModel([brief().model_dump()]), web_export=False, manifest=manifest).ok
+    session = load_session(out)
+    session["tuning"] = [{"entity": "Player", "component": "Health", "param": "max_health", "value": 4}]
+    _save_session(out, session)
+    res = apply_override(out, set_param_patch("Player", "Health", "max_health", 7), manifest=manifest, web_export=False)
+    assert res.ok, res.errors
+    assert load_session(out)["overrides"][0]["set_params"][0]["value"] == 7
+    bad = apply_override(out, set_param_patch("Player", "Health", "max_hp", 7), manifest=manifest, web_export=False)
+    assert not bad.ok and "max_hp" in bad.errors[0] and len(load_session(out)["overrides"]) == 1
+    updated = json.loads(json.dumps(load_session(out)["brief"]))
+    updated["palette"] = "snow"
+    assert tweak(out, "snow", ScriptedModel([{"brief": updated, "new_level": False}]), web_export=False, manifest=manifest).ok
+    g = json.loads((out / "spawnpoint.json").read_text())
+    assert g["entities"]["Player"]["components"]["Health"]["max_health"] == 7  # the person's edit wins

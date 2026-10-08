@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Spawn Point Studio</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="logo">▲</span> Spawn Point <b>Studio</b></div>
+    <div class="pills">
+      <span id="pill-llm" class="pill">LLM …</span>
+      <span id="pill-godot" class="pill">Godot …</span>
+      <span id="pill-job" class="pill idle">idle</span>
+    </div>
+  </header>
+
+  <main class="floor">
+    <aside class="panel" id="projects">
+      <form id="new-game" class="card">
+        <label for="prompt">New game</label>
+        <textarea id="prompt" rows="3" placeholder="a ninja platformer where you collect stars…"></textarea>
+        <div class="row">
+          <label class="check"><input type="checkbox" id="opt-playtest"> playtest &amp; tune</label>
+          <label class="check"><input type="checkbox" id="opt-creative"> creative pass</label>
+        </div>
+        <button type="submit" class="primary llm">Create</button>
+      </form>
+      <h2>Games</h2>
+      <ul id="project-list" class="list"></ul>
+    </aside>
+
+    <section class="panel" id="arcade">
+      <div class="stage">
+        <iframe id="game" title="game" allow="autoplay; fullscreen"></iframe>
+        <div id="stage-empty" class="stage-empty">
+          <p>Pick a game on the left, or describe a new one.</p>
+        </div>
+        <div id="stage-noweb" class="stage-empty" hidden>
+          <p>This game has no web build yet.</p>
+          <button id="btn-export" class="primary">Build web version</button>
+        </div>
+      </div>
+      <p class="hint">Click the game to play · <b>right-click</b> an enemy or item to select it · R restarts</p>
+      <form id="tweak" class="bar">
+        <input id="tweak-input" placeholder="Change the game: “jump 20% higher, add a dash, night colors”" autocomplete="off">
+        <button type="submit" class="primary llm">Tweak</button>
+      </form>
+      <div id="log" class="log" aria-live="polite"></div>
+    </section>
+
+    <aside class="panel" id="desks">
+      <section id="selection" class="card selection" hidden>
+        <div class="row between">
+          <h3>Selected: <span id="sel-name"></span></h3>
+          <button id="sel-close" class="ghost" title="clear selection">✕</button>
+        </div>
+        <p id="sel-summary" class="muted"></p>
+        <form id="ask" class="bar">
+          <input id="ask-input" placeholder="“double its health and make it shoot fireballs”" autocomplete="off">
+          <button type="submit" class="primary llm">Ask</button>
+        </form>
+      </section>
+      <nav class="tabs" role="tablist">
+        <button class="tab active" data-tab="designer">Designer</button>
+        <button class="tab" data-tab="artist">Artist</button>
+        <button class="tab" data-tab="developer">Developer</button>
+        <button class="tab" data-tab="qa">QA</button>
+      </nav>
+      <div class="desk" id="tab-designer"></div>
+      <div class="desk" id="tab-artist" hidden></div>
+      <div class="desk" id="tab-developer" hidden></div>
+      <div class="desk" id="tab-qa" hidden></div>
+    </aside>
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>

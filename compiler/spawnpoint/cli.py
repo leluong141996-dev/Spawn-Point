@@ -50,6 +50,11 @@ def main(argv: list[str] | None = None) -> int:
     cr.add_argument("--record", action="store_true", help="save LLM calls as local fine-tuning data")
     cr.add_argument("--playtest", action="store_true", help="after layer 2, let bots play and tune the game")
 
+    st = sub.add_parser("studio", help="open the web cockpit (create, tweak, click-to-edit, playtest)")
+    st.add_argument("--workspace", type=Path, default=Path("out"), help="folder holding the games (default: out)")
+    st.add_argument("--port", type=int, default=8070)
+    st.add_argument("--no-open", action="store_true")
+
     pt = sub.add_parser("playtest", help="bots play a built game: report, death heatmap, optional tuning")
     pt.add_argument("project", type=Path)
     pt.add_argument("--runs", type=int, default=3, help="runs per profile")
@@ -114,7 +119,7 @@ def main(argv: list[str] | None = None) -> int:
         from . import studio_cli
         return {"validate": _validate, "build": _build, "run": _run, "components": _components,
                 "manifest": _manifest, "create": studio_cli.create, "tweak": studio_cli.tweak,
-                "serve": studio_cli.serve, "dataset": studio_cli.dataset, "playtest": studio_cli.playtest,
+                "serve": studio_cli.serve, "dataset": studio_cli.dataset, "playtest": studio_cli.playtest, "studio": studio_cli.studio,
                 "sprites": _sprites, "gif": _gif}[args.cmd](args)
     except godot.GodotError as e:
         print(f"error: {e}", file=sys.stderr)
