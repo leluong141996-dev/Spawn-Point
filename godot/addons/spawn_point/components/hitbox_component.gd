@@ -46,5 +46,5 @@ func _physics_process(_delta: float) -> void:
 		var hb := area as HurtboxComponent
 		if hb == null or SP.entity_of(hb) == _entity:
 			continue
-		if hb.take_hit(damage, global_position, knockback):
+		if hb.take_hit(damage, global_position, knockback, _entity):
 			hit.emit(SP.entity_of(hb))

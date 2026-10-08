@@ -5,7 +5,33 @@ extends Node
 ## Runs as a scene (not --script) so autoloads exist exactly as in a real game.
 
 
+class ErrorCatcher extends Logger:
+	## Script/engine errors raised while a test runs. A runtime error aborts the test function
+	## silently, so without this a broken test would be reported as passing.
+	var errors: Array[String] = []
+	var _mutex := Mutex.new()
+
+	func _log_error(function: String, file: String, line: int, code: String, rationale: String,
+			_editor_notify: bool, error_type: int, _script_backtraces: Array[ScriptBacktrace]) -> void:
+		if error_type == ERROR_TYPE_WARNING:
+			return
+		_mutex.lock()
+		errors.append("%s (%s:%d %s)" % [rationale if rationale else code, file.get_file(), line, function])
+		_mutex.unlock()
+
+	func take() -> Array[String]:
+		_mutex.lock()
+		var out := errors.duplicate()
+		errors.clear()
+		_mutex.unlock()
+		return out
+
+
+var _catcher := ErrorCatcher.new()
+
+
 func _ready() -> void:
+	OS.add_logger(_catcher)
 	_run.call_deferred()
 
 
@@ -36,7 +62,10 @@ func _run() -> void:
 			add_child(case)
 			GameState.reset_run(3)
 			World.begin_level(case, INF)
+			_catcher.take()
 			await case.call(mname)
+			for err in _catcher.take():
+				case.failures.append("%s: runtime error: %s" % [case._current, err])
 			if case.failures.is_empty():
 				print("  ok    ", case._current)
 			else:

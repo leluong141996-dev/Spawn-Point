@@ -264,3 +264,38 @@ def test_recorder_flushes_even_when_the_llm_fails(tmp_path, manifest):
         create("x", tmp_path / "game", llm, web_export=False, manifest=manifest, recorder=rec)
     (r,) = list(iter_records(tmp_path / "ds"))
     assert r["task"] == "brief" and r["accepted"] is False and r["target"] is None
+
+
+@pytest.mark.skipif(not godot.available(), reason="Godot not installed")
+def test_tweak_keeps_creative_patch_and_tuning(tmp_path, manifest):
+    from spawnpoint.studio.orchestrator import _save_session
+
+    raw = brief().model_dump()
+    patch = {"set_params": [{"entity": "Slime", "component": "Health", "param": "max_health", "value": 2}],
+             "add_rules": []}
+    out = tmp_path / "game"
+    assert create("slimes", out, ScriptedModel([raw, patch]), web_export=False, creative=True, manifest=manifest).ok
+    session = load_session(out)
+    session["tuning"] = [{"entity": "Player", "component": "PlatformerMovement", "param": "coyote_time", "value": 0.18},
+                         {"entity": "Ghost", "component": "Health", "param": "max_health", "value": 9}]  # stale entry
+    _save_session(out, session)
+    updated = json.loads(json.dumps(session["brief"]))
+    updated["palette"] = "lava"
+    assert tweak(out, "lava colors", ScriptedModel([{"brief": updated, "new_level": False}]), web_export=False,
+                 manifest=manifest).ok
+    g = json.loads((out / "spawnpoint.json").read_text())
+    assert g["entities"]["Slime"]["components"]["Health"]["max_health"] == 2
+    assert g["entities"]["Player"]["components"]["PlatformerMovement"]["coyote_time"] == 0.18
+    assert "Ghost" not in g["entities"]
+
+
+@pytest.mark.skipif(not godot.available(), reason="Godot not installed")
+def test_studio_playtest_uses_brief_difficulty(tmp_path, manifest):
+    from spawnpoint.studio.orchestrator import studio_playtest
+
+    out = tmp_path / "game"
+    assert create("slimes", out, ScriptedModel([brief(difficulty=4, length="short").model_dump()]),
+                  web_export=False, manifest=manifest).ok
+    res = studio_playtest(out, runs=1, tune=False, web_export=False, manifest=manifest)
+    assert res.difficulty == 4
+    assert set(res.final.profiles) == {"novice", "average", "expert"}

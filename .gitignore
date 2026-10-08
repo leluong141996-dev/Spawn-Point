@@ -8,3 +8,4 @@ out/
 !godot/addons/spawn_point/**/*.import
 .venv/
 *.uid
+docs/superpowers/

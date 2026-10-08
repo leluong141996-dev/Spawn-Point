@@ -49,7 +49,7 @@ func _physics_process(_delta: float) -> void:
 		var my_health := SP.component(_body, &"Health") as HealthComponent
 		if my_health:
 			my_health.grant_invincibility(0.2)
-		hb.take_hit(damage, _body.global_position, 0.0)
+		hb.take_hit(damage, _body.global_position, 0.0, _body)
 		var mv := SP.component(_body, &"PlatformerMovement") as PlatformerMovementComponent
 		mv.bounce(bounce_velocity)
 		stomped.emit(target)

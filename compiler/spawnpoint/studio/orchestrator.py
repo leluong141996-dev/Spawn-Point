@@ -50,6 +50,7 @@ class StudioResult:
     changes: list[str] = field(default_factory=list)
     usage: Usage = field(default_factory=Usage)
     timings: dict[str, float] = field(default_factory=dict)
+    playtest: object | None = None  # playtest.PlaytestResult when --playtest ran
 
     @property
     def ok(self) -> bool:
@@ -101,17 +102,20 @@ def default_seed(prompt: str) -> int:
 def create(prompt: str, out_dir: Path | Callable[[GameBrief], Path], llm: ChatModel, *, seed: int | None = None, creative: bool = False,
            brief: GameBrief | None = None, web_export: bool = True,
            on_layer: LayerCallback | None = None, on_brief: Callable[[GameBrief, list[str]], None] | None = None,
-           manifest: Manifest | None = None, recorder: Recorder | None = None) -> StudioResult:
-    if recorder is None:
-        return _create(prompt, out_dir, llm, seed, creative, brief, web_export, on_layer, on_brief, manifest, None)
+           manifest: Manifest | None = None, recorder: Recorder | None = None, playtest: bool = False,
+           on_progress: Callable[[str], None] | None = None) -> StudioResult:
     result = None
     try:
-        result = _create(prompt, out_dir, recorder.wrap(llm), seed, creative, brief, web_export, on_layer,
-                         on_brief, manifest, recorder)
+        result = _create(prompt, out_dir, recorder.wrap(llm) if recorder else llm, seed, creative, brief, web_export,
+                         on_layer, on_brief, manifest, recorder)
+        if playtest and result.ok:
+            result.playtest = studio_playtest(result.out_dir, tune=True, web_export=web_export, manifest=manifest,
+                                              on_progress=on_progress)
         return result
     finally:
-        recorder.flush(accepted=bool(result and result.ok),
-                       meta={"op": "create", "prompt": prompt, "seed": result.seed if result else None})
+        if recorder:
+            recorder.flush(accepted=bool(result and result.ok),
+                           meta={"op": "create", "prompt": prompt, "seed": result.seed if result else None})
 
 
 def _create(prompt, out_dir, llm, seed, creative, brief, web_export, on_layer, on_brief, manifest,
@@ -173,6 +177,46 @@ def _annotate_design(recorder: Recorder, brief: GameBrief, notes: list[str]) -> 
         rec.target = brief.model_dump()  # the normalized brief is the answer the model should have given
         rec.notes = notes
         rec.corrected = rec.target != GameBrief.model_validate(rec.raw).model_dump()
+
+
+def finalize_graph(graph: dict, session: dict, manifest: Manifest, tuning: bool = True) -> dict:
+    """Re-applies the session's creative patch and playtest tuning to a freshly assembled graph.
+    Each is kept only while it still fits the game (a tweak may have removed an entity)."""
+    from ..analyze import analyze
+    from .creative import apply_patch
+
+    patch = session.get("creative_patch")
+    if patch:
+        candidate = apply_patch(graph, patch)
+        if analyze(candidate, manifest).ok:
+            graph = candidate
+    entries = [t for t in (session.get("tuning") or []) if tuning
+               and t["component"] in graph["entities"].get(t["entity"], {}).get("components", {})]
+    if entries:
+        candidate = apply_patch(graph, {"set_params": entries, "add_rules": []})
+        if analyze(candidate, manifest).ok:
+            graph = candidate
+    return graph
+
+
+def studio_playtest(out_dir: Path, *, runs: int = 3, tune: bool = True, rounds: int = 2, web_export: bool = True,
+                    manifest: Manifest | None = None, on_progress: Callable[[str], None] | None = None):
+    """Playtests a studio game; accepted tuning is stored in the session so tweaks keep it."""
+    from .. import playtest as pt
+
+    manifest = manifest or manifest_mod.load()
+    session = load_session(out_dir)
+    brief = GameBrief.model_validate(session["brief"])
+    original = finalize_graph(assemble(brief, LAYERS[-1], session["seed"], session.get("chunks")), session,
+                              manifest, tuning=False)
+    res = pt.playtest(out_dir, runs=runs, tune=tune, rounds=rounds, manifest=manifest, original=original,
+                      difficulty=brief.difficulty, brief=session["brief"], on_progress=on_progress)
+    if res.changes:
+        session["tuning"] = pt.merge_tuning(session.get("tuning") or [], res.changes)
+        _save_session(out_dir, session)
+    if web_export and (out_dir / web.WEB_DIR / "index.html").exists():
+        web.export(out_dir)
+    return res
 
 
 def _build_layer(layer: int, graph: dict, out_dir: Path, manifest: Manifest, web_export: bool) -> LayerReport:
@@ -248,7 +292,7 @@ def _tweak(out_dir, request, llm, web_export, on_layer, manifest, recorder: Reco
     timings = {"design": time.perf_counter() - t0}
 
     result = StudioResult(out_dir, new, notes, seed, changes=changes, usage=llm.usage)
-    graph = assemble(new, LAYERS[-1], seed, chunks)
+    graph = finalize_graph(assemble(new, LAYERS[-1], seed, chunks), session, manifest)
     report = _build_layer(LAYERS[-1], graph, out_dir, manifest, web_export)
     result.layers.append(report)
     if on_layer:

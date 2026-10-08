@@ -40,7 +40,7 @@ func _physics_process(delta: float) -> void:
 	if _timer > 0.0:
 		return
 	_timer = interval
-	_alive = _alive.filter(func(n: Node) -> bool: return is_instance_valid(n) and not n.is_queued_for_deletion())
+	_alive.assign(_alive.filter(func(n: Node) -> bool: return is_instance_valid(n) and not n.is_queued_for_deletion()))
 	if _alive.size() >= max_alive:
 		return
 	spawn_now()

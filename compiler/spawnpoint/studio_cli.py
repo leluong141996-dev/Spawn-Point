@@ -72,7 +72,8 @@ def create(args) -> int:
     try:
         result = do_create(args.prompt, out_dir_for, llm, seed=args.seed, creative=args.creative,
                            brief=brief, web_export=not args.no_web, on_layer=on_layer, on_brief=on_brief,
-                           recorder=recorder)
+                           recorder=recorder, playtest=args.playtest,
+                           on_progress=lambda m: _say(f"  [playtest] {m}"))
     except (LLMError, StudioError) as e:
         _say(f"error: {e}")
         return 2
@@ -80,6 +81,8 @@ def create(args) -> int:
         c = result.creative
         _say(f"Creative pass: {'applied' if c.applied else 'dropped'} after {c.rounds} round(s)"
              + (f": {json.dumps(c.patch)}" if c.applied else (f" — {c.errors[:2]}" if c.errors else "")))
+    if result.playtest is not None:
+        _print_playtest(result.playtest)
     _say(f"Done in {result.timings.get('total', 0):.1f}s (design {result.timings.get('design', 0):.1f}s; LLM {result.usage}).")
     out = out_holder["out"]
     _say(f"Change it:  spawnpoint tweak {_rel(out)} \"make the jump 20% higher\"")
@@ -117,6 +120,50 @@ def tweak(args) -> int:
     _say(f"Done in {result.timings.get('total', 0):.1f}s (LLM {result.usage}). "
          "An open browser tab reloads automatically; otherwise run `spawnpoint serve`.")
     return 0 if result.ok else 1
+
+
+def _print_playtest(res) -> None:
+    from .playtest import tuner
+
+    def table(rep, label):
+        _say(f"  {label}:")
+        for p in rep.profiles.values():
+            causes = ", ".join(f"{k} {v}" for k, v in list(p.causes.items())[:3]) or "no deaths"
+            _say(f"    {p.profile:<8} won {p.wins}/{p.runs}  deaths {p.deaths:<3} ({causes})  "
+                 f"missed jumps {p.jumps_missed}/{p.jumps_intended}  pickups {p.pickup_rate:.0%}  stuck {p.stuck}")
+
+    table(res.baseline, "before" if res.changes else "results")
+    for r in res.rounds:
+        verdict = "kept" if r.get("accepted") else "reverted"
+        _say(f"  round {r['round']} ({verdict}, score {r.get('score_before')} -> {r.get('score_after')}):")
+        for c in r["changes"]:
+            _say(f"    {c}")
+    if res.changes:
+        table(res.final, "after")
+    for issue in res.final.level_issues:
+        _say(f"  level issue: {issue}")
+    _say(f"  targets (difficulty {res.difficulty}): {tuner.targets(res.difficulty)}")
+    _say(f"  report: {_rel(res.files['md'])}  heatmap: {_rel(res.files['heatmap'])}  ({res.seconds:.1f}s)")
+
+
+def playtest(args) -> int:
+    from . import playtest as pt
+    from .studio.orchestrator import studio_playtest
+
+    project = args.project.resolve()
+    profiles = tuple(p.strip() for p in args.profiles.split(",") if p.strip())
+    progress = lambda m: _say(f"  {m}")
+    _say(f"Playtesting {_rel(project)} ...")
+    if (project / "studio.json").exists() and args.difficulty is None:
+        res = studio_playtest(project, runs=args.runs, tune=args.tune, rounds=args.rounds, on_progress=progress)
+    else:
+        res = pt.playtest(project, runs=args.runs, profiles=profiles, tune=args.tune, rounds=args.rounds,
+                          seed=args.seed, difficulty=args.difficulty or 2, on_progress=progress)
+    if args.json:
+        print(res.files["json"].read_text())
+    else:
+        _print_playtest(res)
+    return 0
 
 
 def _recorder(args) -> dataset_mod.Recorder | None:

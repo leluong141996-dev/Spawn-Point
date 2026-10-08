@@ -16,6 +16,9 @@ signal hurt(amount: int)
 ## Multiplies knockback received.
 @export_range(0.0, 5.0, 0.05) var knockback_scale: float = 1.0
 
+## The entity whose hit landed last (attribution for death causes and playtest telemetry).
+var last_hit_by: Node
+
 var _entity: Node2D
 
 
@@ -27,11 +30,13 @@ func _ready() -> void:
 	collision_layer = SP.hurtbox_layer(SP.team_of(_entity))
 
 
-## Applies a hit coming from [param from_position]. Returns true if damage was dealt.
-func take_hit(amount: int, from_position: Vector2, knockback: float) -> bool:
+## Applies a hit from [param source] coming from [param from_position]. Returns true if damage
+## was dealt.
+func take_hit(amount: int, from_position: Vector2, knockback: float, source: Node = null) -> bool:
 	var health := SP.component(_entity, &"Health") as HealthComponent
 	if health == null or health.is_dead() or health.is_invincible():
 		return false
+	last_hit_by = source
 	health.damage(amount)
 	hurt.emit(amount)
 	var mv := SP.movement(_entity)

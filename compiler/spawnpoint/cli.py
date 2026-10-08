@@ -48,6 +48,17 @@ def main(argv: list[str] | None = None) -> int:
     cr.add_argument("--no-serve", action="store_true", help="exit after building instead of serving")
     cr.add_argument("--port", type=int, default=8060)
     cr.add_argument("--record", action="store_true", help="save LLM calls as local fine-tuning data")
+    cr.add_argument("--playtest", action="store_true", help="after layer 2, let bots play and tune the game")
+
+    pt = sub.add_parser("playtest", help="bots play a built game: report, death heatmap, optional tuning")
+    pt.add_argument("project", type=Path)
+    pt.add_argument("--runs", type=int, default=3, help="runs per profile")
+    pt.add_argument("--profiles", default="novice,average,expert")
+    pt.add_argument("--tune", action="store_true", help="adjust parameters within bounds and re-test")
+    pt.add_argument("--rounds", type=int, default=2)
+    pt.add_argument("--seed", type=int, default=1)
+    pt.add_argument("--difficulty", type=int, help="target difficulty 1-5 (default: the brief's, else 2)")
+    pt.add_argument("--json", action="store_true")
 
     tw = sub.add_parser("tweak", help="change a created game with a text request (uses the LLM)")
     tw.add_argument("project", type=Path)
@@ -103,7 +114,7 @@ def main(argv: list[str] | None = None) -> int:
         from . import studio_cli
         return {"validate": _validate, "build": _build, "run": _run, "components": _components,
                 "manifest": _manifest, "create": studio_cli.create, "tweak": studio_cli.tweak,
-                "serve": studio_cli.serve, "dataset": studio_cli.dataset,
+                "serve": studio_cli.serve, "dataset": studio_cli.dataset, "playtest": studio_cli.playtest,
                 "sprites": _sprites, "gif": _gif}[args.cmd](args)
     except godot.GodotError as e:
         print(f"error: {e}", file=sys.stderr)

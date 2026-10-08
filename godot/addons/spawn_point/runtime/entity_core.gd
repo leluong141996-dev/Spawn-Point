@@ -18,6 +18,9 @@ signal respawned
 
 var spawn_position := Vector2.ZERO
 var dead := false
+## Why the entity last died: "fall", the attacking entity's type (e.g. "Spikes"), or "unknown".
+## Empty while alive.
+var death_cause := ""
 
 
 func _enter_tree() -> void:
@@ -44,6 +47,7 @@ func _ready() -> void:
 func _physics_process(_delta: float) -> void:
 	var e := get_parent() as Node2D
 	if not dead and e.global_position.y > World.kill_y:
+		death_cause = "fall"
 		var health := SP.component(e, &"Health") as HealthComponent
 		if health:
 			health.kill()
@@ -56,6 +60,8 @@ func _on_died() -> void:
 		return
 	dead = true
 	var e := get_parent() as Node2D
+	if death_cause == "":
+		death_cause = _attacker_type(e)
 	if not is_player:
 		e.queue_free.call_deferred()
 		return
@@ -77,6 +83,16 @@ func _respawn() -> void:
 		health.reset()
 		health.grant_invincibility(1.5)
 	dead = false
+	death_cause = ""
 	e.visible = true
 	e.process_mode = Node.PROCESS_MODE_INHERIT
 	respawned.emit()
+
+
+func _attacker_type(e: Node) -> String:
+	var hb := SP.component(e, &"Hurtbox") as HurtboxComponent
+	if hb and is_instance_valid(hb.last_hit_by):
+		var c := SP.core(hb.last_hit_by)
+		if c and c.entity_type != "":
+			return c.entity_type
+	return "unknown"
