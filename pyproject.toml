@@ -3,16 +3,29 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "spawnpoint"
+name = "spawnpoint-studio"
 version = "0.1.0"
-description = "Compile JSON game graphs into juicy, runnable Godot 4 projects."
+description = "Turn a sentence into a juicy, playable Godot 4 game — locally, on a consumer GPU."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
+authors = [{ name = "smoky1496" }]
+keywords = ["godot", "gamedev", "llm", "procedural-generation", "game-design"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Games/Entertainment",
+    "Topic :: Software Development :: Code Generators",
+]
 dependencies = ["pydantic>=2.5", "numpy>=1.24", "pillow>=10"]
 
 [project.optional-dependencies]
 dev = ["pytest>=7"]
+
+[project.urls]
+Homepage = "https://github.com/leluong141996-dev/Spawn-Point"
+Model = "https://huggingface.co/smoky1496/SpawnPoint-Coder-7B-AWQ"
 
 [project.scripts]
 spawnpoint = "spawnpoint.cli:main"

@@ -71,6 +71,14 @@ def main(argv: list[str] | None = None) -> int:
     tw.add_argument("--no-web", action="store_true")
     tw.add_argument("--record", action="store_true", help="save LLM calls as local fine-tuning data")
 
+    lm = sub.add_parser("llm", help="run SpawnPoint-Coder-7B locally (Docker + NVIDIA GPU)")
+    lm.add_argument("action", choices=["up", "down", "status"])
+    lm.add_argument("--port", type=int, default=8000)
+
+    ex = sub.add_parser("examples", help="list the example graphs, or copy one here")
+    ex.add_argument("action", nargs="?", choices=["list", "copy"], default="list")
+    ex.add_argument("name", nargs="?")
+
     gf = sub.add_parser("gif", help="record a gameplay GIF of a built project (autopilot; needs a display)")
     gf.add_argument("project", type=Path)
     gf.add_argument("-o", "--out", type=Path, help="output file (default: <project>/demo.gif)")
@@ -120,7 +128,7 @@ def main(argv: list[str] | None = None) -> int:
         return {"validate": _validate, "build": _build, "run": _run, "components": _components,
                 "manifest": _manifest, "create": studio_cli.create, "tweak": studio_cli.tweak,
                 "serve": studio_cli.serve, "dataset": studio_cli.dataset, "playtest": studio_cli.playtest, "studio": studio_cli.studio,
-                "sprites": _sprites, "gif": _gif}[args.cmd](args)
+                "sprites": _sprites, "gif": _gif, "llm": _llm, "examples": _examples}[args.cmd](args)
     except godot.GodotError as e:
         print(f"error: {e}", file=sys.stderr)
         if e.output:
@@ -190,6 +198,36 @@ def _components(args) -> int:
             print(f"    signal {s.name}({', '.join(a.name for a in s.args)})")
         for mt in c.methods.values():
             print(f"    {mt.name}({', '.join(a.name for a in mt.args)})")
+    return 0
+
+
+def _llm(args) -> int:
+    from . import llm_server
+
+    try:
+        return {"up": lambda: llm_server.up(args.port), "down": llm_server.down,
+                "status": lambda: llm_server.status(args.port)}[args.action]()
+    except (RuntimeError, subprocess.CalledProcessError) as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
+
+
+def _examples(args) -> int:
+    import shutil
+
+    files = sorted(manifest_mod.EXAMPLES_DIR.glob("*.json"))
+    if args.action == "list" or not args.name:
+        for f in files:
+            data = json.loads(f.read_text())
+            print(f"{f.stem:<14} {data.get('genre', ''):<11} {data.get('name', '')}")
+        print("Copy one: spawnpoint examples copy pixel_hopper   then: spawnpoint build pixel_hopper.json --run")
+        return 0
+    src = manifest_mod.EXAMPLES_DIR / f"{args.name.removesuffix('.json')}.json"
+    if not src.exists():
+        print(f"error: no example '{args.name}'", file=sys.stderr)
+        return 1
+    shutil.copy2(src, Path.cwd() / src.name)
+    print(f"Wrote {src.name}")
     return 0
 
 

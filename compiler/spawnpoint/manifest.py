@@ -18,9 +18,25 @@ from typing import Any
 from . import godot
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-LIBRARY_PROJECT = Path(os.environ.get("SPAWNPOINT_LIBRARY", REPO_ROOT / "godot"))
+PACKAGE_DATA = Path(__file__).resolve().parent / "_data"  # filled when building a wheel (see setup.py)
+
+
+def _library_project() -> Path:
+    """The Godot project holding the addon: $SPAWNPOINT_LIBRARY, the repository (development), or
+    the copy bundled in the installed package."""
+    env = os.environ.get("SPAWNPOINT_LIBRARY")
+    if env:
+        return Path(env)
+    repo = REPO_ROOT / "godot"
+    if (repo / "addons" / "spawn_point" / "manifest.json").exists():
+        return repo
+    return PACKAGE_DATA / "godot"
+
+
+LIBRARY_PROJECT = _library_project()
 ADDON_DIR = LIBRARY_PROJECT / "addons" / "spawn_point"
 MANIFEST_PATH = ADDON_DIR / "manifest.json"
+EXAMPLES_DIR = REPO_ROOT / "examples" if (REPO_ROOT / "examples").is_dir() else PACKAGE_DATA / "examples"
 
 BODY_CLASSES = {"character": "CharacterBody2D", "static": "StaticBody2D", "area": "Area2D"}
 

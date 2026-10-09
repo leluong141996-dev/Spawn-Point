@@ -1,0 +1,4 @@
+include README.md LICENSE setup.py
+recursive-include godot/addons/spawn_point *.gd *.tscn *.gdshader *.json
+recursive-include examples *.json
+recursive-include compiler/spawnpoint/cockpit/static *
