@@ -55,7 +55,7 @@ Standard library only on the server, one HTML/JS page on the client, Server-Sent
 ## Make a game from a sentence
 
 ```bash
-scripts/llm-up.sh                     # local LLM (local 7B model on vLLM, ~11 GB VRAM) — or any OpenAI-compatible API
+scripts/llm-up.sh                     # SpawnPoint-Coder-7B on vLLM (~11 GB VRAM) — or any OpenAI-compatible API
 spawnpoint create "a ninja platformer where you collect stars"
 ```
 
@@ -94,6 +94,11 @@ Only what you asked for changes, and the level layout is kept. Prompts can be in
    exported to the web and live-reloaded.
 4. **Creative pass** (`--creative`) — the LLM proposes a small graph patch (parameters, rules); the
    compiler's diagnostics drive up to two repair rounds; if it still fails, it is dropped.
+
+**The model.** [SpawnPoint-Coder-7B](https://huggingface.co/smoky1496/SpawnPoint-Coder-7B-AWQ) is fine-tuned
+for exactly these tasks and runs on a single 12 GB GPU (AWQ 4-bit). Exact-match on held-out Spawn Point
+tasks versus the model it was tuned from: tweaks 62% → 97%, entity edits 47% → 100%, translation
+9% → 91%, briefs needing repair by the normalizer 36% → 5%. `scripts/llm-up.sh` downloads and serves it.
 
 LLM settings: `SPAWNPOINT_LLM_BASE_URL` (default `http://localhost:8000/v1`),
 `SPAWNPOINT_LLM_MODEL` (default: the server's first model), `SPAWNPOINT_LLM_API_KEY`.
@@ -304,7 +309,7 @@ constants, `##` docs on everything public), add tests in `godot/tests/`, then ru
 4. ✅ Asset pipeline — procedural pixel-art sprites, sheet/folder import with auto-slicing, outline → `CollisionPolygon2D`, automatic animation (AI image generation later, as a plug-in provider)
 5. ✅ Playtester — skill-profiled bots with a jump-aware planner, telemetry, death heatmaps, bounded auto-tuning
 6. ✅ Web cockpit — `spawnpoint studio`: live arcade, right-click-to-edit with the LLM, parameter desk, sprite gallery, playtest desk
-7. **Spawn Point Coder** — a fine-tuned 7B model (QLoRA, trainable and servable on a
+7. ✅ **[SpawnPoint-Coder-7B](https://huggingface.co/smoky1496/SpawnPoint-Coder-7B-AWQ)** — a fine-tuned 7B model (QLoRA, trainable and servable on a
    single 12 GB consumer GPU such as an RTX 3060) specialised in briefs, tweaks and graph patches, so
    the whole studio runs well offline for free. The compiler acts as the data filter and the judge:
    every training example must compile, and evaluation measures first-try validity, how often the

@@ -82,7 +82,9 @@ class OpenAICompatible:
             models = self._request("/models").get("data", [])
             if not models:
                 raise LLMError(f"the LLM server at {self.base_url} lists no models")
-            self.model = models[0]["id"]
+            # A fine-tuned adapter (vLLM lists it with a `parent`) beats the base model it sits on.
+            adapters = [m for m in models if m.get("parent")]
+            self.model = (adapters or models)[0]["id"]
         return self.model
 
     def chat_json(self, messages: list[dict], schema: dict, schema_name: str, *,

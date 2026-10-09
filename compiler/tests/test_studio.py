@@ -321,3 +321,15 @@ def test_cockpit_overrides_persist_and_beat_tuning(tmp_path, manifest):
     assert tweak(out, "snow", ScriptedModel([{"brief": updated, "new_level": False}]), web_export=False, manifest=manifest).ok
     g = json.loads((out / "spawnpoint.json").read_text())
     assert g["entities"]["Player"]["components"]["Health"]["max_health"] == 7  # the person's edit wins
+
+
+def test_resolve_model_prefers_fine_tuned_adapter(monkeypatch):
+    from spawnpoint.studio.llm import OpenAICompatible
+
+    llm = OpenAICompatible(model=None, base_url="http://x")
+    monkeypatch.setattr(llm, "_request", lambda path, payload=None: {"data": [
+        {"id": "base", "parent": None}, {"id": "Tuned-7B", "parent": "base"}]})
+    assert llm.resolve_model() == "Tuned-7B"
+    llm2 = OpenAICompatible(model=None, base_url="http://x")
+    monkeypatch.setattr(llm2, "_request", lambda path, payload=None: {"data": [{"id": "only"}]})
+    assert llm2.resolve_model() == "only"

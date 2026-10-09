@@ -9,3 +9,6 @@ out/
 .venv/
 *.uid
 docs/superpowers/
+# Model training stays local (the model itself is published on Hugging Face).
+training/
+models/

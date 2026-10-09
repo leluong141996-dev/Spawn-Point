@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Start a local OpenAI-compatible LLM for Spawn Point:
-# a 7B model (AWQ 4-bit, ~11 GB VRAM, 16k context) on http://localhost:8000/v1.
+# SpawnPoint-Coder-7B (AWQ 4-bit, ~11 GB VRAM, 16k context) served by vLLM on http://localhost:8000/v1.
 # Override with MODEL=..., VLLM_IMAGE=..., MAX_LEN=..., PORT=...
 set -euo pipefail
 
@@ -18,7 +18,7 @@ else
   docker run -d --name "$NAME" --gpus all -p "$PORT:8000" --ipc=host \
     -u "$(id -u):$(id -g)" -e USER="$(whoami)" -e LOGNAME="$(whoami)" -e HOME=/tmp -e HF_HOME=/hf \
     -v "$HOME/.cache/huggingface:/hf" \
-    "$IMAGE" --model "$MODEL" --served-model-name spawnpoint-base --max-model-len "$MAX_LEN" \
+    "$IMAGE" --model "$MODEL" --served-model-name SpawnPoint-Coder-7B --max-model-len "$MAX_LEN" \
     --gpu-memory-utilization 0.85 >/dev/null
 fi
 
