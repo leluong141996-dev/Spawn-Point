@@ -44,6 +44,9 @@ def _brief_summary(brief: GameBrief, notes: list[str]) -> None:
 
 
 def create(args) -> int:
+    if getattr(args, "ai_art", False):
+        import os
+        os.environ["SPAWNPOINT_AI_ART"] = "1"  # read by create(); stored in studio.json for later tweaks
     llm = OpenAICompatible()
     brief = GameBrief.model_validate(json.loads(args.brief.read_text())) if args.brief else None
     server: web.Server | None = None

@@ -49,6 +49,8 @@ def main(argv: list[str] | None = None) -> int:
     cr.add_argument("--port", type=int, default=8060)
     cr.add_argument("--record", action="store_true", help="save LLM calls as local fine-tuning data")
     cr.add_argument("--playtest", action="store_true", help="after layer 2, let bots play and tune the game")
+    cr.add_argument("--ai-art", action="store_true",
+                    help="layer 2 sprites from an image model (SPAWNPOINT_IMAGE_PROVIDER), generated ones as fallback")
 
     st = sub.add_parser("studio", help="open the web cockpit (create, tweak, click-to-edit, playtest)")
     st.add_argument("--workspace", type=Path, default=Path("out"), help="folder holding the games (default: out)")

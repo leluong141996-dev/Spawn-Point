@@ -132,6 +132,19 @@ Record a clip of any built game to share it (a window opens for a few seconds; a
 spawnpoint gif out/pixel-hopper -o demo.gif --seconds 8 --fps 20 --width 640
 ```
 
+**AI art (optional plug-in).** Point Spawn Point at an image model and layer 2 asks it for the look of
+each entity, then makes it game-ready: flat background removed, cropped and fitted to the kind's pixel
+size, a 16-color palette, animations synthesized from the single frame, collision traced from the
+pixels. Results are cached by prompt; if the provider is down, a generated sprite is used instead.
+
+```bash
+export SPAWNPOINT_IMAGE_PROVIDER=a1111  SPAWNPOINT_IMAGE_URL=http://localhost:7860   # Stable Diffusion WebUI
+# or: SPAWNPOINT_IMAGE_PROVIDER=openai SPAWNPOINT_IMAGE_URL=https://api.openai.com/v1 SPAWNPOINT_IMAGE_API_KEY=...
+spawnpoint create "a knight platformer in a haunted castle" --ai-art
+```
+
+In a graph: `"sprite": {"ai": {"prompt": "a tiny knight in silver armor", "kind": "hero"}}`.
+
 Use one in a graph with `"sprite": "assets/sprites/Knight.sprite.json"` (relative to the graph file)
 or `"sprite": {"generate": {"kind": "slime", "color": "#ff004d"}}` — see `examples/pixel_hopper.json`.
 When an entity has a sprite and no explicit `shape`, its collision size comes from the drawing.
@@ -306,7 +319,7 @@ constants, `##` docs on everything public), add tests in `godot/tests/`, then ru
 1. ✅ Component library with juice
 2. ✅ Graph compiler (validation, rules, levels, SFX, smoke test)
 3. ✅ Studio orchestrator — prompt → brief → layered builds, web export with live reload, tweaks, creative pass
-4. ✅ Asset pipeline — procedural pixel-art sprites, sheet/folder import with auto-slicing, outline → `CollisionPolygon2D`, automatic animation (AI image generation later, as a plug-in provider)
+4. ✅ Asset pipeline — procedural pixel-art sprites and tiles, sheet/folder import with auto-slicing, outline → `CollisionPolygon2D`, automatic animation, AI-art provider plug-in
 5. ✅ Playtester — skill-profiled bots with a jump-aware planner, telemetry, death heatmaps, bounded auto-tuning
 6. ✅ Web cockpit — `spawnpoint studio`: live arcade, right-click-to-edit with the LLM, parameter desk, sprite gallery, playtest desk
 7. ✅ **[SpawnPoint-Coder-7B](https://huggingface.co/smoky1496/SpawnPoint-Coder-7B-AWQ)** — a fine-tuned 7B model (QLoRA, trainable and servable on a

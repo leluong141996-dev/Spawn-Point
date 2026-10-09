@@ -108,7 +108,9 @@ class _Analyzer:
                 continue
             color = ent.shape.color or self._color(ent, teams[name])
             try:
-                sprite = sprite_resolve.resolve(name, ent, self.base_dir, color)
+                path = join_path("entities", name, "sprite")
+                sprite = sprite_resolve.resolve(name, ent, self.base_dir, color,
+                                                warn=lambda m, p=path: self.d.warning("W_AI_SPRITE", p, m))
             except SpriteError as e:
                 self.d.error("E_SPRITE", join_path("entities", name, "sprite"), str(e),
                              "Generator kinds: " + ", ".join(sorted(sprite_resolve.KINDS)) if "kind" in str(e) else None)

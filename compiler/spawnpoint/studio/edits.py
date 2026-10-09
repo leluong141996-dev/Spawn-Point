@@ -167,7 +167,7 @@ def apply_override(project: Path, patch: dict, *, manifest: Manifest | None = No
         session = load_session(project)
         brief = GameBrief.model_validate(session["brief"])
         trial = dict(session, overrides=(session.get("overrides") or []) + [patch])
-        base = assemble(brief, LAYERS[-1], session["seed"], session.get("chunks"))
+        base = assemble(brief, LAYERS[-1], session["seed"], session.get("chunks"), ai_art=bool(session.get("ai_art")))
         graph = finalize_graph(base, trial, manifest)
         # finalize_graph silently skips patches that no longer fit; this one must fit now.
         check = analyze(apply_patch(finalize_graph(base, session, manifest), patch), manifest)

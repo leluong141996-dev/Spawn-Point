@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import math
+import os
 import random
+import re
 from typing import Any
 
 from ..level import jump_model
@@ -108,13 +110,21 @@ def chunks_fit(brief: GameBrief, chunks: list[str] | None) -> bool:
     return levelgen.chunks_fit(chunks, *_level_args(brief))
 
 
-def assemble(brief: GameBrief, layer: int = 2, seed: int = 0, chunks: list[str] | None = None) -> dict:
-    """`chunks` pins the platformer level layout (to keep the map across tweaks)."""
-    return _Assembler(brief, layer, seed, chunks).graph()
+def ai_art_from_env() -> bool:
+    return os.environ.get("SPAWNPOINT_AI_ART", "").lower() in ("1", "true", "yes", "on")
+
+
+def assemble(brief: GameBrief, layer: int = 2, seed: int = 0, chunks: list[str] | None = None,
+             ai_art: bool = False) -> dict:
+    """`chunks` pins the platformer level layout (to keep the map across tweaks); `ai_art` asks for
+    image-model sprites in layer 2 (generated ones are the fallback)."""
+    return _Assembler(brief, layer, seed, chunks, ai_art).graph()
 
 
 class _Assembler:
-    def __init__(self, brief: GameBrief, layer: int, seed: int, chunks: list[str] | None = None):
+    def __init__(self, brief: GameBrief, layer: int, seed: int, chunks: list[str] | None = None,
+                 ai_art: bool = False):
+        self.ai_art = ai_art
         self.b = brief
         self.layer = layer
         self.seed = seed
@@ -431,12 +441,20 @@ class _Assembler:
     def _sprites(self) -> None:
         """Layer 2 art pass: placeholders become generated pixel-art sprites (collision follows)."""
         archetypes = {e.name: e.archetype for e in self.b.enemies}
+        ai_art = self.ai_art
         for name, ent in self.entities.items():
             kind = sprite_kind(name, ent, archetypes.get(name), self.b, self.platformer)
-            gen: dict[str, Any] = {"kind": kind, "color": ent["shape"]["color"], "seed": self.seed}
-            if name == "Player":
-                gen["features"] = features_for(self.b.player.character)
-            ent["sprite"] = {"generate": gen}
+            color = ent["shape"]["color"]
+            if ai_art:
+                subject = self.b.player.character if name == "Player" else name
+                words = " ".join(re.findall(r"[A-Z][a-z0-9]*|[a-z0-9]+", subject)).lower()
+                ent["sprite"] = {"ai": {"prompt": f"{words}, {self.b.palette} color palette, game: {self.b.title}",
+                                        "kind": kind, "color": color, "seed": self.seed}}
+            else:
+                gen: dict[str, Any] = {"kind": kind, "color": color, "seed": self.seed}
+                if name == "Player":
+                    gen["features"] = features_for(self.b.player.character)
+                ent["sprite"] = {"generate": gen}
             del ent["shape"]
 
 

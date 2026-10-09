@@ -14,7 +14,7 @@ from ..analyze import analyze
 from ..build import BuildResult, build
 from ..manifest import Manifest
 from . import web
-from .assemble import LAYERS, assemble, chunks_fit, plan_chunks
+from .assemble import LAYERS, ai_art_from_env, assemble, chunks_fit, plan_chunks
 from .brief import GameBrief, json_schema, normalize
 from .creative import CreativeResult, creative_pass
 from .dataset import Recorder
@@ -137,10 +137,11 @@ def _create(prompt, out_dir, llm, seed, creative, brief, web_export, on_layer, o
         out_dir = out_dir(brief)
 
     seed, chunks = choose_seed(brief, default_seed(prompt) if seed is None else seed, manifest)
+    ai_art = ai_art_from_env()
     result = StudioResult(out_dir, brief, notes, seed, usage=llm.usage)
     creative_result = None
     for layer in LAYERS:
-        graph = assemble(brief, layer, seed, chunks)
+        graph = assemble(brief, layer, seed, chunks, ai_art=ai_art)
         if layer == LAYERS[-1] and creative:
             t = time.perf_counter()
             creative_result = creative_pass(graph, english, llm, manifest)
@@ -162,7 +163,7 @@ def _create(prompt, out_dir, llm, seed, creative, brief, web_export, on_layer, o
     timings["total"] = time.perf_counter() - t0
     result.timings = timings
     _save_session(out_dir, {"prompt": prompt, "english": english, "brief": brief.model_dump(), "seed": seed,
-                            "chunks": chunks,
+                            "chunks": chunks, "ai_art": ai_art,
                             "creative_patch": creative_result.patch if creative_result else None,
                             "model": llm.name, "history": []})
     return result
@@ -209,7 +210,8 @@ def studio_playtest(out_dir: Path, *, runs: int = 3, tune: bool = True, rounds: 
     manifest = manifest or manifest_mod.load()
     session = load_session(out_dir)
     brief = GameBrief.model_validate(session["brief"])
-    original = finalize_graph(assemble(brief, LAYERS[-1], session["seed"], session.get("chunks")), session,
+    original = finalize_graph(assemble(brief, LAYERS[-1], session["seed"], session.get("chunks"),
+                                       ai_art=bool(session.get("ai_art"))), session,
                               manifest, tuning=False)
     res = pt.playtest(out_dir, runs=runs, tune=tune, rounds=rounds, manifest=manifest, original=original,
                       difficulty=brief.difficulty, brief=session["brief"], on_progress=on_progress)
@@ -294,7 +296,8 @@ def _tweak(out_dir, request, llm, web_export, on_layer, manifest, recorder: Reco
     timings = {"design": time.perf_counter() - t0}
 
     result = StudioResult(out_dir, new, notes, seed, changes=changes, usage=llm.usage)
-    graph = finalize_graph(assemble(new, LAYERS[-1], seed, chunks), session, manifest)
+    graph = finalize_graph(assemble(new, LAYERS[-1], seed, chunks, ai_art=bool(session.get("ai_art"))), session,
+                           manifest)
     report = _build_layer(LAYERS[-1], graph, out_dir, manifest, web_export)
     result.layers.append(report)
     if on_layer:

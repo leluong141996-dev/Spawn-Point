@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import Any, Literal, Union
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from .diagnostics import Diagnostics, did_you_mean, join_path
 
@@ -46,8 +46,24 @@ class SpriteGenerate(_Model):
     _color = field_validator("color")(_check_color)
 
 
+class SpriteAI(_Model):
+    prompt: str = Field(min_length=1, max_length=200)
+    kind: str  # also the pixel size, animations and the fallback when no image provider is available
+    color: str | None = None
+    seed: int = 0
+
+    _color = field_validator("color")(_check_color)
+
+
 class SpriteRef(_Model):
-    generate: SpriteGenerate
+    generate: SpriteGenerate | None = None
+    ai: SpriteAI | None = None
+
+    @model_validator(mode="after")
+    def _one(self) -> "SpriteRef":
+        if (self.generate is None) == (self.ai is None):
+            raise ValueError('use exactly one of "generate" or "ai"')
+        return self
 
 
 class Entity(_Model):
@@ -134,11 +150,12 @@ def parse(data: Any) -> tuple[Graph | None, Diagnostics]:
         return None, diags
 
 
-_TYPE_TAGS = {"str", "int", "float", "bool", "SpriteRef", "SpriteGenerate", "Shape", "Entity"}
+_TYPE_TAGS = {"str", "int", "float", "bool", "SpriteRef", "SpriteGenerate", "SpriteAI", "Shape", "Entity"}
 
 
 # Which model lives under a field name (dict/list containers skip their key/index).
 _CHILD = {"settings": (Settings, 1), "shape": (Shape, 1), "level": (Level, 1), "generate": (SpriteGenerate, 1),
+          "ai": (SpriteAI, 1),
           "sprite": (SpriteRef, 1),
           "entities": (Entity, 2), "rules": (Rule, 2)}
 

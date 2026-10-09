@@ -11,7 +11,9 @@ from .spriteset import SpriteError, SpriteSet, load
 SPRITE_DIR = "res://sprites"
 
 
-def resolve(name: str, ent: Entity, base_dir: Path | None, default_color: str) -> SpriteSet:
+def resolve(name: str, ent: Entity, base_dir: Path | None, default_color: str,
+            warn=lambda msg: None) -> SpriteSet:
+    """`warn(message)` reports a non-fatal problem (an AI sprite falling back to a generated one)."""
     ref = ent.sprite
     if isinstance(ref, str):
         path = Path(ref)
@@ -22,6 +24,21 @@ def resolve(name: str, ent: Entity, base_dir: Path | None, default_color: str) -
         if not path.exists():
             raise SpriteError(f"sprite file '{ref}' not found")
         return load(path)
+    if ref.ai is not None:
+        from .ai import ai_sprite, provider_from_env
+
+        spec = ref.ai
+        if spec.kind not in KINDS:
+            raise SpriteError(f"unknown sprite kind '{spec.kind}'")
+        provider = provider_from_env()
+        if provider is None:
+            warn("no image provider configured (SPAWNPOINT_IMAGE_PROVIDER); using a generated sprite")
+        else:
+            try:
+                return ai_sprite(name, spec.kind, spec.prompt, provider, spec.seed)
+            except SpriteError as e:
+                warn(f"AI sprite failed ({e}); using a generated sprite")
+        return generate(name, spec.kind, spec.color or default_color, None, spec.seed)
     gen = ref.generate
     if gen.kind not in KINDS:
         raise SpriteError(f"unknown sprite kind '{gen.kind}'")
