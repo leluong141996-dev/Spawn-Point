@@ -5,7 +5,8 @@
   "settings": {
     "tile_size": 32,
     "lives": 3,
-    "seed": 7
+    "seed": 7,
+    "zoom": 1.5
   },
   "entities": {
     "Player": {

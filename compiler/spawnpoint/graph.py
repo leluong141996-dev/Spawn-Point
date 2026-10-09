@@ -90,6 +90,8 @@ class Settings(_Model):
     gravity: float | None = Field(default=None, ge=0, le=10000)
     seed: int = 0
     tiles: dict[Literal["solid", "oneway"], TileStyle] = Field(default_factory=dict)
+    tile_style: Literal["pixel", "flat"] = "pixel"
+    zoom: float = Field(default=1.0, ge=0.5, le=4.0)
 
     _bg = field_validator("background")(_check_color)
 

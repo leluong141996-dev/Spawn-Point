@@ -45,6 +45,7 @@ class Analysis:
     plan: dict | None = None
     rules_source: str | None = None
     sprites: dict[str, SpriteSet] = field(default_factory=dict)  # entity -> resolved sprite sheet
+    tiles_image: Any = None  # pixel-art tile atlas (PIL image), written to res://sprites/tiles.png
 
     @property
     def ok(self) -> bool:
@@ -67,6 +68,7 @@ class _Analyzer:
         self.base_dir = base_dir
         self.genre = GENRE_DEFAULTS[graph.genre]
         self.sprites: dict[str, SpriteSet] = {}
+        self.tiles_image = None
 
     # -- entry -----------------------------------------------------------------------------
     def run(self) -> Analysis:
@@ -97,7 +99,7 @@ class _Analyzer:
         if not self.d.ok or data is None:
             return Analysis(g, self.d)
         plan = self._plan(data, teams, params_by_entity, players[0])
-        return Analysis(g, self.d, plan, rules.source, self.sprites)
+        return Analysis(g, self.d, plan, rules.source, self.sprites, self.tiles_image)
 
     # -- sprites ---------------------------------------------------------------------------
     def _resolve_sprites(self, teams: dict[str, str]) -> None:
@@ -327,6 +329,11 @@ class _Analyzer:
                       "top": (solid and solid.top) or self.genre["solid_top"]},
             "oneway": {"color": (oneway and oneway.color) or self.genre["oneway"]},
         }
+        if s.tile_style == "pixel":
+            from .sprites.tiles import tileset
+            self.tiles_image = tileset(g.genre, tiles_style["solid"]["color"], tiles_style["solid"]["top"],
+                                       tiles_style["oneway"]["color"], ts, s.seed)
+            tiles_style["texture"] = "res://sprites/tiles.png"
         return {
             "format": PLAN_FORMAT,
             "name": g.name,
@@ -334,6 +341,7 @@ class _Analyzer:
             "tile_size": ts,
             "lives": s.lives,
             "viewport": list(s.viewport),
+            "zoom": s.zoom,
             "background": s.background or self.genre["background"],
             "gravity": s.gravity if s.gravity is not None else self.genre["gravity"],
             "tiles": tiles_style,

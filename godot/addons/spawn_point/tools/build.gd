@@ -338,13 +338,15 @@ func _build_tileset(plan: Dictionary) -> TileSet:
 	_paint_block(img, ts, ts, base)
 	_paint_plank(img, ts * 2, ts, plank)
 
+	var pixel_tex: Texture2D = load(String(plan.tiles.texture)) if plan.tiles.has("texture") else null
 	var tileset := TileSet.new()
 	tileset.tile_size = Vector2i(ts, ts)
 	tileset.add_physics_layer()
 	tileset.set_physics_layer_collision_layer(0, 1)
 	tileset.set_physics_layer_collision_mask(0, 0)
 	var src := TileSetAtlasSource.new()
-	src.texture = ImageTexture.create_from_image(img)
+	# Pixel-art atlas from the compiler when present; otherwise the painted flat tiles.
+	src.texture = pixel_tex if pixel_tex else ImageTexture.create_from_image(img)
 	src.texture_region_size = Vector2i(ts, ts)
 	tileset.add_source(src, 0)
 	var h := ts * 0.5
@@ -475,7 +477,9 @@ func _build_level(plan: Dictionary, tileset: TileSet) -> Node2D:
 	var cam := Camera2D.new()
 	cam.name = "Camera"
 	cam.set_script(load(CAMERA_SCRIPT))
-	var vp := Vector2(plan.viewport[0], plan.viewport[1])
+	var zoom := float(plan.get("zoom", 1.0))
+	cam.zoom = Vector2(zoom, zoom)
+	var vp := Vector2(plan.viewport[0], plan.viewport[1]) / zoom  # what the camera actually shows
 	_apply_camera_limits(cam, bounds, vp)
 	_own(root, cam, root)
 

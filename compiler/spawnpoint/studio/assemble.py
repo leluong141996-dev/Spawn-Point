@@ -149,6 +149,7 @@ class _Assembler:
                 "lives": 3,
                 "seed": self.seed,
                 "background": self.pal["bg"],
+                "zoom": 1.5,  # pixel-art sprites read better closer up
                 "tiles": {"solid": {"color": self.pal["solid"], "top": self.pal["top"]},
                           "oneway": {"color": self.pal["oneway"]}},
             },

@@ -236,3 +236,26 @@ def test_pixel_example_is_clean(manifest):
 def test_sprite_kind(name, comps, archetype, platformer, kind):
     b = GameBrief(title="t", genre="platformer" if platformer else "topdown")
     assert sprite_kind(name, {"components": comps}, archetype, b, platformer) == kind
+
+
+# --- tiles & zoom -----------------------------------------------------------------------------
+
+@pytest.mark.parametrize("genre", ["platformer", "topdown"])
+def test_pixel_tileset(genre):
+    from spawnpoint.sprites.tiles import tileset
+    img = tileset(genre, "#5f574f", "#00e436", "#ab5236", 32, seed=3)
+    assert img.size == (96, 32)
+    px = np.asarray(img)
+    assert (px[:, :64, 3] == 255).all()  # solid tiles are fully opaque
+    assert (px[20:, 64:, 3] == 0).all()  # the one-way plank leaves the lower part open
+    assert tileset(genre, "#5f574f", "#00e436", "#ab5236", 32, seed=3).tobytes() == img.tobytes()
+
+
+def test_plan_carries_tiles_and_zoom(manifest):
+    g = minimal(settings={"zoom": 1.5})
+    a = analyze(g, manifest)
+    assert a.plan["zoom"] == 1.5 and a.plan["tiles"]["texture"] == "res://sprites/tiles.png"
+    assert a.tiles_image is not None
+    flat = analyze(minimal(settings={"tile_style": "flat"}), manifest)
+    assert "texture" not in flat.plan["tiles"] and flat.tiles_image is None
+    assert "E_SCHEMA" in codes(analyze(minimal(settings={"zoom": 9}), manifest).diagnostics)
