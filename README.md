@@ -95,10 +95,13 @@ Only what you asked for changes, and the level layout is kept. Prompts can be in
 4. **Creative pass** (`--creative`) — the LLM proposes a small graph patch (parameters, rules); the
    compiler's diagnostics drive up to two repair rounds; if it still fails, it is dropped.
 
-**The model.** [SpawnPoint-Coder-7B](https://huggingface.co/smoky1496/SpawnPoint-Coder-7B-AWQ) is fine-tuned
-for exactly these tasks and runs on a single 12 GB GPU (AWQ 4-bit). Exact-match on held-out Spawn Point
-tasks versus the model it was tuned from: tweaks 62% → 97%, entity edits 47% → 100%, translation
-9% → 91%, briefs needing repair by the normalizer 36% → 5%. `scripts/llm-up.sh` downloads and serves it.
+**The model.** [SpawnPoint-Coder-7B](https://huggingface.co/smoky1496/SpawnPoint-Coder-7B-AWQ) is a 7B model
+fine-tuned to generate Godot 4 games through this pipeline: it writes the game design, tweaks and entity
+edits as strict JSON, and the compiler turns that into Godot scenes and GDScript. It runs on a single 12 GB
+GPU (AWQ 4-bit). v2 on 30 human-written game ideas (English and Vietnamese): 87% fully right (v1: 73%),
+97% of checks passed; on held-out tasks: briefs 88% exact (v1: 36%), Vietnamese → English 97% (v1: 52%),
+tweaks 98%, entity edits 91%. It is tuned for 2D platformers and 2D top-down games only; other genres
+are no better than a general 7B coder. `scripts/llm-up.sh` downloads and serves it.
 
 LLM settings: `SPAWNPOINT_LLM_BASE_URL` (default `http://localhost:8000/v1`),
 `SPAWNPOINT_LLM_MODEL` (default: the server's first model), `SPAWNPOINT_LLM_API_KEY`.
