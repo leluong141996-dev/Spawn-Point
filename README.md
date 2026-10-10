@@ -3,8 +3,8 @@
 **Compile a small JSON "game graph" into a juicy, runnable Godot 4 game — in seconds.**
 
 <p align="center">
-  <img src="docs/media/pixel-hopper.gif" width="48%" alt="Pixel Hopper — generated platformer">
-  <img src="docs/media/pixel-arena.gif" width="48%" alt="Pixel Arena — generated top-down shooter">
+  <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/pixel-hopper.gif" width="48%" alt="Pixel Hopper — generated platformer">
+  <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/pixel-arena.gif" width="48%" alt="Pixel Arena — generated top-down shooter">
 </p>
 <p align="center"><sub>Both games are built from <code>examples/pixel_hopper.json</code> and
 <code>examples/pixel_arena.json</code>: generated sprites, collision traced from pixels, juice on by
@@ -256,8 +256,7 @@ developing; the component library is copied into `addons/spawn_point/`.
   `Game.ready`…), optional `if` expression, `do` actions (`win()`, `add_score(n)`, `Door.open()`,
   `spawn("Slime")`, `shake(0.5)`, `message("Hi")`…). They compile to a readable `rules.gd`.
 
-See the full reference in the [design spec](docs/superpowers/specs/2026-10-07-component-library-and-graph-compiler-design.md),
-and list every component with its parameters, signals and methods:
+List every component with its parameters, signals and methods:
 
 ```bash
 spawnpoint components          # human-readable

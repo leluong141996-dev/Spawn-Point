@@ -1,0 +1,55 @@
+name: Release
+
+# Publishing a GitHub Release (tag vX.Y.Z matching pyproject's version) builds, smoke-tests and uploads
+# spawnpoint-studio to PyPI via Trusted Publishing — no API token is stored anywhere.
+on:
+  release:
+    types: [published]
+
+env:
+  GODOT_VERSION: "4.6.2"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Tag matches the package version
+        run: |
+          version=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          test "${GITHUB_REF_NAME#v}" = "$version" || { echo "tag $GITHUB_REF_NAME != version $version"; exit 1; }
+      - name: Install Godot (headless)
+        run: |
+          curl -sSfL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip
+          sudo mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot4
+      - name: Build sdist and wheel
+        run: pip install build twine && python -m build && twine check dist/*
+      - name: Smoke test the wheel outside the repository
+        run: |
+          python -m venv /tmp/venv
+          /tmp/venv/bin/pip install dist/*.whl
+          mkdir /tmp/play && cd /tmp/play
+          /tmp/venv/bin/spawnpoint examples copy pixel_hopper
+          /tmp/venv/bin/spawnpoint build pixel_hopper.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
