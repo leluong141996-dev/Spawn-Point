@@ -10,6 +10,7 @@ import json
 import os
 import re
 import shutil
+import signal
 import socket
 import struct
 import subprocess
@@ -106,12 +107,13 @@ def check(url: str, seconds: float = 12.0, size: tuple[int, int] = (960, 540), k
     if chrome is None:
         raise RuntimeError("Chrome not found (set CHROME_BIN)")
     result = WebCheck()
-    with tempfile.TemporaryDirectory() as profile:
+    # Chrome's helper processes can outlive the main one for a moment and keep writing to the profile.
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as profile:
         proc = subprocess.Popen(
             [chrome, "--headless=new", "--no-sandbox", f"--user-data-dir={profile}", "--remote-debugging-port=0",
              "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--autoplay-policy=no-user-gesture-required",
              f"--window-size={size[0]},{size[1]}", "about:blank"],
-            stderr=subprocess.PIPE, stdout=subprocess.DEVNULL, text=True)
+            stderr=subprocess.PIPE, stdout=subprocess.DEVNULL, text=True, start_new_session=True)
         try:
             ws_url = _devtools_url(proc)
             port = re.match(r"ws://[^:]+:(\d+)", ws_url).group(1)
@@ -163,12 +165,28 @@ def check(url: str, seconds: float = 12.0, size: tuple[int, int] = (960, 540), k
                 result.value = ev.get("result", {}).get("value")
             ws.close()
         finally:
-            proc.terminate()
-            try:
-                proc.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                proc.kill()
+            _stop(proc)
     return result
+
+
+def _stop(proc: subprocess.Popen) -> None:
+    """Stop Chrome and every helper process it started (they share its process group)."""
+    for sig in (signal.SIGTERM, signal.SIGKILL):
+        try:
+            os.killpg(proc.pid, sig)
+        except ProcessLookupError:
+            return
+        try:
+            proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            continue
+        deadline = time.time() + 5  # the main process is gone; give the helpers a moment to follow
+        while time.time() < deadline:
+            try:
+                os.killpg(proc.pid, 0)
+            except ProcessLookupError:
+                return
+            time.sleep(0.05)
 
 
 def _devtools_url(proc: subprocess.Popen) -> str:
