@@ -1,6 +1,11 @@
 # Spawn Point
 
-**Compile a small JSON "game graph" into a juicy, runnable Godot 4 game — in seconds.**
+**Describe a 2D game in one sentence — get a playable, juicy Godot 4 game in seconds.**
+
+[![CI](https://github.com/leluong141996-dev/Spawn-Point/actions/workflows/ci.yml/badge.svg)](https://github.com/leluong141996-dev/Spawn-Point/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/spawnpoint-studio)](https://pypi.org/project/spawnpoint-studio/)
+[![Model](https://img.shields.io/badge/%F0%9F%A4%97%20model-SpawnPoint--Coder--7B-yellow)](https://huggingface.co/smoky1496/SpawnPoint-Coder-7B-AWQ)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/pixel-hopper.gif" width="48%" alt="Pixel Hopper — generated platformer">
@@ -10,7 +15,7 @@
 <code>examples/pixel_arena.json</code>: generated sprites, collision traced from pixels, juice on by
 default. Recorded with <code>spawnpoint gif</code> (autopilot).</sub></p>
 
-Spawn Point is the foundation of an autonomous game-studio agent. Instead of asking an LLM to type
+Spawn Point is an open-source, autonomous game studio that runs on your own machine. Instead of asking an LLM to type
 hundreds of lines of GDScript (slow, expensive, and easy to break with Godot 3/4 mix-ups), the LLM
 assembles **pre-tested components** like LEGO, places them on an **ASCII map**, and wires gameplay
 with **declarative rules**. A deterministic compiler validates everything and lets Godot itself write
@@ -29,6 +34,24 @@ graph.json ──► validate (Python) ──► build scenes (Godot headless) �
 | Game feel | none by default | coyote time, jump buffer, squash & stretch, hit-stop, screen shake, particles, SFX — on by default |
 | Hitboxes | drift from visuals | derived from the same shape as the visual |
 | Failure mode | crashes, syntax errors | structured diagnostics *before* Godot runs |
+
+## Install
+
+Requirements: Python ≥ 3.10, [Godot 4.6](https://godotengine.org/download) on your `PATH` (`godot4` or
+`godot`, or set `GODOT_BIN`), and for the LLM features either a 12 GB NVIDIA GPU with Docker (local model)
+or any OpenAI-compatible API.
+
+```bash
+pip install spawnpoint-studio
+spawnpoint llm up                      # serves SpawnPoint-Coder-7B locally (or set SPAWNPOINT_LLM_* for an API)
+spawnpoint create "a ninja platformer where you collect stars"
+```
+
+No GPU? Try the hand-written examples, no LLM needed:
+
+```bash
+spawnpoint examples copy pixel_hopper && spawnpoint build pixel_hopper.json --run
+```
 
 ## Spawn Point Studio (web cockpit)
 
@@ -199,13 +222,10 @@ stop making the mistakes the normalizer and compiler had to fix (roadmap item 7)
 
 ## Quick start (hand-written graphs)
 
-Requirements: Python ≥ 3.10 and [Godot 4.6](https://godotengine.org/download) on your `PATH`
-(`godot4` or `godot`, or set `GODOT_BIN`).
-
 ```bash
-pip install -e ".[dev]"
-spawnpoint build examples/coin_hopper.json --run     # platformer
-spawnpoint build examples/neon_arena.json --run      # top-down shooter
+spawnpoint examples list
+spawnpoint examples copy coin_hopper && spawnpoint build coin_hopper.json --run   # platformer
+spawnpoint examples copy neon_arena && spawnpoint build neon_arena.json --run     # top-down shooter
 ```
 
 Controls: move **WASD / arrows**, jump **Space / Z / W**, dash **Shift / C**, shoot **X / J / left mouse**,
@@ -297,15 +317,20 @@ godot/                     Godot project hosting the component library and its t
   tests/                   headless GDScript tests
 compiler/spawnpoint/       Python compiler: graph schema, analysis, rules codegen, sfx, CLI
 compiler/spawnpoint/studio LLM orchestrator: brief, assembler, level generators, web export, browser check
-compiler/spawnpoint/sprites SpriteSet format, pixel-art generator, importer, contour → collision
+compiler/spawnpoint/sprites SpriteSet format, pixel-art generator and tiles, importer, contour → collision, AI-art providers
+compiler/spawnpoint/playtest bots, jump-aware planner, telemetry, heatmaps, tuner
+compiler/spawnpoint/cockpit web studio: HTTP + SSE server and the single-page UI
 compiler/tests/            pytest (includes end-to-end builds and the GDScript suite)
 examples/                  example graphs
-docs/                      design specs
+scripts/                   helper scripts (local LLM)
+docs/media/                README GIFs
 ```
 
 ## Development
 
 ```bash
+git clone https://github.com/leluong141996-dev/Spawn-Point && cd Spawn-Point
+pip install -e ".[dev]"
 pytest                      # everything: compiler, studio, end-to-end builds, web + browser, GDScript suite
 pytest -m "not llm"         # without the live-LLM tests
 spawnpoint manifest         # regenerate manifest.json after changing a component
@@ -315,6 +340,9 @@ godot4 --headless --path godot --fixed-fps 60 res://tests/run_tests.tscn   # GDS
 Adding a component: create `godot/addons/spawn_point/components/<name>_component.gd` following the
 contract (typed `@export`s with ranges, `SP_NAME` / `SP_HOSTS` / `SP_REQUIRES` / `SP_CATEGORY`
 constants, `##` docs on everything public), add tests in `godot/tests/`, then run `spawnpoint manifest`.
+
+Contributions are welcome: open an issue to discuss a bigger change first, keep `pytest -m "not llm"`
+green, and add a test with every fix. CI runs the full suite (with Godot) on every push and pull request.
 
 ## Roadmap
 
