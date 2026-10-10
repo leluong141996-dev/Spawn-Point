@@ -13,6 +13,7 @@ var _t := 0.0
 
 
 func _ready() -> void:
+	get_tree().root.set_meta(&"sp_autopilot", true)  # level-up menus pick on their own
 	var args := OS.get_cmdline_user_args()
 	var out_dir := args[0] if args.size() > 0 else "user://record"
 	var total := int(args[1]) if args.size() > 1 else 360

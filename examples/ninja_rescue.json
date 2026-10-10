@@ -1,0 +1,351 @@
+{
+  "spawnpoint": 1,
+  "name": "Ninja Rescue",
+  "genre": "platformer",
+  "settings": {
+    "tile_size": 32,
+    "lives": 3,
+    "seed": 21,
+    "zoom": 1.5,
+    "background": "#1d1a33",
+    "tiles": {
+      "solid": {
+        "color": "#4a3728",
+        "top": "#5fb83d"
+      },
+      "oneway": {
+        "color": "#8a5a3b"
+      }
+    }
+  },
+  "entities": {
+    "Ninja": {
+      "components": {
+        "PlatformerMovement": {
+          "max_speed": 250,
+          "air_jumps": 1,
+          "dash_speed": 640,
+          "jump_velocity": 640
+        },
+        "PlayerInput": {},
+        "Health": {
+          "max_health": 4,
+          "invincibility_time": 0.8
+        },
+        "Hurtbox": {
+          "size_scale": 0.75
+        },
+        "Stomp": {},
+        "Weapon": {
+          "projectile": "Shuriken",
+          "fire_rate": 3.0,
+          "spread_deg": 0,
+          "muzzle_distance": 18
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "hero",
+          "color": "#29adff",
+          "features": [
+            "mask"
+          ]
+        }
+      }
+    },
+    "Shuriken": {
+      "body": "area",
+      "components": {
+        "Projectile": {
+          "speed": 640,
+          "lifetime": 0.7
+        },
+        "Hitbox": {
+          "damage": 1,
+          "knockback": 200
+        }
+      },
+      "juice": "none",
+      "sprite": {
+        "generate": {
+          "kind": "star",
+          "color": "#c2c3c7"
+        }
+      }
+    },
+    "Slime": {
+      "team": "enemy",
+      "components": {
+        "PlatformerMovement": {
+          "max_speed": 60
+        },
+        "PatrolAI": {},
+        "Health": {
+          "max_health": 1
+        },
+        "Hurtbox": {
+          "size_scale": 1.0
+        },
+        "Hitbox": {
+          "damage": 1
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "slime",
+          "color": "#9b5de5"
+        }
+      }
+    },
+    "Bat": {
+      "team": "enemy",
+      "components": {
+        "PlatformerMovement": {
+          "max_speed": 90,
+          "gravity_scale": 0.0
+        },
+        "ChaseAI": {
+          "detect_radius": 260,
+          "lose_radius": 420,
+          "needs_line_of_sight": false
+        },
+        "Health": {
+          "max_health": 1
+        },
+        "Hurtbox": {
+          "size_scale": 1.0
+        },
+        "Hitbox": {
+          "damage": 1
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "flyer",
+          "color": "#7e2553",
+          "features": [
+            "wings"
+          ]
+        }
+      }
+    },
+    "Thrower": {
+      "team": "enemy",
+      "components": {
+        "ChaseAI": {
+          "wander": false,
+          "detect_radius": 380,
+          "fire_range": 380
+        },
+        "Weapon": {
+          "projectile": "EnemyStar",
+          "fire_rate": 0.5,
+          "spread_deg": 6,
+          "muzzle_distance": 20
+        },
+        "Health": {
+          "max_health": 2
+        },
+        "Hurtbox": {
+          "size_scale": 1.0
+        },
+        "Hitbox": {
+          "damage": 1
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "hero",
+          "color": "#ff004d",
+          "features": [
+            "mask"
+          ]
+        }
+      }
+    },
+    "EnemyStar": {
+      "body": "area",
+      "team": "enemy",
+      "components": {
+        "Projectile": {
+          "speed": 320,
+          "lifetime": 2.0
+        },
+        "Hitbox": {
+          "damage": 1,
+          "knockback": 240
+        }
+      },
+      "juice": "none",
+      "sprite": {
+        "generate": {
+          "kind": "star",
+          "color": "#ff77a8"
+        }
+      }
+    },
+    "Spikes": {
+      "body": "area",
+      "team": "enemy",
+      "juice": "none",
+      "components": {
+        "Hitbox": {
+          "damage": 1,
+          "knockback": 420
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "spikes",
+          "color": "#c2c3c7"
+        }
+      }
+    },
+    "Coin": {
+      "body": "area",
+      "components": {
+        "Collectible": {
+          "score": 1
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "coin",
+          "color": "#ffd23f"
+        }
+      }
+    },
+    "Heart": {
+      "body": "area",
+      "components": {
+        "Collectible": {
+          "kind": "heart",
+          "score": 0,
+          "heal": 1
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "heart",
+          "color": "#ff77a8"
+        }
+      }
+    },
+    "Key": {
+      "body": "area",
+      "components": {
+        "Collectible": {
+          "kind": "key",
+          "score": 10
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "gem",
+          "color": "#ffec27"
+        }
+      }
+    },
+    "Cage": {
+      "body": "static",
+      "components": {
+        "Gate": {}
+      },
+      "sprite": {
+        "generate": {
+          "kind": "door",
+          "color": "#8a8f98"
+        }
+      }
+    },
+    "Mom": {
+      "body": "area",
+      "components": {
+        "TriggerZone": {}
+      },
+      "sprite": {
+        "generate": {
+          "kind": "hero",
+          "color": "#ff77a8",
+          "features": [
+            "hair"
+          ]
+        }
+      }
+    }
+  },
+  "level": {
+    "map": [
+      "............................................................................##########",
+      "............................................................................##########",
+      "............................................................................##########",
+      "............................................................................##########",
+      ".............................................K..............................##########",
+      "............................................===.............................##########",
+      "............................................................................##########",
+      "............................................................................##########",
+      "........................................===.................................##########",
+      "...........................CCC....................................B.........##########",
+      ".......CCC................=====......H.............T..........CCC...................##",
+      "......=====......CC.................===.##........###........=====..................##",
+      ".................##.....................##........###.....................H.........##",
+      "..P...........S..##...............S.....##......S.###.......S......S...^^.....G...M.##",
+      "#####################...################################...###########################",
+      "#####################...################################...###########################"
+    ],
+    "legend": {
+      "#": "solid",
+      "=": "oneway",
+      "P": "Ninja",
+      "S": "Slime",
+      "B": "Bat",
+      "T": "Thrower",
+      "^": "Spikes",
+      "C": "Coin",
+      "H": "Heart",
+      "K": "Key",
+      "G": "Cage",
+      "M": "Mom"
+    }
+  },
+  "rules": [
+    {
+      "on": "Game.ready",
+      "do": [
+        "message('Mom was taken! Find the key and save her!')"
+      ]
+    },
+    {
+      "on": "Key.collected",
+      "do": [
+        "Cage.open()",
+        "message('The cage is open - go to Mom!')"
+      ]
+    },
+    {
+      "on": "Mom.triggered",
+      "do": [
+        "message('You saved Mom!')",
+        "win()"
+      ]
+    },
+    {
+      "on": "Slime.died",
+      "do": [
+        "add_score(5)"
+      ]
+    },
+    {
+      "on": "Bat.died",
+      "do": [
+        "add_score(10)"
+      ]
+    },
+    {
+      "on": "Thrower.died",
+      "do": [
+        "add_score(25)"
+      ]
+    }
+  ]
+}

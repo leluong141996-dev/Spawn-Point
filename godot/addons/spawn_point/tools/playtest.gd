@@ -17,6 +17,7 @@ const MOVE_ACTIONS := [&"move_left", &"move_right", &"move_up", &"move_down"]
 const ALL_ACTIONS := [&"move_left", &"move_right", &"move_up", &"move_down", &"jump", &"dash", &"shoot"]
 const STUCK_FRAMES := 240
 const TARGET_PATIENCE := 20 * 60  # a person moves on after ~20 s of failing at one thing
+const ENEMY_PATIENCE := 6 * 60  # ...and much sooner from an optional fight they cannot reach
 const NAV := preload("res://addons/spawn_point/tools/playtest_nav.gd")
 
 var _rng := RandomNumberGenerator.new()
@@ -50,6 +51,7 @@ var _anchor_frame := 0
 
 
 func _ready() -> void:
+	get_tree().root.set_meta(&"sp_autopilot", true)  # level-up menus pick on their own
 	var args := OS.get_cmdline_user_args()
 	var out_path := args[0] if args.size() > 0 else "user://playtest.json"
 	var profiles := (args[1] if args.size() > 1 else "novice,average,expert").split(",")
@@ -298,6 +300,10 @@ func _pick_target(p: CharacterBody2D) -> Node2D:
 	return best
 
 
+func _patience(target: Node2D) -> int:
+	return ENEMY_PATIENCE if SP.team_of(target) == SP.TEAM_ENEMY else TARGET_PATIENCE
+
+
 func _give_up(target: Node2D, reason := "no_path") -> void:
 	_blocked_targets[target.get_instance_id()] = true
 	var c := Vector2i(floori(target.global_position.x / _tile), floori(target.global_position.y / _tile))
@@ -316,7 +322,7 @@ func _platformer(p: CharacterBody2D, mv: PlatformerMovementComponent) -> void:
 		_target = target
 		_target_since = _frame
 		_path = []
-	if target and _frame - _target_since > TARGET_PATIENCE:
+	if target and _frame - _target_since > _patience(target):
 		_give_up(target, "too_hard")
 		return
 	_wants_move = true

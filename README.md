@@ -16,8 +16,8 @@
 <code>examples/pixel_arena.json</code>: generated sprites, collision traced from pixels, juice on by
 default. Recorded with <code>spawnpoint gif</code> (autopilot).</sub></p>
 
-<p align="center"><b><a href="https://leluong141996-dev.github.io/Spawn-Point/">▶ Play the demos in your browser</a></b>: games designed by the model from
-one-sentence prompts (including a Vietnamese one), next to the hand-written examples. No install needed.</p>
+<p align="center"><b><a href="https://leluong141996-dev.github.io/Spawn-Point/">▶ Play the demos in your browser</a></b>: a Mario-style platformer, a ninja
+rescue, a dinosaur-egg bubble shooter, a survivor with level-ups and an arena shooter. No install needed.</p>
 
 Spawn Point is an open-source, autonomous game studio that runs on your own machine. Instead of asking an LLM to type
 hundreds of lines of GDScript (slow, expensive, and easy to break with Godot 3/4 mix-ups), the LLM
@@ -306,7 +306,9 @@ headless smoke test (spawn, scripted input, crash detection) and report `E_RUNTI
 | Movement | `PlatformerMovement` (coyote time, jump buffer, variable jump, apex hang, dash, double jump), `TopDownMovement` (accel/friction, dash) |
 | Controllers | `PlayerInput`, `PatrolAI`, `ChaseAI`, `Aim` |
 | Combat | `Health`, `Hitbox`, `Hurtbox`, `Stomp`, `Weapon`, `Projectile` |
-| World | `Collectible`, `TriggerZone`, `Spawner`, `Gate` |
+| World | `Collectible`, `TriggerZone`, `Spawner` (ramping waves, spawns around the player), `Gate` |
+| Progression | `Experience` (XP and levels), `XpOrb` (gems that fly to the player), `LevelUpMenu` (pause and pick one of three upgrades) |
+| Game modes | `BubbleBoard` (a complete bubble shooter: bank shots, colour pops, falling clusters, a descending ceiling) |
 | Feel | `Juice` — attached to every entity unless `"juice": "none"` |
 
 Runtime autoloads: `GameState` (score, lives, variables, win/lose), `World` (spawning, rule
@@ -341,8 +343,8 @@ spawnpoint manifest         # regenerate manifest.json after changing a componen
 godot4 --headless --path godot --fixed-fps 60 res://tests/run_tests.tscn   # GDScript suite only
 ```
 
-`spawnpoint demo -o site` builds the browser demo site: every graph in `examples/` and `examples/gallery/`,
-one shared Godot engine, each game checked in headless Chrome. The Pages workflow publishes it on every push.
+`spawnpoint demo -o site` builds the browser demo site: the showcase graphs in `examples/`, one shared Godot
+engine, each game checked in headless Chrome. The Pages workflow publishes it on every push.
 
 Adding a component: create `godot/addons/spawn_point/components/<name>_component.gd` following the
 contract (typed `@export`s with ranges, `SP_NAME` / `SP_HOSTS` / `SP_REQUIRES` / `SP_CATEGORY`

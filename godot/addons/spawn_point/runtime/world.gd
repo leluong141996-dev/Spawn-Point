@@ -8,6 +8,7 @@ var level: Node2D
 var kill_y := INF
 
 var _bindings: Array[Dictionary] = []
+var _param_overrides: Array[Dictionary] = []  # {type, component, param, value}: level-ups, power-ups
 var _scene_cache := {}
 
 
@@ -16,12 +17,54 @@ func begin_level(level_root: Node2D, level_kill_y: float) -> void:
 	level = level_root
 	kill_y = level_kill_y
 	_bindings.clear()
+	_param_overrides.clear()
 
 
 ## Called by every [SPEntityCore] when its entity is ready.
 func register_entity(entity: Node) -> void:
+	for o in _param_overrides:
+		_apply_override(o, entity)
 	for b in _bindings:
 		_apply_binding(b, entity)
+
+
+## Sets [param param] of component [param component_name] on every current and future instance of
+## [param entity_type] (e.g. a level-up that makes every future bullet hit harder).
+func set_type_param(entity_type: StringName, component_name: StringName, param: StringName, value: Variant) -> void:
+	var o := {"type": entity_type, "component": component_name, "param": param, "value": value}
+	_param_overrides = _param_overrides.filter(func(x: Dictionary) -> bool:
+		return not (x.type == entity_type and x.component == component_name and x.param == param))
+	_param_overrides.append(o)
+	for e in instances(entity_type):
+		_apply_override(o, e)
+
+
+## The value [method set_type_param] gave, or [param fallback].
+func type_param(entity_type: StringName, component_name: StringName, param: StringName, fallback: Variant) -> Variant:
+	for o in _param_overrides:
+		if o.type == entity_type and o.component == component_name and o.param == param:
+			return o.value
+	return fallback
+
+
+## A component parameter as authored in [param entity_type]'s scene (ignores overrides), or null.
+func type_default(entity_type: String, component_name: StringName, param: StringName) -> Variant:
+	var path := ENTITY_SCENE_PATH % entity_type
+	if not ResourceLoader.exists(path):
+		return null
+	var node := (load(path) as PackedScene).instantiate()
+	var c := SP.component(node, component_name)
+	var value: Variant = c.get(param) if c else null
+	node.free()
+	return value
+
+
+func _apply_override(o: Dictionary, entity: Node) -> void:
+	if not entity.is_in_group(o.type):
+		return
+	var c := SP.component(entity, o.component)
+	if c:
+		c.set(o.param, o.value)
 
 
 ## Connects [param callable] to [param signal_name] of component [param component_name] on every

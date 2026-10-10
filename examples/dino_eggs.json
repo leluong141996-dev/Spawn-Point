@@ -1,0 +1,99 @@
+{
+  "spawnpoint": 1,
+  "name": "Dino Eggs",
+  "genre": "topdown",
+  "settings": {
+    "tile_size": 32,
+    "lives": 1,
+    "seed": 11,
+    "zoom": 1.0,
+    "background": "#1d2b53",
+    "tiles": {
+      "solid": {
+        "color": "#5f574f",
+        "top": "#00e436"
+      }
+    }
+  },
+  "entities": {
+    "Dino": {
+      "components": {
+        "PlayerInput": {},
+        "BubbleBoard": {
+          "columns": 9,
+          "rows": 5,
+          "height_rows": 12,
+          "colors": 4,
+          "shots_per_drop": 8,
+          "launcher_offset": [
+            60,
+            0
+          ]
+        }
+      },
+      "juice": "none",
+      "sprite": {
+        "generate": {
+          "kind": "hero",
+          "color": "#00e436",
+          "features": [
+            "tail",
+            "crest"
+          ]
+        }
+      }
+    }
+  },
+  "level": {
+    "map": [
+      "##############################",
+      "#............................#",
+      "#............................#",
+      "#............................#",
+      "#............................#",
+      "#............................#",
+      "#............................#",
+      "#............................#",
+      "#............................#",
+      "#............................#",
+      "#............................#",
+      "#............................#",
+      "#............................#",
+      "#............................#",
+      "#...........P................#",
+      "#............................#",
+      "##############################"
+    ],
+    "legend": {
+      "#": "solid",
+      "P": "Dino"
+    }
+  },
+  "rules": [
+    {
+      "on": "Game.ready",
+      "do": [
+        "message('Aim and fire! Pop 3 eggs of one colour')"
+      ]
+    },
+    {
+      "on": "Dino.BubbleBoard.ceiling_dropped",
+      "do": [
+        "message('The ceiling is coming down!')"
+      ]
+    },
+    {
+      "on": "Dino.BubbleBoard.cleared",
+      "do": [
+        "message('All eggs hatched!')",
+        "win()"
+      ]
+    },
+    {
+      "on": "Dino.BubbleBoard.overflowed",
+      "do": [
+        "lose()"
+      ]
+    }
+  ]
+}

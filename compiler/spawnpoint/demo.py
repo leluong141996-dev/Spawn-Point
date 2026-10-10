@@ -2,10 +2,9 @@
 
     spawnpoint demo --out site
 
-Hand-written examples come from examples/*.json; games designed by the model come from
-examples/gallery/*.json, with their original prompts in examples/gallery/prompts.json. Each game is
-built, exported as a single-threaded web build (works on GitHub Pages, no special headers), checked
-in headless Chrome (no console errors, a real screenshot for the card) and linked from index.html.
+The games are the SHOWCASE examples below. Each one is built, exported as a single-threaded web build
+(works on GitHub Pages, no special headers), checked in headless Chrome (no console errors, a real
+screenshot for the card) and linked from index.html.
 """
 
 from __future__ import annotations
@@ -24,19 +23,40 @@ from .studio import web, webcheck
 
 REPO = "https://github.com/leluong141996-dev/Spawn-Point"
 MODEL = "https://huggingface.co/smoky1496/SpawnPoint-Coder-7B-AWQ"
-CONTROLS = "Move: WASD / arrows | Jump: Space / Z | Dash: Shift | Shoot: X / J / click | Restart: R"
+# (example graph, genre tag, one-line pitch, controls). Controls are ASCII: they travel through Godot's
+# export_presets.cfg into the game page.
+SHOWCASE = [
+    ("pixel_hopper.json", "platformer",
+     "A Mario-style romp: stomp slimes, double-jump, dash, and collect every coin to open the door.",
+     "Move: arrows / WASD | Jump: Space (twice to double-jump) | Dash: Shift | Restart: R"),
+    ("ninja_rescue.json", "platformer",
+     "Mom has been caged! Throw shurikens, dodge the masked throwers, grab the key up high and set her free.",
+     "Move: arrows / WASD | Jump: Space | Shuriken: X / J | Dash: Shift | Restart: R"),
+    ("dino_eggs.json", "bubble shooter",
+     "The classic egg shooter: bank shots off the walls, pop three dinosaur eggs of a colour, drop whole clusters.",
+     "Aim: mouse or Left / Right | Shoot: click / Space / X | Restart: R"),
+    ("night_survivor.json", "survivor",
+     "Survive three minutes of the night: auto-fire, collect gems, level up and pick a new power each time.",
+     "Move: arrows / WASD | Dash: Shift | Pick an upgrade: 1 / 2 / 3 or click | Restart: R"),
+    ("pixel_arena.json", "arena shooter",
+     "A top-down arena: blast through robots and turrets, then reach the portal.",
+     "Move: WASD | Aim: mouse | Shoot: click / X | Dash: Shift | Restart: R"),
+]
 
-# Injected into every game page: a way back to the gallery and the controls (bottom-left, clear of the HUD).
-# ASCII only: the text travels through Godot's export_presets.cfg. Hidden for screenshots (?shot).
-GAME_OVERLAY = (
-    "<style>#sp-bar{position:fixed;bottom:8px;left:8px;z-index:10;display:flex;gap:10px;align-items:center;"
-    "font:12px/1.4 ui-monospace,Menlo,monospace;color:#fff;background:rgba(0,0,0,.55);padding:5px 10px;"
-    "border-radius:6px;pointer-events:none}#sp-bar a{color:#ffec27;text-decoration:none;pointer-events:auto}"
-    "@media (max-width:700px){#sp-bar span{display:none}}</style>"
-    "<script>addEventListener('DOMContentLoaded',function(){if(location.search.indexOf('shot')>=0)return;var b=document.createElement('div');b.id='sp-bar';"
-    "b.innerHTML='<a href=\"../\">&lt;- all games</a><span>" + CONTROLS + "</span>';"
-    "document.body.appendChild(b);});</script>"
-)
+
+def game_overlay(controls: str) -> str:
+    """Injected into every game page: a way back to the gallery and the controls (bottom-left, clear of
+    the HUD). Hidden for screenshots (?shot)."""
+    return (
+        "<style>#sp-bar{position:fixed;bottom:30px;left:8px;z-index:10;display:flex;gap:10px;align-items:center;"
+        "font:12px/1.4 ui-monospace,Menlo,monospace;color:#fff;background:rgba(0,0,0,.55);padding:5px 10px;"
+        "border-radius:6px;pointer-events:none}#sp-bar a{color:#ffec27;text-decoration:none;pointer-events:auto}"
+        "@media (max-width:700px){#sp-bar span{display:none}}</style>"
+        "<script>addEventListener('DOMContentLoaded',function(){if(location.search.indexOf('shot')>=0)return;"
+        "var b=document.createElement('div');b.id='sp-bar';"
+        "b.innerHTML='<a href=\\\"../\\\">&lt;- all games</a><span>" + controls + "</span>';"
+        "document.body.appendChild(b);});</script>"
+    )
 
 
 @dataclass
@@ -44,30 +64,20 @@ class Game:
     slug: str
     graph: Path
     title: str = ""
-    genre: str = ""
-    prompt: str | None = None  # set for games the model designed
-    english: str | None = None
-    model: str | None = None
+    tag: str = ""
+    blurb: str = ""
+    controls: str = ""
     errors: list[str] = field(default_factory=list)
 
 
 def discover(examples: Path | None = None) -> list[Game]:
-    """Model-designed games first (they are the point of the demo), then the hand-written ones."""
     examples = examples or manifest_mod.EXAMPLES_DIR
     games: list[Game] = []
-    gallery = examples / "gallery"
-    meta = {}
-    if (gallery / "prompts.json").exists():
-        meta = json.loads((gallery / "prompts.json").read_text())["games"]
-    for slug, info in meta.items():
-        path = gallery / f"{slug}.json"
+    for name, tag, blurb, controls in SHOWCASE:
+        path = examples / name
         if path.exists():
-            games.append(Game(slug, path, prompt=info["prompt"], english=info.get("english"), model=info.get("model")))
-    for path in sorted(examples.glob("*.json")):
-        games.append(Game(path.stem.replace("_", "-"), path))
-    for g in games:
-        data = load_graph(g.graph)
-        g.title, g.genre = data.get("name", g.slug), data.get("genre", "")
+            data = load_graph(path)
+            games.append(Game(path.stem.replace("_", "-"), path, data.get("name", path.stem), tag, blurb, controls))
     return games
 
 
@@ -83,7 +93,7 @@ def build_site(out: Path, games: list[Game] | None = None, screenshots: bool = T
                 g.errors = [str(d) for d in result.diagnostics.errors] or ["build failed"]
                 log(f"  {g.slug}: build failed: {g.errors[0]}")
                 continue
-            seconds = web.export(project, head_include=GAME_OVERLAY)
+            seconds = web.export(project, head_include=game_overlay(g.controls))
             target = out / g.slug
             shutil.rmtree(target, ignore_errors=True)
             shutil.copytree(project / web.WEB_DIR, target,
@@ -168,9 +178,9 @@ def index_html(games: list[Game]) -> str:
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Spawn Point demos</title>
-<meta name="description" content="2D Godot 4 games made from one sentence by Spawn Point. Play them in your browser.">
-<meta property="og:title" content="Spawn Point: one sentence, one playable Godot game">
-<meta property="og:description" content="Play games designed by a fine-tuned 7B model and built by a compiler, right in your browser.">
+<meta name="description" content="Five Godot 4 games built with Spawn Point: platformers, a bubble shooter, a survivor. Play in your browser.">
+<meta property="og:title" content="Spawn Point demos: play Godot games in your browser">
+<meta property="og:description" content="A Mario-style platformer, a ninja rescue, a dinosaur-egg shooter, a survivor and an arena, all built from Spawn Point components.">
 <style>
 :root {{ --bg:#14121c; --panel:#1f1c2b; --ink:#f4f1ff; --muted:#a59fbf; --accent:#ffec27; --ai:#29adff; --line:#332f45; }}
 @media (prefers-color-scheme: light) {{
@@ -199,23 +209,23 @@ code {{ font:13px ui-monospace,Menlo,monospace; background:var(--panel); border:
 .tags {{ display:flex; gap:6px; flex-wrap:wrap }}
 .tag {{ font:600 11px ui-monospace,monospace; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:4px; border:1px solid var(--line); color:var(--muted) }}
 .tag.ai {{ color:var(--ai); border-color:var(--ai) }}
-.prompt {{ margin:2px 0 0; color:var(--ink); font-style:italic }}
-.english {{ margin:0; color:var(--muted); font-size:13px }}
+.blurb {{ margin:2px 0 0; color:var(--ink) }}
+.controls {{ margin:0; color:var(--muted); font:12px/1.5 ui-monospace,Menlo,monospace }}
 footer {{ color:var(--muted); font-size:13px; padding-bottom:40px }}
 </style>
 </head>
 <body>
 <header>
   <h1>Spawn<span>Point</span> demos</h1>
-  <p class="lede">Each game below started as one sentence. A fine-tuned 7B model designed it as strict JSON, and a
-  compiler built it from tested Godot 4 components. Bots then playtested and tuned it. No game code was written by
-  the model. Click a card to play in your browser.</p>
+  <p class="lede">Five games, five ways to play, all built by Spawn Point from small JSON game graphs and a
+  library of tested Godot 4 components: game feel, pixel art and collisions come for free. Click a card to play in
+  your browser, no install needed.</p>
   <div class="links">
     <a href="{REPO}">⭐ GitHub repo</a>
     <a href="{MODEL}">🤗 SpawnPoint-Coder-7B</a>
     <a href="https://pypi.org/project/spawnpoint-studio/">📦 pip install spawnpoint-studio</a>
   </div>
-  <p class="note">Desktop + keyboard. {html.escape(CONTROLS)}. Make your own:
+  <p class="note">Desktop + keyboard. Make your own from a sentence:
   <code>spawnpoint create "a ninja platformer where you collect stars"</code></p>
 </header>
 <main class="grid">
@@ -231,14 +241,7 @@ footer {{ color:var(--muted); font-size:13px; padding-bottom:40px }}
 def _card(g: Game) -> str:
     esc = html.escape
     thumb = f' style="background-image:url({g.slug}/thumb.png)"'
-    tags = [f'<span class="tag">{esc(g.genre)}</span>'] if g.genre else []
-    if g.prompt:
-        tags.insert(0, f'<span class="tag ai">designed by {esc(g.model or "the model")}</span>')
-        text = f'<p class="prompt">“{esc(g.prompt)}”</p>'
-        if g.english:
-            text += f'<p class="english">model’s translation: “{esc(g.english)}”</p>'
-    else:
-        tags.insert(0, '<span class="tag">hand-written graph</span>')
-        text = f'<p class="english">examples/{esc(g.graph.name)}</p>'
+    tags = f'<span class="tag ai">{esc(g.tag)}</span>' if g.tag else ""
     return (f'<a class="card" href="{g.slug}/"><div class="thumb"{thumb}><span class="play">▶ PLAY</span></div>'
-            f'<div class="body"><div class="title">{esc(g.title)}</div><div class="tags">{"".join(tags)}</div>{text}</div></a>')
+            f'<div class="body"><div class="title">{esc(g.title)}</div><div class="tags">{tags}</div>'
+            f'<p class="blurb">{esc(g.blurb)}</p><p class="controls">{esc(g.controls)}</p></div></a>')

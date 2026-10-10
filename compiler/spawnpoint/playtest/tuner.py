@@ -82,11 +82,17 @@ class _Params:
         return self._get(self.o, entity, comp, param)
 
 
+def player_name(graph: dict) -> str:
+    """The entity the player controls (the one with PlayerInput); "Player" by convention."""
+    return next((n for n, e in graph["entities"].items() if "PlayerInput" in e.get("components", {})), "Player")
+
+
 def propose(rep: Report, graph: dict, original: dict, manifest: Manifest, difficulty: int = 2) -> list[Change]:
     t = targets(difficulty)
     p = _Params(graph, original, manifest)
     ents = graph["entities"]
-    player = ents.get("Player", {}).get("components", {})
+    pname = player_name(graph)
+    player = ents.get(pname, {}).get("components", {})
     novice, average = rep.get("novice"), rep.get("average")
     too_hard = bool((novice and novice.win_rate < t["novice"] - 0.1) or (average and average.win_rate < t["average"] - 0.1))
     changes: list[Change] = []
@@ -116,8 +122,8 @@ def propose(rep: Report, graph: dict, original: dict, manifest: Manifest, diffic
     missed = max((s.missed_rate for s in deaths), default=0.0)
     if "PlatformerMovement" in player and missed > 0.15:
         why = f"{missed:.0%} of jumps were pressed too late"
-        bump("Player", "PlatformerMovement", "coyote_time", add=0.04, hi=lambda b: max(0.2, b), reason=why)
-        bump("Player", "PlatformerMovement", "jump_buffer", add=0.04, hi=lambda b: max(0.2, b), reason=why)
+        bump(pname, "PlatformerMovement", "coyote_time", add=0.04, hi=lambda b: max(0.2, b), reason=why)
+        bump(pname, "PlatformerMovement", "jump_buffer", add=0.04, hi=lambda b: max(0.2, b), reason=why)
 
     if too_hard and n_deaths:
         top, top_n = max(all_causes.items(), key=lambda kv: kv[1])
@@ -126,8 +132,8 @@ def propose(rep: Report, graph: dict, original: dict, manifest: Manifest, diffic
         # 2. Falling into pits after jumping: more air control, slightly higher jump.
         if "PlatformerMovement" in player and falls / n_deaths >= 0.3:
             why = f"{falls}/{n_deaths} deaths were falls right after a jump"
-            bump("Player", "PlatformerMovement", "air_acceleration", factor=1.2, hi=lambda b: b * 2.0, reason=why)
-            bump("Player", "PlatformerMovement", "jump_velocity", factor=1.05, hi=lambda b: b * 1.15, reason=why)
+            bump(pname, "PlatformerMovement", "air_acceleration", factor=1.2, hi=lambda b: b * 2.0, reason=why)
+            bump(pname, "PlatformerMovement", "jump_velocity", factor=1.05, hi=lambda b: b * 1.15, reason=why)
         ent = ents.get(top, {})
         comps = ent.get("components", {})
         mv = next((m for m in MOVEMENT if m in comps), None)
@@ -140,19 +146,19 @@ def propose(rep: Report, graph: dict, original: dict, manifest: Manifest, diffic
                     if e.get("components", {}).get("Weapon", {}).get("projectile") == top:
                         bump(name, "Weapon", "fire_rate", factor=0.85, lo=lambda b: b * 0.5, reason=why)
             elif "Hitbox" in comps and "Hurtbox" in player:  # 5. Static hazards: a more forgiving hurtbox.
-                bump("Player", "Hurtbox", "size_scale", add=-0.1, lo=lambda b: min(0.6, b), reason=why)
+                bump(pname, "Hurtbox", "size_scale", add=-0.1, lo=lambda b: min(0.6, b), reason=why)
         # 6. Still far too hard: more health and longer invincibility.
         if novice and novice.win_rate < t["novice"] - 0.25 and "Health" in player:
             why = f"novice bots won only {novice.wins}/{novice.runs}"
-            bump("Player", "Health", "max_health", add=1, hi=lambda b: max(6, b), reason=why, integer=True)
-            bump("Player", "Health", "invincibility_time", add=0.2, hi=lambda b: max(1.5, b), reason=why)
+            bump(pname, "Health", "max_health", add=1, hi=lambda b: max(6, b), reason=why, integer=True)
+            bump(pname, "Health", "invincibility_time", add=0.2, hi=lambda b: max(1.5, b), reason=why)
     # 7. No challenge (nobody dies, novices always win): every threat gets a bounded step up.
     if too_easy(rep, difficulty) or (difficulty >= 3 and novice and novice.win_rate > t["novice"] + 0.35
                                      and novice.deaths == 0):
         why = f"too easy for difficulty {difficulty}: novices won {novice.wins}/{novice.runs} without dying"
         for name, e in ents.items():
             comps = e.get("components", {})
-            if name == "Player" or e.get("team") == "player":
+            if name == pname or e.get("team") == "player":
                 continue
             mv = next((m for m in MOVEMENT if m in comps), None)
             if mv and any(k in comps for k in ("PatrolAI", "ChaseAI")):

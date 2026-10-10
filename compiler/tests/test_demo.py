@@ -16,19 +16,16 @@ SHELL = ('<script src="index.js"></script><script>const GODOT_CONFIG = {"executa
          '"fileSizes":{"index.pck":10,"index.wasm":20}};</script>')
 
 
-def test_discover_lists_model_games_first_with_prompts():
+def test_discover_lists_the_showcase_in_order():
     games = demo.discover()
-    ai = [g for g in games if g.prompt]
-    assert ai and games[: len(ai)] == ai
-    assert {"coin-hopper", "pixel-hopper"} <= {g.slug for g in games}
-    assert any(g.english for g in ai)  # the Vietnamese prompt keeps the model's translation
-    assert all(g.title and g.genre in ("platformer", "topdown") for g in games)
+    assert [g.slug for g in games] == ["pixel-hopper", "ninja-rescue", "dino-eggs", "night-survivor", "pixel-arena"]
+    assert all(g.title and g.blurb and g.controls.isascii() for g in games)
 
 
-def test_gallery_graphs_are_valid(manifest):
+def test_showcase_graphs_are_valid_without_warnings(manifest):
     for g in demo.discover():
         a = analyze(load_graph(g.graph), manifest, g.graph.parent)
-        assert a.ok, (g.slug, [str(d) for d in a.diagnostics.errors])
+        assert a.ok and not a.diagnostics.warnings, (g.slug, [str(d) for d in a.diagnostics])
 
 
 def _fake_game(root: Path, name: str, wasm: bytes = b"engine") -> Path:
@@ -60,22 +57,23 @@ def test_share_engine_refuses_mixed_engines(tmp_path):
         demo.share_engine(tmp_path, _fake_game(tmp_path, "b", wasm=b"other"))
 
 
-def test_index_html_escapes_prompts():
-    g = demo.Game("x", Path("examples/gallery/x.json"), title="T <1>", genre="platformer",
-                  prompt='a "<b>" game', english="eng", model="M")
+def test_index_html_escapes_text():
+    g = demo.Game("x", Path("examples/x.json"), title="T <1>", tag="platformer", blurb='a "<b>" game',
+                  controls="Jump: Space")
     page = demo.index_html([g])
     assert "&lt;b&gt;" in page and "<b>" not in page.split("<main")[1]
-    assert 'href="x/"' in page and "x/thumb.png" in page and "designed by M" in page
+    assert 'href="x/"' in page and "x/thumb.png" in page and "Jump: Space" in page
+    assert "Jump: Space" in demo.game_overlay("Jump: Space")
 
 
 @pytest.mark.skipif(not godot.available(), reason="Godot not installed")
 @pytest.mark.skipif(not has_templates, reason="Godot web export templates not installed")
 def test_build_site_end_to_end(tmp_path):
-    games = [g for g in demo.discover() if g.slug == "coin-hopper"]
+    games = [g for g in demo.discover() if g.slug == "dino-eggs"]
     demo.build_site(tmp_path, games)
     assert not games[0].errors, games[0].errors
     assert (tmp_path / "engine" / "index.wasm").exists()
-    assert (tmp_path / "coin-hopper" / "index.pck").exists()
-    assert not (tmp_path / "coin-hopper" / "index.wasm").exists()
-    assert "coin-hopper/" in (tmp_path / "index.html").read_text()
+    assert (tmp_path / "dino-eggs" / "index.pck").exists()
+    assert not (tmp_path / "dino-eggs" / "index.wasm").exists()
+    assert "dino-eggs/" in (tmp_path / "index.html").read_text()
     assert (tmp_path / ".nojekyll").exists()

@@ -1,6 +1,7 @@
 class_name SPHud
 extends CanvasLayer
-## Score, lives, player health, toast messages and the win / game-over overlay.
+## Score, lives, player health, toast messages and the win / game-over overlay; an XP bar when the
+## player has Experience, and a countdown when the rules set the variable "time_limit" (seconds).
 ## Press R at any time (or Enter after the game ends) to restart.
 
 const TEXT_COLOR := Color("#fff1e8")
@@ -15,6 +16,10 @@ var _overlay: Control
 var _overlay_title: Label
 var _toast_tween: Tween
 var _shown_health := -1
+var _xp_back: ColorRect
+var _xp_fill: ColorRect
+var _level: Label
+var _timer: Label
 
 
 func _ready() -> void:
@@ -37,6 +42,16 @@ func _process(_delta: float) -> void:
 	if cur != _shown_health:
 		_shown_health = cur
 		_refresh_hearts(h)
+	var xp := SP.component(p, &"Experience") as ExperienceComponent if p else null
+	_xp_back.visible = xp != null
+	_level.visible = xp != null
+	if xp:
+		_xp_fill.size.x = _xp_back.size.x * xp.progress()
+		_level.text = "LV %d" % xp.level
+	_timer.visible = GameState.vars.has("time_limit")
+	if _timer.visible:
+		var left := maxi(0, int(ceil(float(GameState.vars["time_limit"]) - GameState.time)))
+		_timer.text = "%d:%02d" % [left / 60, left % 60]
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -124,6 +139,38 @@ func _build() -> void:
 	top.add_child(spacer)
 	_lives = _label(22)
 	top.add_child(_lives)
+
+	_timer = _label(30, TEXT_COLOR)
+	_timer.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_timer.offset_top = 8
+	_timer.offset_left = -80
+	_timer.offset_right = 80
+	_timer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_timer.visible = false
+	root.add_child(_timer)
+
+	_xp_back = ColorRect.new()
+	_xp_back.color = Color(0, 0, 0, 0.55)
+	_xp_back.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	_xp_back.offset_left = 16
+	_xp_back.offset_right = -16
+	_xp_back.offset_top = -22
+	_xp_back.offset_bottom = -10
+	_xp_back.visible = false
+	root.add_child(_xp_back)
+	_xp_fill = ColorRect.new()
+	_xp_fill.color = Color("#29adff")
+	_xp_fill.position = Vector2.ZERO
+	_xp_fill.size = Vector2(0, 12)
+	_xp_back.add_child(_xp_fill)
+	_level = _label(20, Color("#29adff"))
+	_level.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	_level.offset_left = -90
+	_level.offset_right = -18
+	_level.offset_top = -52
+	_level.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_level.visible = false
+	root.add_child(_level)
 
 	_toast = _label(34)
 	_toast.set_anchors_preset(Control.PRESET_CENTER_TOP)

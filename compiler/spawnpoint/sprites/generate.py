@@ -117,6 +117,9 @@ FEATURE_WORDS: dict[str, tuple[str, ...]] = {
     "devil": ("horns",), "demon": ("horns",), "imp": ("horns",), "goblin": ("ears",), "orc": ("horns",),
     "knight": ("helmet",), "soldier": ("helmet",), "wizard": ("hat",), "witch": ("hat",), "mage": ("hat",),
     "ghost": ("ghost",), "spirit": ("ghost",),
+    "dino": ("tail", "crest"), "dinosaur": ("tail", "crest"), "rex": ("tail", "crest"), "lizard": ("tail",),
+    "mom": ("hair",), "mother": ("hair",), "mama": ("hair",), "mum": ("hair",), "princess": ("hair",),
+    "lady": ("hair",), "girl": ("hair",),
 }
 
 
@@ -184,8 +187,17 @@ def paint_hero(c: Ctx) -> None:
     arm_y = 7 + bob if c.anim in ("jump", "fall") else 9 + bob
     cv.rect(2, arm_y, 2, arm_y + 2, r.shadow)
     cv.rect(9, arm_y, 9, arm_y + 2, r.shadow)
+    hair = (92, 52, 34, 255)
+    if "hair" in f:  # long hair falls behind the head (the sprite faces right)
+        cv.rect(1, 3 + bob, 3, 10 + bob, hair)
     # Head.
     cv.ellipse(6, 5 + bob, 4, 4, r.base, shade=r)
+    if "hair" in f:
+        cv.rect(3, 1 + bob, 8, 2 + bob, hair)
+        cv.rect(2, 2 + bob, 3, 5 + bob, hair)
+    if "crest" in f:  # a row of back plates over the head
+        for x, y in ((3, 1), (5, 0), (7, 1)):
+            cv.set(x, y + bob, r.light)
     if "ears" in f:
         cv.poly([(2.2, 3 + bob), (3.6, -0.2 + bob), (5, 2.5 + bob)], r.base)
         cv.poly([(7, 2.5 + bob), (8.4, -0.2 + bob), (9.8, 3 + bob)], r.base)

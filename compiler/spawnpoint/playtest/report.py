@@ -120,8 +120,9 @@ def heatmap(plan: dict, runs: list[dict], out: Path, cell: int = 12) -> Path:
         else:
             d.rectangle((box[0], box[1], box[2], box[1] + 2), fill=(171, 82, 54))
     ts = plan["tile_size"]
+    players = {e["name"] for e in plan["entities"] if any(c["name"] == "PlayerInput" for c in e["components"])}
     for p in plan["placements"]:
-        if p["entity"] == "Player":
+        if p["entity"] in players:
             cx, cy = p["x"] / ts * cell, p["y"] / ts * cell
             d.ellipse((cx - 4, cy - 4, cx + 4, cy + 4), outline=(0, 228, 54), width=2)
     causes = sorted({dd["cause"] for r in runs for dd in r["deaths"]})

@@ -1,0 +1,428 @@
+{
+  "spawnpoint": 1,
+  "name": "Night Survivor",
+  "genre": "topdown",
+  "settings": {
+    "tile_size": 32,
+    "lives": 1,
+    "seed": 31,
+    "zoom": 1.25,
+    "background": "#12101c",
+    "tiles": {
+      "solid": {
+        "color": "#3d3a4e",
+        "top": "#6b6585"
+      }
+    }
+  },
+  "entities": {
+    "Hunter": {
+      "components": {
+        "TopDownMovement": {
+          "max_speed": 190,
+          "dash_speed": 560
+        },
+        "PlayerInput": {},
+        "Health": {
+          "max_health": 6,
+          "invincibility_time": 1.2
+        },
+        "Hurtbox": {
+          "size_scale": 0.8
+        },
+        "Aim": {
+          "mode": "nearest_enemy",
+          "max_range": 380
+        },
+        "Weapon": {
+          "projectile": "Bolt",
+          "fire_rate": 2.2,
+          "spread_deg": 4,
+          "auto_fire": true,
+          "muzzle_distance": 16
+        },
+        "Experience": {
+          "first_level_xp": 3,
+          "growth": 1.32,
+          "magnet_radius": 90,
+          "score_per_xp": 1
+        },
+        "LevelUpMenu": {
+          "upgrades": "Rapid Fire|Shoot 25% faster|Weapon.fire_rate*1.25;Multishot|One more bolt|Weapon.projectile_count+1,Weapon.spread_deg+12;Power|Bolts hit harder|Bolt:Hitbox.damage+1;Piercing|Bolts pass through one more monster|Bolt:Projectile.pierce+1;Long Shot|Bolts fly 30% further|Bolt:Projectile.lifetime*1.3,Aim.max_range*1.2;Swift|Move 12% faster|TopDownMovement.max_speed*1.12;Vitality|+1 max health, fully healed|Health.max_health+1,Health.current+99;Magnet|Pull gems from further away|Experience.magnet_radius*1.6",
+          "choices": 3,
+          "max_picks": 5
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "hero",
+          "color": "#f4d35e",
+          "features": [
+            "hat"
+          ]
+        }
+      }
+    },
+    "Bolt": {
+      "body": "area",
+      "juice": "none",
+      "components": {
+        "Projectile": {
+          "speed": 560,
+          "lifetime": 0.75
+        },
+        "Hitbox": {
+          "damage": 1,
+          "knockback": 120
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "bullet",
+          "color": "#2de2e6"
+        }
+      }
+    },
+    "Bat": {
+      "team": "enemy",
+      "components": {
+        "TopDownMovement": {
+          "max_speed": 100,
+          "acceleration": 900
+        },
+        "ChaseAI": {
+          "detect_radius": 5000,
+          "lose_radius": 5000,
+          "wander": false,
+          "needs_line_of_sight": false
+        },
+        "Health": {
+          "max_health": 1,
+          "invincibility_time": 0.05
+        },
+        "Hurtbox": {
+          "size_scale": 1.0
+        },
+        "Hitbox": {
+          "damage": 1,
+          "knockback": 180
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "flyer",
+          "color": "#9b5de5",
+          "features": [
+            "wings"
+          ]
+        }
+      }
+    },
+    "Zombie": {
+      "team": "enemy",
+      "components": {
+        "TopDownMovement": {
+          "max_speed": 62,
+          "acceleration": 900
+        },
+        "ChaseAI": {
+          "detect_radius": 5000,
+          "lose_radius": 5000,
+          "wander": false,
+          "needs_line_of_sight": false
+        },
+        "Health": {
+          "max_health": 4,
+          "invincibility_time": 0.05
+        },
+        "Hurtbox": {
+          "size_scale": 1.0
+        },
+        "Hitbox": {
+          "damage": 1,
+          "knockback": 180
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "hero",
+          "color": "#5fb83d"
+        }
+      }
+    },
+    "Archer": {
+      "team": "enemy",
+      "components": {
+        "TopDownMovement": {
+          "max_speed": 80,
+          "acceleration": 900
+        },
+        "ChaseAI": {
+          "detect_radius": 5000,
+          "lose_radius": 5000,
+          "wander": false,
+          "needs_line_of_sight": false,
+          "keep_distance": 220,
+          "fire_range": 330
+        },
+        "Health": {
+          "max_health": 3,
+          "invincibility_time": 0.05
+        },
+        "Hurtbox": {
+          "size_scale": 1.0
+        },
+        "Hitbox": {
+          "damage": 1,
+          "knockback": 180
+        },
+        "Weapon": {
+          "projectile": "Arrow",
+          "fire_rate": 0.45,
+          "spread_deg": 4,
+          "muzzle_distance": 18
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "hero",
+          "color": "#c2c3c7",
+          "features": [
+            "helmet"
+          ]
+        }
+      }
+    },
+    "Arrow": {
+      "body": "area",
+      "team": "enemy",
+      "juice": "none",
+      "components": {
+        "Projectile": {
+          "speed": 300,
+          "lifetime": 2.2
+        },
+        "Hitbox": {
+          "damage": 1,
+          "knockback": 160
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "bullet",
+          "color": "#ff004d"
+        }
+      }
+    },
+    "Gem": {
+      "body": "area",
+      "components": {
+        "XpOrb": {
+          "value": 1,
+          "lifetime": 40
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "gem",
+          "color": "#29adff"
+        }
+      }
+    },
+    "BigGem": {
+      "body": "area",
+      "components": {
+        "XpOrb": {
+          "value": 5,
+          "lifetime": 60
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "gem",
+          "color": "#ffd23f"
+        }
+      }
+    },
+    "Tomb": {
+      "body": "static",
+      "juice": "none",
+      "shape": {
+        "type": "rect",
+        "size": [
+          22,
+          28
+        ],
+        "color": "#5f574f"
+      },
+      "components": {}
+    },
+    "BatNest": {
+      "body": "static",
+      "shape": {
+        "type": "none",
+        "size": [
+          4,
+          4
+        ]
+      },
+      "juice": "none",
+      "components": {
+        "Spawner": {
+          "entity": "Bat",
+          "interval": 2.2,
+          "interval_ramp": 0.99,
+          "min_interval": 0.45,
+          "start_delay": 1.5,
+          "max_alive": 30,
+          "around_player": 470
+        }
+      }
+    },
+    "ZombieNest": {
+      "body": "static",
+      "shape": {
+        "type": "none",
+        "size": [
+          4,
+          4
+        ]
+      },
+      "juice": "none",
+      "components": {
+        "Spawner": {
+          "entity": "Zombie",
+          "interval": 6.0,
+          "interval_ramp": 0.97,
+          "min_interval": 1.6,
+          "start_delay": 35.0,
+          "max_alive": 10,
+          "around_player": 470
+        }
+      }
+    },
+    "ArcherNest": {
+      "body": "static",
+      "shape": {
+        "type": "none",
+        "size": [
+          4,
+          4
+        ]
+      },
+      "juice": "none",
+      "components": {
+        "Spawner": {
+          "entity": "Archer",
+          "interval": 10.0,
+          "interval_ramp": 0.95,
+          "min_interval": 4.0,
+          "start_delay": 85.0,
+          "max_alive": 5,
+          "around_player": 470
+        }
+      }
+    }
+  },
+  "level": {
+    "map": [
+      "########################################################",
+      "#......................................................#",
+      "#.bza..................................................#",
+      "#......................................................#",
+      "#...............t......................................#",
+      "#......................................................#",
+      "#..................................................t...#",
+      "#.......t..............................................#",
+      "#......................................................#",
+      "#...........##.............................##..........#",
+      "#...........##.............................##..........#",
+      "#......................................................#",
+      "#................................t.....................#",
+      "#......................................................#",
+      "#...................t..................................#",
+      "#...................t..............................t...#",
+      "#......................................................#",
+      "#......................................................#",
+      "#.............t....................t...................#",
+      "#........t..................P...............t..........#",
+      "#......................................................#",
+      "#..t..................................t..t.............#",
+      "#.......t....t....t....................t...............#",
+      "#......................................................#",
+      "#.......t..............................................#",
+      "#......................................................#",
+      "#................t...t.................................#",
+      "#............................................t.........#",
+      "#...t....t..##.............................##..........#",
+      "#...........##.............................##..........#",
+      "#............................t.........................#",
+      "#.............................t........................#",
+      "#......................................................#",
+      "#......................................................#",
+      "#......................................................#",
+      "#......................................................#",
+      "#......................................................#",
+      "########################################################"
+    ],
+    "legend": {
+      "#": "solid",
+      "P": "Hunter",
+      "t": "Tomb",
+      "b": "BatNest",
+      "z": "ZombieNest",
+      "a": "ArcherNest"
+    }
+  },
+  "rules": [
+    {
+      "on": "Game.ready",
+      "do": [
+        "set_var('time_limit', 180)",
+        "message('Survive 3 minutes! Collect gems to level up')"
+      ]
+    },
+    {
+      "on": "Bat.died",
+      "do": [
+        "spawn('Gem')"
+      ]
+    },
+    {
+      "on": "Zombie.died",
+      "do": [
+        "spawn('BigGem')",
+        "add_score(5)"
+      ]
+    },
+    {
+      "on": "Archer.died",
+      "do": [
+        "spawn('BigGem')",
+        "add_score(10)"
+      ]
+    },
+    {
+      "on": "GameState.second_passed",
+      "if": "event.seconds == 35",
+      "do": [
+        "message('Zombies rise from the graves!')"
+      ]
+    },
+    {
+      "on": "GameState.second_passed",
+      "if": "event.seconds == 85",
+      "do": [
+        "message('Skeleton archers!')"
+      ]
+    },
+    {
+      "on": "GameState.second_passed",
+      "if": "event.seconds >= 180",
+      "do": [
+        "message('You survived the night!')",
+        "win()"
+      ]
+    }
+  ]
+}

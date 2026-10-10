@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import tempfile
 from pathlib import Path
@@ -24,12 +25,26 @@ def time_limit(graph: dict, brief: dict | None = None) -> float:
     """Seconds a run may take: generous for slow players, scaled to the level size and goal."""
     rows = graph["level"]["map"]
     width_px = max(len(r) for r in rows) * graph.get("settings", {}).get("tile_size", 32)
-    player = graph["entities"].get("Player", {}).get("components", {})
+    player = next((e.get("components", {}) for e in graph["entities"].values()
+                   if "PlayerInput" in e.get("components", {})), {})
     speed = (player.get("PlatformerMovement") or player.get("TopDownMovement") or {}).get("max_speed", 230)
     limit = width_px / (float(speed) * 0.25) + 30 if graph["genre"] == "platformer" else 90.0
     if brief and brief.get("goal") == "survive":
         limit = max(limit, brief.get("survive_seconds", 60) + 15)
+    survive = _rule_time_limit(graph)
+    if survive:
+        limit = max(limit, survive + 40)  # level-up menus pause the game clock, not the bots' clock
     return float(min(max(limit, 45.0), 240.0))
+
+
+def _rule_time_limit(graph: dict) -> float | None:
+    """A countdown the rules set with set_var("time_limit", N) (survivor games)."""
+    for rule in graph.get("rules", []):
+        for action in rule.get("do", []):
+            m = re.match(r"""\s*set_var\(\s*['"]time_limit['"]\s*,\s*([0-9.]+)\s*\)""", action)
+            if m:
+                return float(m.group(1))
+    return None
 
 
 def run(project: Path, *, profiles: tuple[str, ...] = PROFILES, runs: int = 3, seed: int = 1,
