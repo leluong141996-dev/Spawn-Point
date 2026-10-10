@@ -16,3 +16,6 @@ models/
 # Packaging
 build/
 dist/
+
+# Demo site output (spawnpoint demo)
+site/

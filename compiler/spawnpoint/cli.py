@@ -81,6 +81,10 @@ def main(argv: list[str] | None = None) -> int:
     ex.add_argument("action", nargs="?", choices=["list", "copy"], default="list")
     ex.add_argument("name", nargs="?")
 
+    dm = sub.add_parser("demo", help="build every example as a web game plus a gallery page (static site)")
+    dm.add_argument("-o", "--out", type=Path, default=Path("site"))
+    dm.add_argument("--no-screenshots", action="store_true", help="skip the headless-Chrome check and thumbnails")
+
     gf = sub.add_parser("gif", help="record a gameplay GIF of a built project (autopilot; needs a display)")
     gf.add_argument("project", type=Path)
     gf.add_argument("-o", "--out", type=Path, help="output file (default: <project>/demo.gif)")
@@ -130,7 +134,8 @@ def main(argv: list[str] | None = None) -> int:
         return {"validate": _validate, "build": _build, "run": _run, "components": _components,
                 "manifest": _manifest, "create": studio_cli.create, "tweak": studio_cli.tweak,
                 "serve": studio_cli.serve, "dataset": studio_cli.dataset, "playtest": studio_cli.playtest, "studio": studio_cli.studio,
-                "sprites": _sprites, "gif": _gif, "llm": _llm, "examples": _examples}[args.cmd](args)
+                "sprites": _sprites, "gif": _gif, "llm": _llm, "examples": _examples,
+                "demo": _demo}[args.cmd](args)
     except godot.GodotError as e:
         print(f"error: {e}", file=sys.stderr)
         if e.output:
@@ -240,6 +245,18 @@ def _gif(args) -> int:
     path = record_gif(args.project.resolve(), out.resolve(), args.seconds, args.fps, args.width)
     print(f"Wrote {out} ({path.stat().st_size / 1e6:.1f} MB)")
     return 0
+
+
+def _demo(args) -> int:
+    from .demo import build_site
+
+    print(f"Building the demo site in {args.out}/")
+    games = build_site(args.out, screenshots=not args.no_screenshots)
+    failed = [g for g in games if g.errors]
+    for g in failed:
+        print(f"error: {g.slug}: " + "; ".join(g.errors[:3]), file=sys.stderr)
+    print(f"{len(games) - len(failed)}/{len(games)} games ok. Preview: python -m http.server -d {args.out}")
+    return 1 if failed else 0
 
 
 def _sprites(args) -> int:

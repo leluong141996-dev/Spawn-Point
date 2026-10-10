@@ -94,3 +94,22 @@ func test_second_passed_signal() -> void:
 	GameState.second_passed.connect(func(s: int) -> void: got.append(s))
 	await frames(130)
 	assert_eq(got, [1, 2])
+
+
+func test_spawner_prunes_freed_entities() -> void:
+	# Spawned entities freed outright (not queue_free) must not break the alive-list cleanup.
+	var sp := SpawnerComponent.new()
+	add_child(sp)
+	var gone := Node2D.new()
+	var queued := Node2D.new()
+	var kept := Node2D.new()
+	for n in [gone, queued, kept]:
+		add_child(n)
+	sp._alive.assign([gone, queued, kept])
+	gone.free()
+	queued.queue_free()
+	sp._prune()
+	assert_eq(sp._alive.size(), 1)
+	assert_true(sp._alive[0] == kept)
+	kept.queue_free()
+	sp.queue_free()

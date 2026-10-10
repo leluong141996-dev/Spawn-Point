@@ -5,6 +5,7 @@
 [![CI](https://github.com/leluong141996-dev/Spawn-Point/actions/workflows/ci.yml/badge.svg)](https://github.com/leluong141996-dev/Spawn-Point/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/spawnpoint-studio)](https://pypi.org/project/spawnpoint-studio/)
 [![Model](https://img.shields.io/badge/%F0%9F%A4%97%20model-SpawnPoint--Coder--7B-yellow)](https://huggingface.co/smoky1496/SpawnPoint-Coder-7B-AWQ)
+[![Play the demos](https://img.shields.io/badge/%E2%96%B6%20play-demos%20in%20your%20browser-ff004d)](https://leluong141996-dev.github.io/Spawn-Point/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 <p align="center">
@@ -14,6 +15,9 @@
 <p align="center"><sub>Both games are built from <code>examples/pixel_hopper.json</code> and
 <code>examples/pixel_arena.json</code>: generated sprites, collision traced from pixels, juice on by
 default. Recorded with <code>spawnpoint gif</code> (autopilot).</sub></p>
+
+<p align="center"><b><a href="https://leluong141996-dev.github.io/Spawn-Point/">▶ Play the demos in your browser</a></b>: games designed by the model from
+one-sentence prompts (including a Vietnamese one), next to the hand-written examples. No install needed.</p>
 
 Spawn Point is an open-source, autonomous game studio that runs on your own machine. Instead of asking an LLM to type
 hundreds of lines of GDScript (slow, expensive, and easy to break with Godot 3/4 mix-ups), the LLM
@@ -47,7 +51,7 @@ spawnpoint llm up                      # serves SpawnPoint-Coder-7B locally (or 
 spawnpoint create "a ninja platformer where you collect stars"
 ```
 
-No GPU? Try the hand-written examples, no LLM needed:
+No GPU? [Play the demos in your browser](https://leluong141996-dev.github.io/Spawn-Point/), or build the hand-written examples locally, no LLM needed:
 
 ```bash
 spawnpoint examples copy pixel_hopper && spawnpoint build pixel_hopper.json --run
@@ -336,6 +340,9 @@ pytest -m "not llm"         # without the live-LLM tests
 spawnpoint manifest         # regenerate manifest.json after changing a component
 godot4 --headless --path godot --fixed-fps 60 res://tests/run_tests.tscn   # GDScript suite only
 ```
+
+`spawnpoint demo -o site` builds the browser demo site: every graph in `examples/` and `examples/gallery/`,
+one shared Godot engine, each game checked in headless Chrome. The Pages workflow publishes it on every push.
 
 Adding a component: create `godot/addons/spawn_point/components/<name>_component.gd` following the
 contract (typed `@export`s with ranges, `SP_NAME` / `SP_HOSTS` / `SP_REQUIRES` / `SP_CATEGORY`

@@ -58,13 +58,13 @@ def export_preset(head_include: str = LIVE_RELOAD) -> str:
     ])
 
 
-def export(project: Path) -> float:
+def export(project: Path, head_include: str = LIVE_RELOAD) -> float:
     """Exports the project to <project>/web and bumps the live-reload version. Returns seconds."""
     t0 = time.perf_counter()
     web = project / WEB_DIR
     web.mkdir(exist_ok=True)
     (web / ".gdignore").write_text("")  # keep Godot from importing the build output
-    (project / "export_presets.cfg").write_text(export_preset())
+    (project / "export_presets.cfg").write_text(export_preset(head_include))
     result = godot.run(project, ["--export-release", "Web", f"{WEB_DIR}/index.html"], timeout=300)
     if result.returncode != 0 or not (web / "index.html").exists():
         raise godot.GodotError("web export failed (are the Godot web export templates installed?)", result.output)

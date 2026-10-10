@@ -40,10 +40,15 @@ func _physics_process(delta: float) -> void:
 	if _timer > 0.0:
 		return
 	_timer = interval
-	_alive.assign(_alive.filter(func(n: Node) -> bool: return is_instance_valid(n) and not n.is_queued_for_deletion()))
+	_prune()
 	if _alive.size() >= max_alive:
 		return
 	spawn_now()
+
+
+func _prune() -> void:
+	# Untyped on purpose: a freed entity can't be passed to a `Node`-typed parameter.
+	_alive.assign(_alive.filter(func(n) -> bool: return is_instance_valid(n) and not (n as Node).is_queued_for_deletion()))
 
 
 ## Spawns one entity immediately. Returns it (or null).

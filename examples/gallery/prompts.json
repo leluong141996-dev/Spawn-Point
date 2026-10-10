@@ -1,0 +1,26 @@
+{
+  "about": "Games designed by SpawnPoint-Coder-7B from these prompts (spawnpoint create --playtest), saved as graphs.",
+  "games": {
+    "ninja-stars": {
+      "prompt": "a ninja platformer where you collect stars",
+      "model": "SpawnPoint-Coder-7B"
+    },
+    "pirate-decks": {
+      "prompt": "a pirate hops across ship decks collecting gold coins while crabs scuttle around",
+      "model": "SpawnPoint-Coder-7B"
+    },
+    "space-station": {
+      "prompt": "top-down space station: a robot collects energy cells and dodges laser turrets",
+      "model": "SpawnPoint-Coder-7B"
+    },
+    "farm-chicken": {
+      "prompt": "trò chơi nông trại: chú gà nhặt trứng, tránh con cáo",
+      "model": "SpawnPoint-Coder-7B",
+      "english": "a farm game: the chicken collects eggs, avoid foxes"
+    },
+    "haunted-castle": {
+      "prompt": "a knight explores a haunted castle and must survive 60 seconds against ghosts",
+      "model": "SpawnPoint-Coder-7B"
+    }
+  }
+}
