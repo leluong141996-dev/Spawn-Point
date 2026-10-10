@@ -12,6 +12,9 @@ Palette = Literal["night", "forest", "desert", "neon", "candy", "ocean", "lava",
 Ability = Literal["double_jump", "dash", "stomp", "shoot"]
 Archetype = Literal["walker", "hopper", "chaser", "shooter", "turret"]
 Speed = Literal["slow", "normal", "fast"]
+# Points per defeated enemy, by archetype (the assembler writes them as rules).
+ENEMY_POINTS = {"walker": 5, "hopper": 10, "chaser": 10, "shooter": 25, "turret": 20}
+
 Goal = Literal["reach_exit", "collect_all", "collect_all_then_exit", "defeat_all", "score_target", "survive"]
 Hazard = Literal["spikes", "pits"]
 
@@ -180,6 +183,15 @@ def normalize(brief: GameBrief) -> tuple[GameBrief, list[str]]:
         if reachable < b.score_target and b.genre == "platformer":
             b.score_target = max(10, reachable - reachable % 5)
             notes.append(f"score_target lowered to {b.score_target} (the level holds only that many points)")
+        elif b.genre == "topdown" and b.enemies:
+            # Enemies keep spawning in top-down arenas: the target should take a real fight, not five shots.
+            per_kill = max(ENEMY_POINTS.get(e.archetype, 10) for e in b.enemies)
+            floor = per_kill * (8 + 4 * b.difficulty)
+            if b.score_target < floor:
+                if b.intro == f"Score {b.score_target} points!":
+                    b.intro = ""  # the default intro names the old target
+                b.score_target = floor
+                notes.append(f"score_target raised to {floor} ({8 + 4 * b.difficulty} kills at difficulty {b.difficulty})")
     if not b.intro:
         b.intro = _default_intro(b)
     return b, notes

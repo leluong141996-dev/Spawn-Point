@@ -76,9 +76,9 @@
       "components": {
         "Spawner": {
           "entity": "Fox",
-          "interval": 3.6,
+          "interval": 2.88,
           "start_delay": 3.0,
-          "max_alive": 4
+          "max_alive": 5
         }
       },
       "sprite": {
@@ -93,13 +93,13 @@
       "team": "enemy",
       "components": {
         "TopDownMovement": {
-          "max_speed": 130
+          "max_speed": 149.5
         },
         "ChaseAI": {
           "detect_radius": 360.0
         },
         "Health": {
-          "max_health": 2,
+          "max_health": 3,
           "invincibility_time": 0.1
         },
         "Hurtbox": {
@@ -129,7 +129,7 @@
       "sprite": {
         "generate": {
           "kind": "orb",
-          "color": "#ffe66d",
+          "color": "#fff1e8",
           "seed": 75492
         }
       }
@@ -193,12 +193,12 @@
     {
       "on": "Game.ready",
       "do": [
-        "message('Score 100 points!')"
+        "message('Score 160 points!')"
       ]
     },
     {
       "on": "GameState.score_changed",
-      "if": "score >= 100",
+      "if": "score >= 160",
       "do": [
         "win()"
       ]

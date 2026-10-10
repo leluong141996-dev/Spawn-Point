@@ -13,10 +13,10 @@ from spawnpoint.playtest.tuner import Change, propose, score, targets
 from conftest import load_example
 
 
-def run(profile, outcome="won", deaths=(), missed=0, intended=10, collected=5, total=5, unreachable=()):
+def run(profile, outcome="won", deaths=(), missed=0, intended=10, collected=5, total=5, unreachable=(), hits=0):
     return {"profile": profile, "run": 0, "outcome": outcome, "time": 20.0, "score": 0, "lives_left": 1,
             "deaths": [{"x": x, "y": 5, "cause": c, "t": 1.0, "after_jump": aj} for c, x, aj in deaths],
-            "damage": [], "stuck": [], "unreachable": list(unreachable),
+            "damage": [{"x": 0, "y": 0, "cause": "Slime", "t": 1.0}] * hits, "stuck": [], "unreachable": list(unreachable),
             "jumps": {"intended": intended, "performed": intended - missed, "missed": [{"x": 0, "y": 0}] * missed},
             "pickups": {"total": total, "collected": collected}}
 
@@ -45,9 +45,13 @@ def test_level_issues_only_for_goal_entities():
 
 def test_targets_and_score():
     assert targets(1)["novice"] == 0.8 and targets(5)["novice"] == 0.3
-    good = aggregate([run("novice"), run("average"), run("expert")])
+    good = aggregate([run("novice", deaths=[("Slime", 3, False)]), run("average"), run("expert")])
     bad = aggregate([run("novice", "lost"), run("average", "lost"), run("expert")])
+    flawless = aggregate([run("novice"), run("average"), run("expert")])
     assert score(good, 2) == 0 and score(bad, 2) > 1
+    assert score(flawless, 2) == 0.3 and score(flawless, 1) == 0  # nobody ever dies: no challenge
+    grazed = aggregate([run("novice", hits=2), run("average"), run("expert")])
+    assert 0 < score(grazed, 2) < score(flawless, 2)  # getting hit at all is progress
 
 
 def test_rule_missed_jumps_raise_coyote_and_buffer(manifest):
@@ -81,12 +85,25 @@ def test_rule_bullets_lower_fire_rate(manifest):
     assert changes[("Shooter", "fire_rate")] == pytest.approx(1.3 * 0.85, abs=0.01)
 
 
-def test_rule_too_easy_only_on_hard_games(manifest):
+def test_rule_too_easy_steps_up_every_threat(manifest):
     g = graph()
     rep = aggregate([run("novice"), run("novice"), run("average"), run("expert")])
-    assert propose(rep, g, g, manifest, difficulty=2) == []
-    hard = {(c.entity, c.param) for c in propose(rep, g, g, manifest, difficulty=4)}
-    assert ("Slime", "max_speed") in hard and ("Frog", "max_speed") in hard
+    assert propose(rep, g, g, manifest, difficulty=1) == []  # easy games may be easy
+    hard = {(c.entity, c.param) for c in propose(rep, g, g, manifest, difficulty=2)}
+    assert {("Slime", "max_speed"), ("Frog", "max_speed")} <= hard
+    died = aggregate([run("novice", deaths=[("Slime", 3, False)]), run("average")])
+    assert propose(died, g, g, manifest, difficulty=2) == []  # someone died: there is a challenge
+
+
+def test_rule_too_easy_top_down_shooters_and_spawners(manifest):
+    g = json.loads(json.dumps(load_example("pixel_arena.json")))
+    rep = aggregate([run("novice"), run("average"), run("expert")])
+    changes = {(c.entity, c.component, c.param): c.value for c in propose(rep, g, g, manifest, difficulty=2)}
+    assert ("Shooter", "Weapon", "fire_rate") in changes
+    assert not any(e == "Player" for e, _, _ in changes)
+    spawners = [n for n, e in g["entities"].items() if "Spawner" in e.get("components", {})]
+    for n in spawners:
+        assert (n, "Spawner", "interval") in changes and (n, "Spawner", "max_alive") in changes
 
 
 def test_bounds_are_relative_to_the_original(manifest):

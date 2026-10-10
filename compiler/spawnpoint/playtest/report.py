@@ -22,6 +22,7 @@ class ProfileStats:
     jumps_missed: int
     pickup_rate: float
     stuck: int
+    hits: int = 0  # times the player took damage (dying or not)
 
     @property
     def win_rate(self) -> float:
@@ -71,6 +72,7 @@ def aggregate(runs: list[dict], goal_entities: set[str] | None = None) -> Report
             jumps_missed=sum(len(r["jumps"]["missed"]) for r in rs),
             pickup_rate=round(sum(r["pickups"]["collected"] for r in rs) / total, 3) if total else 1.0,
             stuck=sum(len(r["stuck"]) for r in rs),
+            hits=sum(len(r.get("damage", [])) for r in rs),
         )
     return Report(stats, runs, _level_issues(runs, stats, goal_entities))
 

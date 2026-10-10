@@ -20,10 +20,23 @@ def targets(difficulty: int) -> dict[str, float]:
     return {"novice": round(0.8 - (d - 1) * 0.125, 3), "average": 0.8, "expert": 0.95}
 
 
+def too_easy(rep: Report, difficulty: int) -> bool:
+    """From difficulty 2 up, a game where novices always win and neither novices nor average bots ever die
+    has no challenge at all."""
+    novice, average = rep.get("novice"), rep.get("average")
+    if difficulty < 2 or novice is None or novice.runs == 0:
+        return False
+    return novice.win_rate >= 1.0 and novice.deaths == 0 and (average is None or average.deaths == 0)
+
+
 def score(rep: Report, difficulty: int) -> float:
-    """Distance from the targets (lower is better). Too easy only counts on hard games."""
+    """Distance from the targets (lower is better). Being too easy counts from difficulty 2 up."""
     t = targets(difficulty)
     total = 0.0
+    if too_easy(rep, difficulty):
+        # Graded, so a step that makes the bots at least get hit counts as progress.
+        n = rep.get("novice")
+        total += round(0.3 / (1.0 + n.hits / n.runs), 4)
     for prof, goal in t.items():
         s = rep.get(prof)
         if s is None:
@@ -133,14 +146,24 @@ def propose(rep: Report, graph: dict, original: dict, manifest: Manifest, diffic
             why = f"novice bots won only {novice.wins}/{novice.runs}"
             bump("Player", "Health", "max_health", add=1, hi=lambda b: max(6, b), reason=why, integer=True)
             bump("Player", "Health", "invincibility_time", add=0.2, hi=lambda b: max(1.5, b), reason=why)
-    # 7. Too easy on a game meant to be hard: enemies get faster.
-    if difficulty >= 3 and novice and novice.win_rate > t["novice"] + 0.35 and novice.deaths == 0:
+    # 7. No challenge (nobody dies, novices always win): every threat gets a bounded step up.
+    if too_easy(rep, difficulty) or (difficulty >= 3 and novice and novice.win_rate > t["novice"] + 0.35
+                                     and novice.deaths == 0):
+        why = f"too easy for difficulty {difficulty}: novices won {novice.wins}/{novice.runs} without dying"
         for name, e in ents.items():
             comps = e.get("components", {})
+            if name == "Player" or e.get("team") == "player":
+                continue
             mv = next((m for m in MOVEMENT if m in comps), None)
-            if mv and name != "Player" and any(k in comps for k in ("PatrolAI", "ChaseAI")):
-                bump(name, mv, "max_speed", factor=1.1, hi=lambda b: b * 1.5,
-                     reason=f"too easy for difficulty {difficulty}: novices won {novice.wins}/{novice.runs} without dying")
+            if mv and any(k in comps for k in ("PatrolAI", "ChaseAI")):
+                bump(name, mv, "max_speed", factor=1.15, hi=lambda b: b * 1.5, reason=why)
+            if "Weapon" in comps:
+                bump(name, "Weapon", "fire_rate", factor=1.25, hi=lambda b: b * 1.75, reason=why)
+            if "Health" in comps and any(k in comps for k in ("PatrolAI", "ChaseAI")):
+                bump(name, "Health", "max_health", add=1, hi=lambda b: b + 2, reason=why, integer=True)
+            if "Spawner" in comps:
+                bump(name, "Spawner", "interval", factor=0.8, lo=lambda b: b * 0.5, reason=why)
+                bump(name, "Spawner", "max_alive", add=1, hi=lambda b: b + 3, reason=why, integer=True)
     # Deduplicate (first reason wins).
     seen, out = set(), []
     for c in changes:

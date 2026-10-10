@@ -11,7 +11,7 @@ from typing import Any
 from ..level import jump_model
 from ..sprites.generate import features_for
 from . import levelgen
-from .brief import EnemyBrief, GameBrief
+from .brief import ENEMY_POINTS, EnemyBrief, GameBrief
 
 TILE = 32
 PLATFORMER_GRAVITY = 1600.0
@@ -44,8 +44,47 @@ PALETTES: dict[str, dict[str, Any]] = {
              "door": "#3d5a80", "hazard": "#293241", "bullet": "#ffffff", "enemy_bullet": "#c1121f", "heart": "#c1121f"},
 }
 
+# What a pickup is called says what colour it should be: a "GoldCoin" is gold whatever the palette.
+NAME_COLORS = {
+    "gold": "#ffd23f", "golden": "#ffd23f", "coin": "#ffd23f", "doubloon": "#ffd23f", "treasure": "#ffd23f",
+    "star": "#ffec27", "banana": "#ffe66d", "lemon": "#ffe66d", "honey": "#ffb703", "corn": "#ffd166",
+    "silver": "#c2c3c7", "pearl": "#fff1e8", "egg": "#fff1e8", "bone": "#fff1e8", "snowflake": "#e0fbfc",
+    "ruby": "#ff004d", "apple": "#ff004d", "cherry": "#e63946", "strawberry": "#ff4d6d", "heart": "#ff77a8",
+    "emerald": "#00e436", "leaf": "#5fb83d", "clover": "#5fb83d", "lime": "#a7f070",
+    "sapphire": "#29adff", "diamond": "#a2f3ff", "crystal": "#2de2e6", "gem": "#2de2e6", "ice": "#a2f3ff",
+    "amethyst": "#9b5de5", "grape": "#9b5de5", "plum": "#7e2553",
+    "carrot": "#ff9f1c", "orange": "#ffa300", "pumpkin": "#ff6c11", "fire": "#ff6c11", "ember": "#ff4d00",
+    "energy": "#3bceac", "battery": "#3bceac", "cell": "#3bceac", "orb": "#2de2e6", "mushroom": "#e63946",
+}
+
+
+def _lum(c: str) -> float:
+    def ch(v: int) -> float:
+        x = v / 255
+        return x / 12.92 if x <= 0.03928 else ((x + 0.055) / 1.055) ** 2.4
+    r, g, b = (int(c[i:i + 2], 16) for i in (1, 3, 5))
+    return 0.2126 * ch(r) + 0.7152 * ch(g) + 0.0722 * ch(b)
+
+
+def contrast(a: str, b: str) -> float:
+    hi, lo = sorted((_lum(a), _lum(b)), reverse=True)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+def pickup_color(name: str, pal: dict[str, Any]) -> str:
+    """Colour named by the pickup (first matching word), unless it blends into the background more than the
+    palette's own pickup colour does (sprites keep a dark outline, so light palettes stay readable)."""
+    need = min(2.0, contrast(pal["pickup"], pal["bg"]))
+    for word in _ordered_words(name):
+        singular = word[:-3] + "y" if word.endswith("ies") else word
+        for w in (word, singular, word.removesuffix("s"), word.removesuffix("es")):
+            color = NAME_COLORS.get(w)
+            if color and contrast(color, pal["bg"]) >= need:
+                return color
+    return pal["pickup"]
+
+
 SPEED = {"slow": 0.75, "normal": 1.0, "fast": 1.3}
-ENEMY_POINTS = {"walker": 5, "hopper": 10, "chaser": 10, "shooter": 25, "turret": 20}
 ENEMY_SYMBOLS = "1234"
 
 FEEL_PLATFORMER = {
@@ -390,7 +429,7 @@ class _Assembler:
         name = b.collectible.name
         if b.collectible.count > 0:
             self.entities[name] = {"body": "area",
-                                   "shape": {"type": "circle", "size": [14, 14], "color": self.pal["pickup"]},
+                                   "shape": {"type": "circle", "size": [14, 14], "color": pickup_color(name, self.pal)},
                                    "components": {"Collectible": {"kind": name.lower(), "score": 1}}}
             self.legend["C"] = name
             for _ in range(b.collectible.count):
@@ -469,9 +508,12 @@ PICKUP_KINDS = (({"coin", "gold", "money", "cash", "token"}, "coin"), ({"star", 
                 ({"heart", "life", "health"}, "heart"))
 
 
+def _ordered_words(name: str) -> list[str]:
+    return [w.lower() for w in re.findall(r"[A-Z][a-z0-9]*|[a-z0-9]+", name)]
+
+
 def _words(name: str) -> set[str]:
-    import re
-    return {w.lower() for w in re.findall(r"[A-Z][a-z0-9]*|[a-z0-9]+", name)}
+    return set(_ordered_words(name))
 
 
 def sprite_kind(name: str, ent: dict, archetype: str | None, brief: GameBrief, platformer: bool) -> str:

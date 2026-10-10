@@ -27,8 +27,8 @@
         },
         "PlayerInput": {},
         "Health": {
-          "max_health": 4,
-          "invincibility_time": 1.0
+          "max_health": 3,
+          "invincibility_time": 0.8
         },
         "Hurtbox": {},
         "Stomp": {}
@@ -46,7 +46,7 @@
       "team": "enemy",
       "components": {
         "PlatformerMovement": {
-          "max_speed": 55.25
+          "max_speed": 65
         },
         "PatrolAI": {},
         "Health": {
@@ -80,7 +80,7 @@
       "sprite": {
         "generate": {
           "kind": "coin",
-          "color": "#f5f5f5",
+          "color": "#ffd23f",
           "seed": 64777
         }
       }

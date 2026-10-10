@@ -78,9 +78,9 @@
       "components": {
         "Spawner": {
           "entity": "LaserTurret",
-          "interval": 3.6,
+          "interval": 2.88,
           "start_delay": 3.0,
-          "max_alive": 4
+          "max_alive": 5
         }
       },
       "sprite": {
@@ -122,12 +122,12 @@
         },
         "Weapon": {
           "projectile": "EnemyBullet",
-          "fire_rate": 0.9,
+          "fire_rate": 1.125,
           "spread_deg": 4.0,
           "muzzle_distance": 22.0
         },
         "Health": {
-          "max_health": 2,
+          "max_health": 3,
           "invincibility_time": 0.1
         },
         "Hurtbox": {
@@ -157,7 +157,7 @@
       "sprite": {
         "generate": {
           "kind": "orb",
-          "color": "#f9c80e",
+          "color": "#3bceac",
           "seed": 93169
         }
       }
@@ -221,12 +221,12 @@
     {
       "on": "Game.ready",
       "do": [
-        "message('Score 100 points!')"
+        "message('Score 320 points!')"
       ]
     },
     {
       "on": "GameState.score_changed",
-      "if": "score >= 100",
+      "if": "score >= 320",
       "do": [
         "win()"
       ]

@@ -9,9 +9,9 @@ extends Node
 const LEVEL := "res://levels/main.tscn"
 
 const PROFILES := {
-	"novice": {"reaction": 12, "late": 10, "full_hop": 0.6, "panic": 0.25, "trigger": 0.6, "dodge": 0.2},
-	"average": {"reaction": 6, "late": 5, "full_hop": 0.85, "panic": 0.08, "trigger": 0.85, "dodge": 0.55},
-	"expert": {"reaction": 2, "late": 1, "full_hop": 1.0, "panic": 0.0, "trigger": 1.0, "dodge": 0.9},
+	"novice": {"reaction": 12, "late": 10, "full_hop": 0.6, "panic": 0.25, "trigger": 0.6, "dodge": 0.2, "aim": 0.35},
+	"average": {"reaction": 6, "late": 5, "full_hop": 0.85, "panic": 0.08, "trigger": 0.85, "dodge": 0.55, "aim": 0.16},
+	"expert": {"reaction": 2, "late": 1, "full_hop": 1.0, "panic": 0.0, "trigger": 1.0, "dodge": 0.9, "aim": 0.05},
 }
 const MOVE_ACTIONS := [&"move_left", &"move_right", &"move_up", &"move_down"]
 const ALL_ACTIONS := [&"move_left", &"move_right", &"move_up", &"move_down", &"jump", &"dash", &"shoot"]
@@ -33,6 +33,7 @@ var _blocked_targets := {}
 var _unreachable: Array = []
 var _target_since := 0
 var _wants_move := false
+var _aim_error := 0.0  # radians; people don't aim perfectly with a mouse
 
 # Telemetry of the current run.
 var _tile := 32.0
@@ -327,12 +328,14 @@ func _platformer(p: CharacterBody2D, mv: PlatformerMovementComponent) -> void:
 				return
 	if OS.has_environment("SPAWNPOINT_PLAYTEST_DEBUG") and _frame % 120 == 0:
 		print("f=%d cur=%s target=%s path=%s" % [_frame, cur, target.global_position.round() if target else null, _path.slice(0, 4)])
-	# Advance along the path.
-	while _path.size() > 1 and _path[0] != cur and _path[1] == cur:
-		_path.pop_front()
-	var idx := _path.find(cur)
-	if idx > 0:
-		_path = _path.slice(idx)
+	# Advance along the path only once landed: passing through a cell mid-jump is not standing on it
+	# (steering on to the next cell from the air used to overshoot small platforms).
+	if p.is_on_floor():
+		while _path.size() > 1 and _path[0] != cur and _path[1] == cur:
+			_path.pop_front()
+		var idx := _path.find(cur)
+		if idx > 0:
+			_path = _path.slice(idx)
 	var next: Vector2i = _path[1] if _path.size() > 1 else cur
 	var want_x: float = _nav.center(next).x if _path.size() > 1 else (target.global_position.x if target else p.global_position.x + 64.0)
 	var dx := want_x - p.global_position.x
@@ -352,6 +355,12 @@ func _platformer(p: CharacterBody2D, mv: PlatformerMovementComponent) -> void:
 	var step := next - cur
 	var needs_jump := _path.size() > 1 and (step.y < 0 or absi(step.x) > 1)
 	var at_edge := dir != 0 and not _nav.standable(cur + Vector2i(dir, 0))
+	if at_edge and absi(step.x) > 1:
+		# A long jump needs the whole run-up: wait until the feet are at the platform's end, not just in its
+		# last tile (fast reactions used to jump a tile early and fall short; coyote time covers overshoot).
+		var edge_x := _nav.center(cur).x + dir * _tile * 0.5
+		# Within half a body of the boundary: against a wall the body stops exactly there.
+		at_edge = absf(edge_x - p.global_position.x) < half.x + 4.0 or signf(p.global_position.x - edge_x) == dir
 	var target_above := _path.size() <= 1 and target != null and target.global_position.y < p.global_position.y - half.y
 	var busy := _pending_jump > 0 or _queue.any(func(q: Dictionary) -> bool: return q.action == &"jump")
 	if p.is_on_floor() and not busy and ((needs_jump and (absi(step.x) <= 1 or at_edge)) or enemy_ahead or target_above):
@@ -370,8 +379,9 @@ func _platformer(p: CharacterBody2D, mv: PlatformerMovementComponent) -> void:
 
 func _topdown(p: CharacterBody2D) -> void:
 	var aim := SP.component(p, &"Aim")
-	if aim and aim.get(&"mode") == "mouse":
-		aim.set(&"mode", "nearest_enemy")  # bots have no mouse
+	if aim and aim.is_physics_processing():
+		aim.set_physics_process(false)  # bots have no mouse: they aim themselves, with a human-sized error
+	_aim(p)
 	var pos := p.global_position
 	var cur := _nav.cell_of(pos, 0.0)
 	var target := _pick_target(p)
@@ -422,6 +432,35 @@ func _topdown(p: CharacterBody2D) -> void:
 		_press(&"shoot", 2)
 	if bullet_close and _rng.randf() < float(_p.dodge) * 0.1:
 		_later(&"dash", 3)
+
+
+func _aim(p: CharacterBody2D) -> void:
+	var weapon := SP.component(p, &"Weapon")
+	if weapon == null:
+		return
+	var best: Node2D = null
+	var best_d := 600.0
+	for e in get_tree().get_nodes_in_group(&"team_enemy"):
+		var n := e as Node2D
+		if SP.component(n, &"Hurtbox") == null or SP.component(n, &"Projectile") != null:
+			continue
+		var d := n.global_position.distance_to(p.global_position)
+		if d < best_d:
+			best_d = d
+			best = n
+	if best == null:
+		return
+	if _frame % (int(_p.reaction) * 3 + 6) == 0:  # the error drifts at the speed of the player's reactions
+		_aim_error = _rng.randfn(0.0, float(_p.aim))
+	var dir := (best.global_position - p.global_position).normalized().rotated(_aim_error)
+	weapon.set(&"aim_direction", dir)
+	if aim_visual_supported(p):
+		SP.face(p, dir, true)
+
+
+func aim_visual_supported(p: Node2D) -> bool:
+	var aim := SP.component(p, &"Aim")
+	return aim != null and bool(aim.get(&"rotate_visual"))
 
 
 func _ray(space: PhysicsDirectSpaceState2D, p: CharacterBody2D, from: Vector2, to: Vector2) -> bool:

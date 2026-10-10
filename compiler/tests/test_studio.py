@@ -333,3 +333,21 @@ def test_resolve_model_prefers_fine_tuned_adapter(monkeypatch):
     llm2 = OpenAICompatible(model=None, base_url="http://x")
     monkeypatch.setattr(llm2, "_request", lambda path, payload=None: {"data": [{"id": "only"}]})
     assert llm2.resolve_model() == "only"
+
+
+def test_pickup_colour_follows_its_name():
+    from spawnpoint.studio.assemble import PALETTES, pickup_color
+
+    assert pickup_color("GoldCoin", PALETTES["ocean"]) == "#ffd23f"  # not the ocean palette's white
+    assert pickup_color("Rubies", PALETTES["night"]) == "#ff004d"  # plural names work
+    assert pickup_color("Marble", PALETTES["ocean"]) == PALETTES["ocean"]["pickup"]  # unknown: palette colour
+
+
+def test_topdown_score_target_takes_a_real_fight():
+    from spawnpoint.studio.brief import EnemyBrief, GameBrief, normalize
+
+    b = GameBrief(title="t", genre="topdown", goal="score_target", score_target=100, difficulty=2,
+                  enemies=[EnemyBrief(name="LaserTurret", archetype="turret", count=2)])
+    b, notes = normalize(b)
+    assert b.score_target == 20 * 16 and any("raised" in n for n in notes)
+    assert b.intro == "Score 320 points!"
