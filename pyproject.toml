@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "spawnpoint-studio"
-version = "0.1.1"
+version = "0.2.0"
 description = "Turn a sentence into a juicy, playable Godot 4 game — locally, on a consumer GPU."
 readme = "README.md"
 requires-python = ">=3.10"
