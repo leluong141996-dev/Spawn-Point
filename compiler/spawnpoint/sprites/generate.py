@@ -119,7 +119,7 @@ FEATURE_WORDS: dict[str, tuple[str, ...]] = {
     "ghost": ("ghost",), "spirit": ("ghost",),
     "dino": ("tail", "crest"), "dinosaur": ("tail", "crest"), "rex": ("tail", "crest"), "lizard": ("tail",),
     "mom": ("hair",), "mother": ("hair",), "mama": ("hair",), "mum": ("hair",), "princess": ("hair",),
-    "lady": ("hair",), "girl": ("hair",),
+    "lady": ("hair",), "girl": ("hair",), "farmer": ("hat",), "farmhand": ("hat",), "gardener": ("hat",),
 }
 
 

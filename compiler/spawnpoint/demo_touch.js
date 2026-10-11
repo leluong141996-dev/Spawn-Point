@@ -8,7 +8,8 @@
   var forced = location.search.indexOf("touch") >= 0;  // ?touch shows the controls on a desktop (testing)
   if (!(coarse || forced || "ontouchstart" in window) || location.search.indexOf("shot") >= 0) return;
 
-  var KEYS = {Space: " ", ShiftLeft: "Shift", KeyX: "x", KeyR: "r", ArrowLeft: "ArrowLeft",
+  var KEYS = {Space: " ", ShiftLeft: "Shift", KeyX: "x", KeyR: "r", KeyE: "e", Digit1: "1", Digit2: "2", Digit3: "3",
+              ArrowLeft: "ArrowLeft",
               ArrowRight: "ArrowRight", ArrowUp: "ArrowUp", ArrowDown: "ArrowDown"};
   var held = {};
   function send(code, on) {

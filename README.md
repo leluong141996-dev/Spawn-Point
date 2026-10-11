@@ -19,7 +19,7 @@ same component library: generated pixel art, collision traced from pixels, juice
 <code>spawnpoint gif</code> (autopilot).</sub></p>
 
 <p align="center"><b><a href="https://leluong141996-dev.github.io/Spawn-Point/">▶ Play the demos in your browser</a></b>: a Mario-style platformer, a ninja
-rescue, a dinosaur-egg bubble shooter, a survivor with level-ups and an arena shooter. No install needed, and
+rescue, a dinosaur-egg bubble shooter, a survivor with level-ups, a farming game and an arena shooter. No install needed, and
 they work on phones too (touch controls).</p>
 
 Spawn Point is an open-source, autonomous game studio that runs on your own machine. Instead of asking an LLM to type
@@ -315,6 +315,7 @@ headless smoke test (spawn, scripted input, crash detection) and report `E_RUNTI
 | World | `Collectible`, `TriggerZone`, `Spawner` (ramping waves, spawns around the player), `Gate` |
 | Progression | `Experience` (XP and levels), `XpOrb` (gems that fly to the player), `LevelUpMenu` (pause and pick one of three upgrades) |
 | Game modes | `BubbleBoard` (a complete bubble shooter: bank shots, colour pops, falling clusters, a descending ceiling) |
+| Farming | `FarmPlot` (soil that grows a crop only while watered), `Farmer` (plant / water / harvest, a basket, crop choice), `Market` (sell the basket), `CropPest` (crows that eat crops) |
 | Feel | `Juice` — attached to every entity unless `"juice": "none"` |
 
 Runtime autoloads: `GameState` (score, lives, variables, win/lose), `World` (spawning, rule

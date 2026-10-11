@@ -34,12 +34,17 @@ func _ready() -> void:
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png("%s/frame_%04d.png" % [out_dir, shot])
 			shot += 1
+	print("SPAWNPOINT_RECORD_SCORE %d" % GameState.score)
 	get_tree().quit(0)
 
 
 func _drive(frame: int) -> void:
 	var p := World.player() as CharacterBody2D
 	if p == null or frame < 20:
+		return
+	var farmer := SP.component(p, &"Farmer") as FarmerComponent
+	if farmer:
+		_farm(p, farmer, frame)
 		return
 	var board := SP.component(p, &"BubbleBoard") as BubbleBoardComponent
 	if board:
@@ -74,6 +79,52 @@ func _platformer(p: CharacterBody2D, mv: PlatformerMovementComponent) -> void:
 	if (p.is_on_floor() and (wall or not ground or enemy)) or (falling_into_gap and mv.air_jumps > 0):
 		Input.action_press(&"jump")
 		_jump_hold = 14
+
+
+func _farm(p: CharacterBody2D, farmer: FarmerComponent, frame: int) -> void:
+	# A sensible player: harvest what is ripe, plant empty plots, water dry ones; sell when the basket is
+	# heavy or there is nothing to do; swat crows that come close.
+	farmer.select(1)
+	var target: Vector2 = p.global_position
+	var plot: FarmPlotComponent = null
+	var carried := 0
+	for c in farmer.basket:
+		carried += int(farmer.basket[c])
+	var best := INF
+	for e in get_tree().get_nodes_in_group(&"farm_plot"):
+		var fp := SP.component(e, &"FarmPlot") as FarmPlotComponent
+		var need := 0.0 if fp.is_ripe() else (1.0 if fp.is_empty() else (2.0 if fp.wet_left <= 0.5 else INF))
+		if need == INF:
+			continue
+		var score: float = need * 400.0 + (e as Node2D).global_position.distance_to(p.global_position)
+		if score < best:
+			best = score
+			plot = fp
+	if carried >= 8 or (plot == null and carried > 0):
+		for e in get_tree().get_nodes_in_group(SP.ENTITY_GROUP):
+			if SP.component(e, &"Market"):
+				target = (e as Node2D).global_position
+		plot = null
+	elif plot:
+		target = (plot.get_parent() as Node2D).global_position
+	var to := target - p.global_position
+	for a in [&"move_left", &"move_right", &"move_up", &"move_down"]:
+		Input.action_release(a)
+	if to.length() > farmer.reach * 0.5:
+		if to.x < -6:
+			Input.action_press(&"move_left")
+		elif to.x > 6:
+			Input.action_press(&"move_right")
+		if to.y < -6:
+			Input.action_press(&"move_up")
+		elif to.y > 6:
+			Input.action_press(&"move_down")
+	elif plot and frame % 6 == 0:
+		farmer.interact()
+	Input.action_release(&"shoot")
+	for e in get_tree().get_nodes_in_group(&"team_enemy"):
+		if (e as Node2D).global_position.distance_to(p.global_position) < 70:
+			Input.action_press(&"shoot")
 
 
 func _topdown(p: CharacterBody2D, frame: int) -> void:

@@ -42,6 +42,11 @@ SHOWCASE = [
      "Survive three minutes of the night: auto-fire, collect gems, level up and pick a new power each time.",
      "Move: arrows / WASD | Dash: Shift | Pick an upgrade: 1 / 2 / 3 or click | Restart: R",
      {"pad": "dpad", "buttons": [["DASH", "ShiftLeft"]], "tap": "Move with the stick - you shoot on your own"}),
+    ("sunny_farm.json", "farming",
+     "Plant, water and harvest carrots, tomatoes and pumpkins, sell them at the market, and shoo the crows before sunset.",
+     "Move: arrows / WASD | Plant, water, harvest: Space / E | Crop: 1 / 2 / 3 | Shoo crows: X | Restart: R",
+     {"pad": "dpad", "buttons": [["ACT", "Space"], ["SHOO", "KeyX"], ["3", "Digit3"], ["2", "Digit2"], ["1", "Digit1"]],
+      "tap": "Stand next to a plot and press ACT"}),
     ("pixel_arena.json", "arena shooter",
      "A top-down arena: blast through robots and turrets, then reach the portal.",
      "Move: WASD | Aim: mouse | Shoot: click / X | Dash: Shift | Restart: R",
@@ -188,7 +193,7 @@ def index_html(games: list[Game]) -> str:
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Spawn Point demos</title>
-<meta name="description" content="Five Godot 4 games built with Spawn Point: platformers, a bubble shooter, a survivor. Play in your browser.">
+<meta name="description" content="Six Godot 4 games built with Spawn Point: platformers, a bubble shooter, a survivor, a farm. Play in your browser.">
 <meta property="og:title" content="Spawn Point demos: play Godot games in your browser">
 <meta property="og:description" content="A Mario-style platformer, a ninja rescue, a dinosaur-egg shooter, a survivor and an arena, all built from Spawn Point components.">
 <style>
@@ -227,7 +232,7 @@ footer {{ color:var(--muted); font-size:13px; padding-bottom:40px }}
 <body>
 <header>
   <h1>Spawn<span>Point</span> demos</h1>
-  <p class="lede">Five games, five ways to play, all built by Spawn Point from small JSON game graphs and a
+  <p class="lede">Six games, six ways to play, all built by Spawn Point from small JSON game graphs and a
   library of tested Godot 4 components: game feel, pixel art and collisions come for free. Click a card to play in
   your browser, no install needed.</p>
   <div class="links">

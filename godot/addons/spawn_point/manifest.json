@@ -380,6 +380,48 @@
       "doc": "A pickup (coin, gem, key...). Touching it adds [member score], emits [signal collected] and removes it. The visual bobs gently so pickups read as \"take me\"."
     },
     {
+      "name": "CropPest",
+      "class": "CropPestComponent",
+      "script": "res://addons/spawn_point/components/crop_pest_component.gd",
+      "base": "Node",
+      "hosts": [
+        "CharacterBody2D"
+      ],
+      "requires": [
+        "TopDownMovement"
+      ],
+      "category": "controller",
+      "entity_params": [],
+      "params": [
+        {
+          "name": "eat_seconds",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.1,60.0,0.1",
+          "default": 3.0,
+          "doc": "Seconds of pecking before the crop is gone."
+        },
+        {
+          "name": "appetite",
+          "type": "int",
+          "hint": "range",
+          "hint_string": "0.0,100.0",
+          "default": 2,
+          "doc": "Leaves after this many crops (0 = never)."
+        }
+      ],
+      "state": [],
+      "signals": [
+        {
+          "name": "ate",
+          "args": [],
+          "doc": "Emitted when a crop is eaten."
+        }
+      ],
+      "methods": [],
+      "doc": "A pest (crow, mole, rabbit) for farming games: it heads for the nearest plot with a crop, ripe ones first, and eats it after [member eat_seconds] unless it is chased off. Drives a TopDownMovement."
+    },
+    {
       "name": "Experience",
       "class": "ExperienceComponent",
       "script": "res://addons/spawn_point/components/experience_component.gd",
@@ -480,6 +522,188 @@
         }
       ],
       "doc": "Experience points and levels (survivor-style games). XP comes from [XpOrbComponent] pickups or [method add_xp]; every level needs [member growth] times more XP than the one before. Pair with [LevelUpMenuComponent] to let the player pick an upgrade on each level."
+    },
+    {
+      "name": "FarmPlot",
+      "class": "FarmPlotComponent",
+      "script": "res://addons/spawn_point/components/farm_plot_component.gd",
+      "base": "Node",
+      "hosts": [
+        "Area2D"
+      ],
+      "requires": [],
+      "category": "core",
+      "entity_params": [],
+      "params": [
+        {
+          "name": "water_seconds",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "1.0,120.0,0.5",
+          "default": 6.0,
+          "doc": "How long the soil stays wet after watering (seconds)."
+        },
+        {
+          "name": "size",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "16.0,128.0,1.0",
+          "default": 30.0,
+          "doc": "Size of the soil patch in px."
+        }
+      ],
+      "state": [
+        {
+          "name": "state",
+          "type": "int"
+        },
+        {
+          "name": "crop",
+          "type": "int"
+        },
+        {
+          "name": "crop_color",
+          "type": "Color"
+        },
+        {
+          "name": "grow_seconds",
+          "type": "float"
+        },
+        {
+          "name": "growth",
+          "type": "float"
+        },
+        {
+          "name": "wet_left",
+          "type": "float"
+        }
+      ],
+      "signals": [
+        {
+          "name": "planted",
+          "args": [
+            {
+              "name": "crop",
+              "type": "int"
+            }
+          ],
+          "doc": "Emitted when something is planted; [param crop] is its index in the farmer's crop list."
+        },
+        {
+          "name": "ripened",
+          "args": [
+            {
+              "name": "crop",
+              "type": "int"
+            }
+          ],
+          "doc": "Emitted when the crop is ripe."
+        },
+        {
+          "name": "harvested",
+          "args": [
+            {
+              "name": "crop",
+              "type": "int"
+            }
+          ],
+          "doc": "Emitted when the crop is harvested."
+        },
+        {
+          "name": "eaten",
+          "args": [
+            {
+              "name": "crop",
+              "type": "int"
+            }
+          ],
+          "doc": "Emitted when a pest eats the crop."
+        }
+      ],
+      "methods": [
+        {
+          "name": "progress",
+          "args": [],
+          "default_count": 0,
+          "returns": "float",
+          "doc": "Growth as 0..1 (1 when ripe)."
+        }
+      ],
+      "doc": "A patch of soil for farming games. A [FarmerComponent] plants a crop here, waters it and harvests it when ripe. The crop only grows while the soil is wet, and the soil dries after [member water_seconds]. Pests ([CropPestComponent]) can eat what grows here."
+    },
+    {
+      "name": "Farmer",
+      "class": "FarmerComponent",
+      "script": "res://addons/spawn_point/components/farmer_component.gd",
+      "base": "Node",
+      "hosts": [],
+      "requires": [],
+      "category": "core",
+      "entity_params": [],
+      "params": [
+        {
+          "name": "crops",
+          "type": "String",
+          "hint": "",
+          "hint_string": "",
+          "default": "Carrot|#ff9f1c|8|4;Tomato|#ff004d|14|9;Pumpkin|#ffa300|24|20",
+          "doc": "The crops on offer (see the class description)."
+        },
+        {
+          "name": "reach",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "8.0,200.0,1.0",
+          "default": 44.0,
+          "doc": "How far the farmer can reach a plot (px)."
+        },
+        {
+          "name": "basket_size",
+          "type": "int",
+          "hint": "range",
+          "hint_string": "1.0,999.0",
+          "default": 12,
+          "doc": "Most crops the basket holds."
+        }
+      ],
+      "state": [
+        {
+          "name": "crop_list",
+          "type": "Array"
+        },
+        {
+          "name": "selected",
+          "type": "int"
+        },
+        {
+          "name": "basket",
+          "type": "Dictionary"
+        }
+      ],
+      "signals": [
+        {
+          "name": "sold",
+          "args": [
+            {
+              "name": "amount",
+              "type": "int"
+            }
+          ],
+          "doc": "Emitted after a sale with the money earned."
+        },
+        {
+          "name": "acted",
+          "args": [
+            {
+              "name": "action",
+              "type": "String"
+            }
+          ],
+          "doc": "Emitted after each action: \"plant\", \"water\" or \"harvest\"."
+        }
+      ],
+      "methods": [],
+      "doc": "The player's farming hands. Press interact (Space / E) next to a [FarmPlotComponent]: an empty plot gets the selected seed, a growing one gets water, a ripe one is harvested into the basket. Keys 1-3 choose the crop. Walk into a [MarketComponent] to sell the basket for money (score).\n[member crops] is a \";\"-separated list of \"Name|#color|grow seconds|price\"."
     },
     {
       "name": "Gate",
@@ -1043,6 +1267,51 @@
       ],
       "methods": [],
       "doc": "Survivor-style upgrade picker. On every level of the sibling [ExperienceComponent] the game pauses and offers [member choices] random upgrades as cards (keys 1-3, arrows + Enter, or a click).\n[member upgrades] is a \";\"-separated list of \"Name|Description|changes\". Each change is \"[Entity:]Component.param\" followed by \"*factor\" or \"+amount\"; several changes are joined with \",\". Without \"Entity:\" the change applies to this entity; with it, to every current and future instance of that entity type (bullets, for instance)."
+    },
+    {
+      "name": "Market",
+      "class": "MarketComponent",
+      "script": "res://addons/spawn_point/components/market_component.gd",
+      "base": "Node",
+      "hosts": [
+        "Area2D"
+      ],
+      "requires": [],
+      "category": "core",
+      "entity_params": [],
+      "params": [
+        {
+          "name": "width",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "16.0,256.0,1.0",
+          "default": 64.0,
+          "doc": "Stall width in px (the drawing; the collision comes from the entity's shape)."
+        },
+        {
+          "name": "color",
+          "type": "Color",
+          "hint": "",
+          "hint_string": "",
+          "default": "(1.0, 0.0, 0.302, 1.0)",
+          "doc": "Awning colour."
+        }
+      ],
+      "state": [],
+      "signals": [
+        {
+          "name": "sold",
+          "args": [
+            {
+              "name": "amount",
+              "type": "int"
+            }
+          ],
+          "doc": "Emitted after a sale with the money earned."
+        }
+      ],
+      "methods": [],
+      "doc": "A market stall for farming games: a [FarmerComponent] that walks in sells everything in the basket."
     },
     {
       "name": "PatrolAI",

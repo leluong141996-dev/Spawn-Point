@@ -29,6 +29,9 @@ func _ready() -> void:
 	GameState.score_changed.connect(_on_score)
 	GameState.lives_changed.connect(_on_lives)
 	GameState.message_posted.connect(show_message)
+	GameState.var_changed.connect(func(n: String, _v: Variant) -> void:
+		if n == "score_label":
+			_on_score(GameState.score))
 	GameState.game_won.connect(_show_overlay.bind("YOU WIN!", ACCENT))
 	GameState.game_lost.connect(_show_overlay.bind("GAME OVER", DANGER))
 	_on_score(GameState.score)
@@ -74,7 +77,7 @@ func show_message(text: String) -> void:
 
 
 func _on_score(score: int) -> void:
-	_score.text = "SCORE %d" % score
+	_score.text = "%s %d" % [str(GameState.vars.get("score_label", "SCORE")), score]  # e.g. MONEY in farm games
 	_score.pivot_offset = _score.size * 0.5
 	var t := _score.create_tween()
 	_score.scale = Vector2(1.25, 1.25)
