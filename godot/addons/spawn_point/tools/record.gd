@@ -1,6 +1,6 @@
 extends Node
 ## Records a short gameplay clip with a simple autopilot (needs a display, not headless).
-## Run: godot4 --path <project> --fixed-fps 60 res://addons/spawn_point/tools/record.tscn -- <out_dir> <frames> <step>
+## Run: godot4 --path <project> --fixed-fps 60 res://addons/spawn_point/tools/record.tscn -- <out_dir> <frames> <step> [skip]
 ## Writes frame_0000.png, frame_0001.png, ... every <step> physics frames for <frames> frames.
 ##
 ## Autopilot — platformer: run right, jump at walls, gaps and enemies (double jump when airborne
@@ -18,6 +18,7 @@ func _ready() -> void:
 	var out_dir := args[0] if args.size() > 0 else "user://record"
 	var total := int(args[1]) if args.size() > 1 else 360
 	var step := int(args[2]) if args.size() > 2 else 3
+	var skip := int(args[3]) if args.size() > 3 else 0  # frames played before recording starts
 	DirAccess.make_dir_recursive_absolute(out_dir)
 	add_child((load(LEVEL) as PackedScene).instantiate())
 	await get_tree().physics_frame
@@ -26,10 +27,10 @@ func _ready() -> void:
 	if aim:
 		aim.set(&"mode", "nearest_enemy")  # the mouse is not ours to move
 	var shot := 0
-	for frame in range(total):
+	for frame in range(skip + total):
 		_drive(frame)
 		await get_tree().physics_frame
-		if frame % step == 0:
+		if frame >= skip and (frame - skip) % step == 0:
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png("%s/frame_%04d.png" % [out_dir, shot])
 			shot += 1
@@ -39,6 +40,11 @@ func _ready() -> void:
 func _drive(frame: int) -> void:
 	var p := World.player() as CharacterBody2D
 	if p == null or frame < 20:
+		return
+	var board := SP.component(p, &"BubbleBoard") as BubbleBoardComponent
+	if board:
+		if frame % 42 == 0:
+			board.shoot_at(board.autopilot_angle())
 		return
 	var mv := SP.movement(p)
 	if mv is PlatformerMovementComponent:

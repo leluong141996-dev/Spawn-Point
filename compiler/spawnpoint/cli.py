@@ -93,6 +93,7 @@ def main(argv: list[str] | None = None) -> int:
     gf.add_argument("--seconds", type=float, default=8.0)
     gf.add_argument("--fps", type=int, default=20)
     gf.add_argument("--width", type=int, default=640)
+    gf.add_argument("--skip", type=float, default=0.0, help="seconds of play before the clip starts")
 
     sp = sub.add_parser("sprites", help="import, generate or preview sprites")
     sps = sp.add_subparsers(dest="sprites_cmd", required=True)
@@ -245,7 +246,7 @@ def _gif(args) -> int:
     from .gif import record_gif
 
     out = args.out or args.project / "demo.gif"
-    path = record_gif(args.project.resolve(), out.resolve(), args.seconds, args.fps, args.width)
+    path = record_gif(args.project.resolve(), out.resolve(), args.seconds, args.fps, args.width, args.skip)
     print(f"Wrote {out} ({path.stat().st_size / 1e6:.1f} MB)")
     return 0
 

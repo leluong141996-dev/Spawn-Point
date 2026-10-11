@@ -10,7 +10,8 @@ extends Node
 const SP_NAME := "BubbleBoard"
 const SP_HOSTS: Array[String] = []
 const SP_REQUIRES: Array[String] = []
-const SP_INTERNAL: Array[String] = ["cell_center", "neighbors", "place", "shoot_at", "egg_count", "board_rect"]
+const SP_INTERNAL: Array[String] = ["cell_center", "neighbors", "place", "shoot_at", "egg_count", "board_rect",
+	"autopilot_angle", "launcher"]
 const SP_CATEGORY := "core"
 
 const SQRT3_2 := 0.8660254
@@ -172,7 +173,8 @@ func _aim(delta: float) -> void:
 
 
 func _input(event: InputEvent) -> void:
-	if event is InputEventMouseMotion:
+	# Mouse, or a finger on a phone (touches arrive as mouse events): a tap aims where it lands.
+	if event is InputEventMouseMotion or event is InputEventMouseButton or event is InputEventScreenTouch:
 		_mouse_aim = true
 
 
@@ -186,6 +188,18 @@ func shoot_at(angle: float) -> void:
 	_shot_vel = Vector2.from_angle(_angle) * shot_speed
 	if Sfx.has_sound("shoot"):
 		Sfx.play("shoot", 0.05)
+
+
+## An angle a simple autopilot would shoot at: toward the lowest egg of the loaded colour
+## (GIF recordings and demos).
+func autopilot_angle() -> float:
+	var best := Vector2i(-1, -1)
+	for k: Vector2i in _grid:
+		if _grid[k] == _current and (best.x < 0 or k.y > best.y):
+			best = k
+	if best.x < 0:
+		return -PI / 2.0 + _rng.randf_range(-0.6, 0.6)
+	return (cell_center(best) - launcher()).angle()
 
 
 func _step_shot(dt: float) -> bool:

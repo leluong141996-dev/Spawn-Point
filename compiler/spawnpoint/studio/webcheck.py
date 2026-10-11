@@ -101,8 +101,10 @@ class _WebSocket:
 
 
 def check(url: str, seconds: float = 12.0, size: tuple[int, int] = (960, 540), keys: list[str] | None = None,
-          expression: str | None = None, clicks: list[tuple[float, float, str]] | None = None) -> WebCheck:
-    """Open `url`, wait `seconds` (optionally pressing `keys` midway), return console output and a PNG."""
+          expression: str | None = None, clicks: list[tuple[float, float, str]] | None = None,
+          script: str | None = None) -> WebCheck:
+    """Open `url`, wait `seconds` (optionally pressing `keys`, clicking or running `script` midway), return
+    console output and a PNG. `expression` is evaluated at the end and returned as `value`."""
     chrome = find_chrome()
     if chrome is None:
         raise RuntimeError("Chrome not found (set CHROME_BIN)")
@@ -140,13 +142,15 @@ def check(url: str, seconds: float = 12.0, size: tuple[int, int] = (960, 540), k
             pressed = False
             ws.sock.settimeout(0.5)
             while time.time() < deadline:
-                if (keys or clicks) and not pressed and time.time() > deadline - seconds / 2:
+                if (keys or clicks or script) and not pressed and time.time() > deadline - seconds / 2:
                     ws.sock.settimeout(30)
                     for k in keys or []:
                         _key(call, k)
                     for x, y, button in clicks or []:
                         for t in ("mousePressed", "mouseReleased"):
                             call("Input.dispatchMouseEvent", type=t, x=x, y=y, button=button, clickCount=1)
+                    if script:
+                        call("Runtime.evaluate", expression=script)
                     ws.sock.settimeout(0.5)
                     pressed = True
                 try:

@@ -236,15 +236,7 @@
           "doc": "Emitted when an egg reaches the bottom line."
         }
       ],
-      "methods": [
-        {
-          "name": "launcher",
-          "args": [],
-          "default_count": 0,
-          "returns": "Vector2",
-          "doc": ""
-        }
-      ],
+      "methods": [],
       "doc": "A complete bubble-shooter (\"dinosaur eggs\") board, launched by its entity. Aim with the mouse or left/right, shoot with Space / X / click. Shots bounce off the side walls and stick to the eggs; three or more of one colour pop, and eggs no longer hanging from the ceiling fall for a bonus. Every [member shots_per_drop] shots the ceiling comes down a row. Emits [signal cleared] when the board is empty and [signal overflowed] when an egg reaches the bottom line (wire them to win() and lose() in the rules)."
     },
     {

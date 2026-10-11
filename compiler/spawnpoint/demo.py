@@ -28,26 +28,33 @@ MODEL = "https://huggingface.co/smoky1496/SpawnPoint-Coder-7B-AWQ"
 SHOWCASE = [
     ("pixel_hopper.json", "platformer",
      "A Mario-style romp: stomp slimes, double-jump, dash, and collect every coin to open the door.",
-     "Move: arrows / WASD | Jump: Space (twice to double-jump) | Dash: Shift | Restart: R"),
+     "Move: arrows / WASD | Jump: Space (twice to double-jump) | Dash: Shift | Restart: R",
+     {"pad": "lr", "buttons": [["JUMP", "Space"], ["DASH", "ShiftLeft"]]}),
     ("ninja_rescue.json", "platformer",
      "Mom has been caged! Throw shurikens, dodge the masked throwers, grab the key up high and set her free.",
-     "Move: arrows / WASD | Jump: Space | Shuriken: X / J | Dash: Shift | Restart: R"),
+     "Move: arrows / WASD | Jump: Space | Shuriken: X / J | Dash: Shift | Restart: R",
+     {"pad": "lr", "buttons": [["JUMP", "Space"], ["STAR", "KeyX"], ["DASH", "ShiftLeft"]]}),
     ("dino_eggs.json", "bubble shooter",
      "The classic egg shooter: bank shots off the walls, pop three dinosaur eggs of a colour, drop whole clusters.",
-     "Aim: mouse or Left / Right | Shoot: click / Space / X | Restart: R"),
+     "Aim: mouse or Left / Right | Shoot: click / Space / X | Restart: R",
+     {"pad": None, "buttons": [], "tap": "Tap where you want the egg to go"}),
     ("night_survivor.json", "survivor",
      "Survive three minutes of the night: auto-fire, collect gems, level up and pick a new power each time.",
-     "Move: arrows / WASD | Dash: Shift | Pick an upgrade: 1 / 2 / 3 or click | Restart: R"),
+     "Move: arrows / WASD | Dash: Shift | Pick an upgrade: 1 / 2 / 3 or click | Restart: R",
+     {"pad": "dpad", "buttons": [["DASH", "ShiftLeft"]], "tap": "Move with the stick - you shoot on your own"}),
     ("pixel_arena.json", "arena shooter",
      "A top-down arena: blast through robots and turrets, then reach the portal.",
-     "Move: WASD | Aim: mouse | Shoot: click / X | Dash: Shift | Restart: R"),
+     "Move: WASD | Aim: mouse | Shoot: click / X | Dash: Shift | Restart: R",
+     {"pad": "dpad", "buttons": [["DASH", "ShiftLeft"]], "tap": "Move with the stick, tap to shoot"}),
 ]
+TOUCH_JS = Path(__file__).with_name("demo_touch.js")
 
 
-def game_overlay(controls: str) -> str:
+def game_overlay(controls: str, touch: dict | None = None) -> str:
     """Injected into every game page: a way back to the gallery and the controls (bottom-left, clear of
-    the HUD). Hidden for screenshots (?shot)."""
+    the HUD), plus the touch controls on phones (../touch.js). Hidden for screenshots (?shot)."""
     return (
+        "<script>window.SP_TOUCH=" + json.dumps(touch or {}) + ";</script><script src=\"../touch.js\"></script>"
         "<style>#sp-bar{position:fixed;bottom:30px;left:8px;z-index:10;display:flex;gap:10px;align-items:center;"
         "font:12px/1.4 ui-monospace,Menlo,monospace;color:#fff;background:rgba(0,0,0,.55);padding:5px 10px;"
         "border-radius:6px;pointer-events:none}#sp-bar a{color:#ffec27;text-decoration:none;pointer-events:auto}"
@@ -67,17 +74,19 @@ class Game:
     tag: str = ""
     blurb: str = ""
     controls: str = ""
+    touch: dict = field(default_factory=dict)
     errors: list[str] = field(default_factory=list)
 
 
 def discover(examples: Path | None = None) -> list[Game]:
     examples = examples or manifest_mod.EXAMPLES_DIR
     games: list[Game] = []
-    for name, tag, blurb, controls in SHOWCASE:
+    for name, tag, blurb, controls, touch in SHOWCASE:
         path = examples / name
         if path.exists():
             data = load_graph(path)
-            games.append(Game(path.stem.replace("_", "-"), path, data.get("name", path.stem), tag, blurb, controls))
+            games.append(Game(path.stem.replace("_", "-"), path, data.get("name", path.stem), tag, blurb, controls,
+                              touch))
     return games
 
 
@@ -93,13 +102,14 @@ def build_site(out: Path, games: list[Game] | None = None, screenshots: bool = T
                 g.errors = [str(d) for d in result.diagnostics.errors] or ["build failed"]
                 log(f"  {g.slug}: build failed: {g.errors[0]}")
                 continue
-            seconds = web.export(project, head_include=game_overlay(g.controls))
+            seconds = web.export(project, head_include=game_overlay(g.controls, g.touch))
             target = out / g.slug
             shutil.rmtree(target, ignore_errors=True)
             shutil.copytree(project / web.WEB_DIR, target,
                             ignore=shutil.ignore_patterns(".gdignore", web.VERSION_FILE))
             share_engine(out, target)
             log(f"  {g.slug}: built (web export {seconds:.1f}s)")
+    shutil.copy2(TOUCH_JS, out / "touch.js")  # every game page loads it (before the browser check)
     built = [g for g in games if (out / g.slug / "index.html").exists()]
     if screenshots:
         if webcheck.find_chrome() is None:

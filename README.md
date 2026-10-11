@@ -9,15 +9,18 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/pixel-hopper.gif" width="48%" alt="Pixel Hopper — generated platformer">
-  <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/pixel-arena.gif" width="48%" alt="Pixel Arena — generated top-down shooter">
+  <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/ninja-rescue.gif" width="48%" alt="Ninja Rescue: a platformer where a ninja frees his mother">
+  <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/dino-eggs.gif" width="48%" alt="Dino Eggs: a bubble shooter with dinosaur eggs">
+  <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/night-survivor.gif" width="48%" alt="Night Survivor: auto-fire, gems, level-ups">
+  <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/pixel-hopper.gif" width="48%" alt="Pixel Hopper: a Mario-style platformer">
 </p>
-<p align="center"><sub>Both games are built from <code>examples/pixel_hopper.json</code> and
-<code>examples/pixel_arena.json</code>: generated sprites, collision traced from pixels, juice on by
-default. Recorded with <code>spawnpoint gif</code> (autopilot).</sub></p>
+<p align="center"><sub>Four of the demo games, each one a small JSON graph in <code>examples/</code> built from the
+same component library: generated pixel art, collision traced from pixels, juice on by default. Recorded with
+<code>spawnpoint gif</code> (autopilot).</sub></p>
 
 <p align="center"><b><a href="https://leluong141996-dev.github.io/Spawn-Point/">▶ Play the demos in your browser</a></b>: a Mario-style platformer, a ninja
-rescue, a dinosaur-egg bubble shooter, a survivor with level-ups and an arena shooter. No install needed.</p>
+rescue, a dinosaur-egg bubble shooter, a survivor with level-ups and an arena shooter. No install needed, and
+they work on phones too (touch controls).</p>
 
 Spawn Point is an open-source, autonomous game studio that runs on your own machine. Instead of asking an LLM to type
 hundreds of lines of GDScript (slow, expensive, and easy to break with Godot 3/4 mix-ups), the LLM

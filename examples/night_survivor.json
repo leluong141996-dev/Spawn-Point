@@ -36,15 +36,16 @@
         },
         "Weapon": {
           "projectile": "Bolt",
-          "fire_rate": 2.2,
-          "spread_deg": 4,
+          "fire_rate": 2.6,
+          "spread_deg": 14,
           "auto_fire": true,
-          "muzzle_distance": 16
+          "muzzle_distance": 16,
+          "projectile_count": 2
         },
         "Experience": {
           "first_level_xp": 3,
-          "growth": 1.32,
-          "magnet_radius": 90,
+          "growth": 1.25,
+          "magnet_radius": 110,
           "score_per_xp": 1
         },
         "LevelUpMenu": {
@@ -69,7 +70,8 @@
       "components": {
         "Projectile": {
           "speed": 560,
-          "lifetime": 0.75
+          "lifetime": 0.75,
+          "pierce": 1
         },
         "Hitbox": {
           "damage": 1,
@@ -87,7 +89,7 @@
       "team": "enemy",
       "components": {
         "TopDownMovement": {
-          "max_speed": 100,
+          "max_speed": 95,
           "acceleration": 900
         },
         "ChaseAI": {
@@ -116,6 +118,12 @@
             "wings"
           ]
         }
+      },
+      "juice": {
+        "hitstop_on_death": 0.0,
+        "hitstop_on_hurt": 0.0,
+        "shake_on_death": 0.04,
+        "shake_on_hurt": 0.0
       }
     },
     "Zombie": {
@@ -148,6 +156,12 @@
           "kind": "hero",
           "color": "#5fb83d"
         }
+      },
+      "juice": {
+        "hitstop_on_death": 0.0,
+        "hitstop_on_hurt": 0.0,
+        "shake_on_death": 0.04,
+        "shake_on_hurt": 0.0
       }
     },
     "Archer": {
@@ -191,6 +205,12 @@
             "helmet"
           ]
         }
+      },
+      "juice": {
+        "hitstop_on_death": 0.0,
+        "hitstop_on_hurt": 0.0,
+        "shake_on_death": 0.04,
+        "shake_on_hurt": 0.0
       }
     },
     "Arrow": {
@@ -270,11 +290,11 @@
       "components": {
         "Spawner": {
           "entity": "Bat",
-          "interval": 2.2,
-          "interval_ramp": 0.99,
-          "min_interval": 0.45,
-          "start_delay": 1.5,
-          "max_alive": 30,
+          "interval": 0.9,
+          "interval_ramp": 0.985,
+          "min_interval": 0.18,
+          "start_delay": 1.0,
+          "max_alive": 60,
           "around_player": 470
         }
       }
@@ -292,11 +312,11 @@
       "components": {
         "Spawner": {
           "entity": "Zombie",
-          "interval": 6.0,
+          "interval": 3.5,
           "interval_ramp": 0.97,
-          "min_interval": 1.6,
-          "start_delay": 35.0,
-          "max_alive": 10,
+          "min_interval": 0.9,
+          "start_delay": 20.0,
+          "max_alive": 18,
           "around_player": 470
         }
       }
@@ -314,11 +334,11 @@
       "components": {
         "Spawner": {
           "entity": "Archer",
-          "interval": 10.0,
+          "interval": 7.0,
           "interval_ramp": 0.95,
-          "min_interval": 4.0,
-          "start_delay": 85.0,
-          "max_alive": 5,
+          "min_interval": 2.5,
+          "start_delay": 60.0,
+          "max_alive": 6,
           "around_player": 470
         }
       }
@@ -404,14 +424,14 @@
     },
     {
       "on": "GameState.second_passed",
-      "if": "event.seconds == 35",
+      "if": "event.seconds == 20",
       "do": [
         "message('Zombies rise from the graves!')"
       ]
     },
     {
       "on": "GameState.second_passed",
-      "if": "event.seconds == 85",
+      "if": "event.seconds == 60",
       "do": [
         "message('Skeleton archers!')"
       ]
