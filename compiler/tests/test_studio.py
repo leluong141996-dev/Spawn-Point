@@ -344,13 +344,59 @@ def test_pickup_colour_follows_its_name():
 
 
 def test_topdown_score_target_takes_a_real_fight():
+    from spawnpoint.studio.assemble import assemble
     from spawnpoint.studio.brief import EnemyBrief, GameBrief, normalize
 
     b = GameBrief(title="t", genre="topdown", goal="score_target", score_target=100, difficulty=2,
                   enemies=[EnemyBrief(name="LaserTurret", archetype="turret", count=2)])
     b, notes = normalize(b)
-    assert b.score_target == 20 * 16 and any("raised" in n for n in notes)
-    assert b.intro == "Score 320 points!"
+    assert b.score_target == 100 and not any("raised" in n for n in notes)  # the brief keeps what was said
+    rules = json.dumps(assemble(b, 2, seed=1)["rules"])
+    assert "score >= 320" in rules and "Score 320 points!" in rules  # the game makes it a real fight
+
+
+def test_topdown_score_target_the_player_asked_for_is_kept():
+    from spawnpoint.studio.brief import EnemyBrief, GameBrief, normalize
+
+    b = GameBrief(title="t", genre="topdown", goal="score_target", score_target=200, difficulty=2,
+                  enemies=[EnemyBrief(name="LaserTurret", archetype="turret", count=2)])
+    b, notes = normalize(b)
+    assert b.score_target == 200 and not any("raised" in n for n in notes)
+    from spawnpoint.studio.assemble import assemble
+    assert "score >= 200" in json.dumps(assemble(b, 2, seed=1)["rules"])
+
+
+@pytest.mark.parametrize("kind", ["bubble", "rescue", "survivor"])
+def test_new_game_kinds_assemble_clean(manifest, kind):
+    from spawnpoint.analyze import analyze
+    from spawnpoint.studio.assemble import assemble
+    from spawnpoint.studio.brief import CollectibleBrief, EnemyBrief, GameBrief, PlayerBrief, normalize
+
+    briefs = {
+        "bubble": GameBrief(title="Dino Pop", genre="bubble", player=PlayerBrief(character="Dino"),
+                            collectible=CollectibleBrief(name="Egg")),
+        "rescue": GameBrief(title="Save Mom", genre="platformer", goal="rescue", rescue_target="Mom",
+                            player=PlayerBrief(character="Ninja", abilities=["stomp"]),
+                            enemies=[EnemyBrief(name="Slime", archetype="walker", count=3)]),
+        "survivor": GameBrief(title="Night", genre="topdown", goal="survive", level_ups=True,
+                              enemies=[EnemyBrief(name="Bat", archetype="chaser", count=3)]),
+    }
+    brief, _ = normalize(briefs[kind])
+    for layer in (0, 1, 2):
+        graph = assemble(brief, layer, seed=3)
+        a = analyze(graph, manifest)
+        warnings = [d for d in a.diagnostics.warnings if not (layer == 0 and d.code == "W_NO_WIN")]  # L0 = controls
+        assert a.ok and not warnings, (kind, layer, [str(d) for d in a.diagnostics])
+    ents, rules = graph["entities"], json.dumps(graph["rules"])
+    if kind == "bubble":
+        assert "BubbleBoard" in ents["Player"]["components"] and "win()" in rules and "lose()" in rules
+    elif kind == "rescue":
+        assert {"Cage", "CageKey", "Mom"} <= set(ents) and "Cage.open()" in rules
+        assert "hair" in ents["Mom"]["sprite"]["generate"]["features"]
+    else:
+        player = ents["Player"]["components"]
+        assert {"Experience", "LevelUpMenu"} <= set(player) and player["Weapon"]["auto_fire"]
+        assert "BatNest" in ents and "spawn('XpGem')" in rules and "time_limit" in rules
 
 
 def test_pick_model_prefers_spawnpoint_then_adapters():
@@ -387,12 +433,3 @@ def test_llm_backend_choice(monkeypatch):
     with pytest.raises(RuntimeError, match="Ollama"):
         llm_server.pick_backend()
     assert llm_server.pick_backend("vllm") == "vllm"
-
-
-def test_topdown_score_target_the_player_asked_for_is_kept():
-    from spawnpoint.studio.brief import EnemyBrief, GameBrief, normalize
-
-    b = GameBrief(title="t", genre="topdown", goal="score_target", score_target=200, difficulty=2,
-                  enemies=[EnemyBrief(name="LaserTurret", archetype="turret", count=2)])
-    b, notes = normalize(b)
-    assert b.score_target == 200 and not any("raised" in n for n in notes)

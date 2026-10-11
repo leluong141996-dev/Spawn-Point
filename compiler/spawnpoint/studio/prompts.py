@@ -8,7 +8,8 @@ BRIEF_SYSTEM = """You are the lead designer of a tiny 2D game studio. Turn the u
 
 Fields:
 - title: short catchy game title.
-- genre: "platformer" (side view, gravity, jumping between platforms) or "topdown" (seen from above, moves in 8 directions, usually shooting).
+- genre: "platformer" (side view, gravity, jumping between platforms), "topdown" (seen from above, moves in 8 directions, usually shooting)
+  or "bubble" (a bubble shooter / egg shooter: aim a launcher and pop 3 of the same colour; no enemies, no abilities).
 - palette: night | forest | desert | neon | candy | ocean | lava | snow. Pick the one matching the theme.
 - player.character: what the player is, one word in PascalCase (e.g. "Ninja", "Fox", "Astronaut").
 - player.abilities: any of double_jump, dash, stomp (jump on enemies to defeat them), shoot. Top-down games usually have shoot and dash.
@@ -20,8 +21,11 @@ Fields:
     count: how many (2-6 each), health: 1-3, speed: slow | normal | fast.
 - collectible: the item the player picks up. name: singular noun in PascalCase (e.g. "Star"); count: 5-20.
 - health_pickups: 0-3 hearts that heal.
-- goal: reach_exit | collect_all | collect_all_then_exit | defeat_all | score_target | survive.
+- goal: reach_exit | collect_all | collect_all_then_exit | defeat_all | score_target | survive | rescue | clear_board.
   score_target and survive_seconds are only used by those goals.
+  rescue (platformer): find a key, open a cage and save someone; rescue_target is who, one word in PascalCase (e.g. "Mom", "Princess", "Puppy").
+  clear_board is the goal of every bubble game; the collectible name is what gets popped (e.g. "Egg", "Bubble").
+- level_ups (top-down only): true for survivor games where the player auto-fires, collects XP gems and picks an upgrade on each level up. Usually with goal survive.
 - hazards: any of spikes, pits (platformer only).
 - length: short | medium | long. difficulty: 1-5 (2 is normal).
 - feel: snappy (tight, default) | floaty (moon-like, slow falls) | heavy (weighty).

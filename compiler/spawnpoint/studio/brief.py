@@ -7,7 +7,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-Genre = Literal["platformer", "topdown"]
+Genre = Literal["platformer", "topdown", "bubble"]
 Palette = Literal["night", "forest", "desert", "neon", "candy", "ocean", "lava", "snow"]
 Ability = Literal["double_jump", "dash", "stomp", "shoot"]
 Archetype = Literal["walker", "hopper", "chaser", "shooter", "turret"]
@@ -17,12 +17,14 @@ DEFAULT_SCORE_TARGET = 100
 # Points per defeated enemy, by archetype (the assembler writes them as rules).
 ENEMY_POINTS = {"walker": 5, "hopper": 10, "chaser": 10, "shooter": 25, "turret": 20}
 
-Goal = Literal["reach_exit", "collect_all", "collect_all_then_exit", "defeat_all", "score_target", "survive"]
+Goal = Literal["reach_exit", "collect_all", "collect_all_then_exit", "defeat_all", "score_target", "survive",
+               "rescue", "clear_board"]
 Hazard = Literal["spikes", "pits"]
 
 ARCHETYPES_BY_GENRE: dict[str, tuple[str, ...]] = {
     "platformer": ("walker", "hopper", "chaser", "shooter", "turret"),
     "topdown": ("chaser", "shooter", "turret"),
+    "bubble": (),
 }
 # What an archetype becomes when it does not exist in the genre.
 ARCHETYPE_FALLBACK = {"topdown": {"walker": "chaser", "hopper": "chaser"}}
@@ -66,6 +68,8 @@ class GameBrief(_Model):
     score_target: int = Field(default=DEFAULT_SCORE_TARGET, ge=10, le=10000)
     survive_seconds: int = Field(default=60, ge=10, le=600)
     hazards: list[Hazard] = Field(default_factory=list, max_length=2)
+    rescue_target: str = Field(default="Mom", max_length=24, description="who the player saves (goal rescue)")
+    level_ups: bool = Field(default=False, description="XP gems and an upgrade pick each level (top-down survivor)")
     length: Literal["short", "medium", "long"] = "medium"
     difficulty: int = Field(default=2, ge=1, le=5)
     feel: Literal["snappy", "floaty", "heavy"] = "snappy"
@@ -83,7 +87,7 @@ def json_schema() -> dict:
 RESERVED_NAMES = {
     "Player", "Bullet", "EnemyBullet", "Exit", "Door", "HealthPack", "Spikes", "Portal",
     "GameState", "Game", "World", "FX", "Sfx", "SP", "Entity", "Visual", "Shape", "Main", "Tiles",
-    "Entities", "Rules", "HUD", "Camera",
+    "Entities", "Rules", "HUD", "Camera", "Cage", "CageKey", "XpGem",
 }
 COMPONENT_NAMES = {
     "Health", "Hitbox", "Hurtbox", "Weapon", "Projectile", "Collectible", "TriggerZone", "Spawner",
@@ -131,6 +135,32 @@ def normalize(brief: GameBrief) -> tuple[GameBrief, list[str]]:
 
     b.collectible.name = unique(b.collectible.name, "Coin", "collectible")
     b.player.character = pascal_singular(b.player.character, "Hero")
+
+    # Genre-specific goals and features.
+    if b.genre == "bubble":
+        if b.goal != "clear_board":
+            notes.append(f"bubble shooters are won by clearing the board; goal '{b.goal}' -> 'clear_board'")
+            b.goal = "clear_board"
+        if b.enemies or b.hazards or b.player.abilities or b.level_ups:
+            notes.append("a bubble shooter has no enemies, hazards, abilities or level-ups; dropped them")
+        b.enemies, b.hazards, b.player.abilities, b.level_ups = [], [], [], False
+        b.health_pickups = 0
+        if b.collectible.name == "Coin":  # the default pickup makes no sense as a bubble
+            b.collectible.name = "Egg"
+    elif b.goal == "clear_board":
+        b.goal = "reach_exit" if b.genre == "platformer" else "score_target"
+        notes.append(f"goal 'clear_board' is for bubble shooters; using '{b.goal}'")
+    if b.goal == "rescue" and b.genre != "platformer":
+        b.goal = "reach_exit"
+        notes.append("rescue missions are platformers here; using 'reach_exit'")
+    if b.goal == "rescue":
+        b.rescue_target = unique(b.rescue_target, "Mom", "rescue target")
+    if b.level_ups and b.genre != "topdown":
+        b.level_ups = False
+        notes.append("level-ups are for top-down games; ignored")
+    if b.level_ups and "shoot" not in b.player.abilities:
+        b.player.abilities.append("shoot")
+        notes.append("level-up games fire on their own; gave the player 'shoot'")
 
     allowed = ARCHETYPES_BY_GENRE[b.genre]
     enemies = []
@@ -180,21 +210,6 @@ def normalize(brief: GameBrief) -> tuple[GameBrief, list[str]]:
             notes.append("defeating enemies needs an attack; gave the player 'stomp'")
     if b.goal == "collect_all" and b.genre == "topdown" and b.collectible.count == 0:
         b.collectible.count = 10
-    if b.goal == "score_target":
-        reachable = b.collectible.count + total_enemies * 10
-        if reachable < b.score_target and b.genre == "platformer":
-            b.score_target = max(10, reachable - reachable % 5)
-            notes.append(f"score_target lowered to {b.score_target} (the level holds only that many points)")
-        elif b.genre == "topdown" and b.enemies and b.score_target == DEFAULT_SCORE_TARGET:
-            # Enemies keep spawning in top-down arenas: an unspecified target should take a real fight, not
-            # five shots. A target the player asked for is kept as it is.
-            per_kill = max(ENEMY_POINTS.get(e.archetype, 10) for e in b.enemies)
-            floor = per_kill * (8 + 4 * b.difficulty)
-            if b.score_target < floor:
-                if b.intro == f"Score {b.score_target} points!":
-                    b.intro = ""  # the default intro names the old target
-                b.score_target = floor
-                notes.append(f"score_target raised to {floor} ({8 + 4 * b.difficulty} kills at difficulty {b.difficulty})")
     if not b.intro:
         b.intro = _default_intro(b)
     return b, notes
@@ -209,4 +224,6 @@ def _default_intro(b: GameBrief) -> str:
         "defeat_all": "Defeat every enemy!",
         "score_target": f"Score {b.score_target} points!",
         "survive": f"Survive {b.survive_seconds} seconds!",
+        "rescue": f"Find the key and save {b.rescue_target}!",
+        "clear_board": f"Pop every {c}!",
     }[b.goal]

@@ -11,7 +11,7 @@ from typing import Any
 from ..level import jump_model
 from ..sprites.generate import features_for
 from . import levelgen
-from .brief import ENEMY_POINTS, EnemyBrief, GameBrief
+from .brief import DEFAULT_SCORE_TARGET, ENEMY_POINTS, EnemyBrief, GameBrief
 
 TILE = 32
 PLATFORMER_GRAVITY = 1600.0
@@ -83,6 +83,17 @@ def pickup_color(name: str, pal: dict[str, Any]) -> str:
                 return color
     return pal["pickup"]
 
+
+LEVEL_UP_UPGRADES = ";".join([
+    "Rapid Fire|Shoot 25% faster|Weapon.fire_rate*1.25",
+    "Multishot|One more shot|Weapon.projectile_count+1,Weapon.spread_deg+12",
+    "Power|Shots hit harder|Bullet:Hitbox.damage+1",
+    "Piercing|Shots pass through one more enemy|Bullet:Projectile.pierce+1",
+    "Long Shot|Shots fly 30% further|Bullet:Projectile.lifetime*1.3,Aim.max_range*1.2",
+    "Swift|Move 12% faster|TopDownMovement.max_speed*1.12",
+    "Vitality|+1 max health, fully healed|Health.max_health+1,Health.current+99",
+    "Magnet|Pull gems from further away|Experience.magnet_radius*1.6",
+])
 
 SPEED = {"slow": 0.75, "normal": 1.0, "fast": 1.3}
 ENEMY_SYMBOLS = "1234"
@@ -173,19 +184,26 @@ class _Assembler:
         self.entities: dict[str, dict] = {}
         self.legend: dict[str, str] = {"#": "solid", "=": "oneway"}
         self.rules: list[dict] = []
+        self._nest_cells: list[str] = []
 
     # -- top level ---------------------------------------------------------------------------
     def graph(self) -> dict:
         b = self.b
+        if b.genre == "bubble":
+            return self._bubble_graph()
         lay = self._layout()
         grid: dict[tuple[int, int], str] = {}
         self._player(grid, lay)
         if self.layer >= 1:
             self._goal(grid, lay)
+            for sym, c in zip(self._nest_cells, [c for c in lay.free_cells if c not in grid]):
+                grid[c] = sym
             self._enemies(grid, lay)
             self._pickups(grid, lay)
             self._hazards(grid, lay)
         intro = b.intro if self.layer >= 1 else "Layer 0: try the controls!"
+        if b.goal == "score_target" and intro == f"Score {b.score_target} points!":
+            intro = f"Score {self._score_target()} points!"  # the default intro follows the real target
         self.rules.insert(0, {"on": "Game.ready", "do": [f"message({_q(intro)})"]})
         if self.layer >= 2:
             self._polish()
@@ -207,12 +225,45 @@ class _Assembler:
             "rules": self.rules,
         }
 
+    def _bubble_graph(self) -> dict:
+        b, pal = self.b, self.pal
+        d = b.difficulty
+        width, height = 30, 17
+        rows = ["#" * width] + ["#" + "." * (width - 2) + "#" for _ in range(height - 2)] + ["#" * width]
+        r = list(rows[14])
+        r[12] = "P"
+        rows[14] = "".join(r)
+        colors = ",".join(dict.fromkeys([*pal["enemies"], pal["pickup"], pal["player"], "#29adff", "#00e436"]))
+        board = {"columns": 9 if b.length == "long" else 8, "rows": min(3 + d, 8), "height_rows": 12,
+                 "colors": min(3 + (d >= 2) + (d >= 4), 6), "shots_per_drop": max(4, 10 - d),
+                 "palette": colors, "launcher_offset": [60, 0]}
+        player: dict[str, Any] = {"juice": "none", "components": {"PlayerInput": {}, "BubbleBoard": board}}
+        if self.layer >= 2:
+            player["sprite"] = {"generate": {"kind": "hero", "color": pal["player"],
+                                             "features": features_for(b.player.character)}}
+        else:
+            player["shape"] = {"type": "capsule", "size": [22, 34], "color": pal["player"]}
+        c = b.collectible.name
+        return {
+            "spawnpoint": 1, "name": b.title or "Untitled", "genre": "topdown",
+            "settings": {"tile_size": TILE, "lives": 1, "seed": self.seed, "background": pal["bg"], "zoom": 1.0,
+                         "tiles": {"solid": {"color": pal["solid"], "top": pal["top"]}}},
+            "entities": {"Player": player},
+            "level": {"map": rows, "legend": {"#": "solid", "P": "Player"}},
+            "rules": [
+                {"on": "Game.ready", "do": [f"message({_q(b.intro or 'Pop every ' + c + '!')})"]},
+                {"on": "Player.BubbleBoard.ceiling_dropped", "do": ["message('The ceiling is coming down!')"]},
+                {"on": "Player.BubbleBoard.cleared", "do": [f"message({_q('Every ' + c + ' popped!')})", "win()"]},
+                {"on": "Player.BubbleBoard.overflowed", "do": ["lose()"]},
+            ],
+        }
+
     def _layout(self) -> levelgen.Layout:
         b = self.b
         if self.platformer:
             length, up, across, pits = _level_args(b)
             return levelgen.platformer(self.seed, length, up, across, pits, b.difficulty,
-                                       door=b.goal == "collect_all_then_exit", chunks=self.chunks)
+                                       door=b.goal in ("collect_all_then_exit", "rescue"), chunks=self.chunks)
         return levelgen.arena(self.seed, b.length, b.difficulty)
 
     # -- player ------------------------------------------------------------------------------
@@ -253,6 +304,17 @@ class _Assembler:
                 "components": {"Projectile": {"speed": 720.0, "lifetime": 0.9},
                                "Hitbox": {"damage": 1, "knockback": 160.0}},
             }
+        if self.b.level_ups and not self.platformer and self.layer >= 1 and "Bullet" in self.entities:
+            # Survivor style: the player only moves; shots aim themselves and get better with each level.
+            comps["Aim"] = {"mode": "nearest_enemy", "max_range": 380.0}
+            comps["Weapon"] = {"projectile": "Bullet", "fire_rate": 2.6, "projectile_count": 2, "spread_deg": 14.0,
+                               "auto_fire": True, "muzzle_distance": 16.0}
+            self.entities["Bullet"]["components"]["Projectile"] = {"speed": 560.0, "lifetime": 0.75, "pierce": 1}
+            comps["Health"] = {"max_health": max(p.health, 5), "invincibility_time": 1.2}
+            comps["Experience"] = {"first_level_xp": 3, "growth": 1.25, "magnet_radius": 110.0}
+            comps["LevelUpMenu"] = {"upgrades": LEVEL_UP_UPGRADES}
+            self.entities["XpGem"] = {"body": "area", "shape": {"type": "circle", "size": [10, 10], "color": "#29adff"},
+                                      "components": {"XpOrb": {"value": 1, "lifetime": 40.0}}}
         shape = {"type": p.shape, "size": [22, 34] if self.platformer else [24, 24], "color": self.pal["player"]}
         if p.shape == "circle":
             shape["size"] = [26, 26] if self.platformer else [24, 24]
@@ -302,14 +364,85 @@ class _Assembler:
             for n in names:
                 self.rules.append({"on": f"{n}.died", "if": f"{total} == 0", "do": ["win()"]})
         elif b.goal == "score_target":
-            self.rules.append({"on": "GameState.score_changed", "if": f"score >= {b.score_target}", "do": ["win()"]})
+            self.rules.append({"on": "GameState.score_changed", "if": f"score >= {self._score_target()}", "do": ["win()"]})
+        elif b.goal == "rescue":
+            self._rescue(grid, lay)
         elif b.goal == "survive":
             n = b.survive_seconds
+            self.rules.append({"on": "Game.ready", "do": [f"set_var('time_limit', {n})"]})
             self.rules.append({"on": "GameState.second_passed", "if": f"event.seconds == {max(n - 10, 1)}",
                                "do": ["message('10 seconds left!')"]})
             self.rules.append({"on": "GameState.second_passed", "if": f"event.seconds >= {n}", "do": ["win()"]})
         if not self.platformer and b.goal in ("score_target", "survive"):
-            self._portals(grid, lay)
+            if b.level_ups:
+                self._nests()
+            else:
+                self._portals(grid, lay)
+
+    def _score_target(self) -> int:
+        """The brief keeps what the player said; the game makes it playable. A platformer level holds a fixed
+        number of points, so the target is capped at what it holds. Top-down arenas keep spawning enemies,
+        so an unspecified (default) target becomes a real fight instead of five shots: 8 + 4 x difficulty kills."""
+        b = self.b
+        if b.genre == "platformer":  # a platformer level holds a fixed number of points
+            reachable = b.collectible.count + sum(e.count * ENEMY_POINTS.get(e.archetype, 10) for e in b.enemies)
+            return min(b.score_target, max(10, reachable - reachable % 5))
+        if not b.enemies or b.score_target != DEFAULT_SCORE_TARGET:
+            return b.score_target
+        per_kill = max(ENEMY_POINTS.get(e.archetype, 10) for e in b.enemies)
+        return max(b.score_target, per_kill * (8 + 4 * b.difficulty))
+
+    def _rescue(self, grid, lay) -> None:
+        """Key somewhere high up -> the cage opens -> touch the one you came to save."""
+        b, pal = self.b, self.pal
+        who = b.rescue_target
+        self.entities["Cage"] = {"body": "static", "shape": {"type": "rect", "size": [18, 126], "color": "#8a8f98"},
+                                 "components": {"Gate": {}}}
+        self.legend["D"] = "Cage"
+        grid[lay.door] = "D"
+        self.entities[who] = {"body": "area", "shape": {"type": "capsule", "size": [22, 34], "color": pal["heart"]},
+                              "components": {"TriggerZone": {}}}
+        self.legend["M"] = who
+        grid[lay.exit] = "M"
+        self.entities["CageKey"] = {"body": "area", "shape": {"type": "circle", "size": [14, 14], "color": "#ffec27"},
+                                    "components": {"Collectible": {"kind": "key", "score": 10}}}
+        self.legend["K"] = "CageKey"
+        # The key is required, so it must be easy to reach for sure: on a platform one single jump above the
+        # ground, at most a single jump above that platform. Among those, the highest spot in the back half.
+        single = int(jump_velocity(b.player.jump_tiles) ** 2 / (2 * PLATFORMER_GRAVITY) // TILE)
+
+        def safe(c: tuple[int, int]) -> int | None:
+            h = levelgen.floor_below(lay, c)
+            if h is None or h > single:
+                return None
+            platform_rise = levelgen.STAND_ROW - (c[1] + h)
+            return h + platform_rise if 0 <= platform_rise <= single else None
+
+        before_cage = [(c, height) for c in lay.air_slots
+                       if c[0] < lay.door[0] - 1 and c not in grid and (height := safe(c)) is not None]
+        back = [x for x in before_cage if x[0][0] > lay.width // 2] or before_cage
+        if back:
+            spot = max(back, key=lambda x: (x[1], x[0][0]))[0]
+        else:  # no suitable air slot: on the ground just before the cage
+            spot = (lay.door[0] - 2, levelgen.STAND_ROW)
+        grid[spot] = "K"
+        self.rules.append({"on": "CageKey.collected", "do": ["Cage.open()", f"message({_q('The cage is open - go to ' + who + '!')})"]})
+        self.rules.append({"on": f"{who}.triggered", "do": [f"message({_q('You saved ' + who + '!')})", "win()"]})
+
+    def _nests(self) -> None:
+        """Survivor waves: one invisible nest per enemy type, spawning on a ring around the player, denser
+        over time; later types arrive later."""
+        d = self.b.difficulty
+        enemies = self.b.enemies or [EnemyBrief(name=self._default_chaser(), archetype="chaser", count=0)]
+        for i, e in enumerate(enemies[:3]):
+            self.entities[f"{e.name}Nest"] = {
+                "body": "static", "juice": "none", "shape": {"type": "none", "size": [4, 4]},
+                "components": {"Spawner": {"entity": e.name, "interval": round([1.1, 3.5, 7.0][i] - 0.1 * d, 2),
+                                           "interval_ramp": 0.985 if i == 0 else 0.97,
+                                           "min_interval": [0.2, 0.9, 2.5][i], "start_delay": [1.0, 20.0, 60.0][i],
+                                           "max_alive": [40 + 5 * d, 12 + 2 * d, 4 + d][i], "around_player": 470}}}
+            self.legend["n" if i == 0 else ("o" if i == 1 else "q")] = f"{e.name}Nest"
+            self._nest_cells.append(("n" if i == 0 else ("o" if i == 1 else "q")))
 
     def _portals(self, grid, lay) -> None:
         spawn = self.b.enemies[0].name if self.b.enemies else self._default_chaser()
@@ -353,7 +486,8 @@ class _Assembler:
                 if not pool:
                     break
                 grid[pool.pop()] = sym
-            self.rules.append({"on": f"{e.name}.died", "do": [f"add_score({ENEMY_POINTS[e.archetype]})"]})
+            self.rules.append({"on": f"{e.name}.died", "do": [f"add_score({ENEMY_POINTS[e.archetype]})"]
+                               + (["spawn('XpGem')"] if self.b.level_ups and "XpGem" in self.entities else [])})
 
     def _enemy_entity(self, e: EnemyBrief, index: int) -> None:
         k = SPEED[e.speed]
@@ -390,6 +524,13 @@ class _Assembler:
         comps.update({"Health": health, "Hurtbox": {"size_scale": 1.0}, "Hitbox": contact})
         shape["color"] = color
         self.entities[e.name] = {"team": "enemy", "shape": shape, "components": comps}
+        if self.b.level_ups and not self.platformer:
+            if "ChaseAI" in comps:  # swarms always know where the player is
+                comps["ChaseAI"].update({"detect_radius": 5000.0, "lose_radius": 5000.0, "wander": False,
+                                         "needs_line_of_sight": False})
+            # Hundreds of kills: no hit-stop or big shakes per enemy (it would freeze the game).
+            self.entities[e.name]["juice"] = {"hitstop_on_death": 0.0, "hitstop_on_hurt": 0.0,
+                                              "shake_on_death": 0.04, "shake_on_hurt": 0.0}
 
     def _enemy_bullet(self) -> None:
         if "EnemyBullet" in self.entities:
@@ -474,7 +615,7 @@ class _Assembler:
         for name, ent in self.entities.items():
             if ent.get("juice") == "none":
                 continue
-            ent["juice"] = dict(params)
+            ent["juice"] = {**params, **(ent["juice"] if isinstance(ent.get("juice"), dict) else {})}
 
 
     def _sprites(self) -> None:
@@ -482,6 +623,8 @@ class _Assembler:
         archetypes = {e.name: e.archetype for e in self.b.enemies}
         ai_art = self.ai_art
         for name, ent in self.entities.items():
+            if ent["shape"].get("type") == "none":  # invisible helpers (survivor nests)
+                continue
             kind = sprite_kind(name, ent, archetypes.get(name), self.b, self.platformer)
             color = ent["shape"]["color"]
             if ai_art:
@@ -493,6 +636,8 @@ class _Assembler:
                 gen: dict[str, Any] = {"kind": kind, "color": color, "seed": self.seed}
                 if name == "Player":
                     gen["features"] = features_for(self.b.player.character)
+                elif "TriggerZone" in ent.get("components", {}) and kind == "hero":
+                    gen["features"] = features_for(name)  # "Mom" gets long hair, "Princess" too
                 ent["sprite"] = {"generate": gen}
             del ent["shape"]
 
@@ -523,8 +668,12 @@ def sprite_kind(name: str, ent: dict, archetype: str | None, brief: GameBrief, p
         return "hero"
     if name in ("Bullet", "EnemyBullet"):
         return "bullet"
-    if name == "Door":
+    if name in ("Door", "Cage"):
         return "door"
+    if name in ("CageKey", "XpGem"):
+        return "gem"
+    if "TriggerZone" in comps and name not in ("Exit",):
+        return "hero"  # someone to rescue
     if name == "Exit":
         return "exit" if platformer else "portal"
     if name == "Portal":

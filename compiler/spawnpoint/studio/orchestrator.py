@@ -108,7 +108,10 @@ def create(prompt: str, out_dir: Path | Callable[[GameBrief], Path], llm: ChatMo
     try:
         result = _create(prompt, out_dir, recorder.wrap(llm) if recorder else llm, seed, creative, brief, web_export,
                          on_layer, on_brief, manifest, recorder)
-        if playtest and result.ok:
+        if playtest and result.ok and result.brief.genre == "bubble":
+            if on_progress:
+                on_progress("playtest skipped: the bots do not play bubble shooters")
+        elif playtest and result.ok:
             result.playtest = studio_playtest(result.out_dir, tune=True, web_export=web_export, manifest=manifest,
                                               on_progress=on_progress)
         return result
