@@ -1,6 +1,6 @@
 """Minimal OpenAI-compatible chat client with structured (JSON-schema) output.
 
-Works with vLLM, OpenAI, and any server implementing /v1/chat/completions with
+Works with vLLM, Ollama, OpenAI, and any server implementing /v1/chat/completions with
 `response_format: {"type": "json_schema"}`. No third-party dependencies.
 """
 
@@ -14,7 +14,26 @@ import urllib.request
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-DEFAULT_BASE_URL = "http://localhost:8000/v1"
+DEFAULT_BASE_URL = "http://localhost:8000/v1"  # vLLM (spawnpoint llm up on an NVIDIA GPU)
+OLLAMA_BASE_URL = "http://localhost:11434/v1"  # Ollama (spawnpoint llm up elsewhere)
+
+
+def _answers(base_url: str) -> bool:
+    try:
+        urllib.request.urlopen(base_url.rstrip("/") + "/models", timeout=0.5)
+        return True
+    except Exception:
+        return False
+
+
+def default_base_url() -> str:
+    """$SPAWNPOINT_LLM_BASE_URL, else the local vLLM server, else a local Ollama, else the vLLM address."""
+    env = os.environ.get("SPAWNPOINT_LLM_BASE_URL")
+    if env:
+        return env
+    if not _answers(DEFAULT_BASE_URL) and _answers(OLLAMA_BASE_URL):
+        return OLLAMA_BASE_URL
+    return DEFAULT_BASE_URL
 
 
 class LLMError(RuntimeError):
@@ -49,7 +68,7 @@ class ChatModel(Protocol):
 
 @dataclass
 class OpenAICompatible:
-    base_url: str = field(default_factory=lambda: os.environ.get("SPAWNPOINT_LLM_BASE_URL", DEFAULT_BASE_URL))
+    base_url: str = field(default_factory=default_base_url)
     model: str | None = field(default_factory=lambda: os.environ.get("SPAWNPOINT_LLM_MODEL"))
     api_key: str | None = field(default_factory=lambda: os.environ.get("SPAWNPOINT_LLM_API_KEY"))
     timeout: float = 180.0
@@ -74,7 +93,7 @@ class OpenAICompatible:
             raise LLMError(f"LLM server returned {e.code} for {path}: {body}") from e
         except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
             raise LLMError(
-                f"cannot reach the LLM at {self.base_url} ({e}). Start it (e.g. `docker start spawnpoint-llm`) "
+                f"cannot reach the LLM at {self.base_url} ({e}). Start it with `spawnpoint llm up` "
                 "or set SPAWNPOINT_LLM_BASE_URL.") from e
 
     def resolve_model(self) -> str:
@@ -82,9 +101,7 @@ class OpenAICompatible:
             models = self._request("/models").get("data", [])
             if not models:
                 raise LLMError(f"the LLM server at {self.base_url} lists no models")
-            # A fine-tuned adapter (vLLM lists it with a `parent`) beats the base model it sits on.
-            adapters = [m for m in models if m.get("parent")]
-            self.model = (adapters or models)[0]["id"]
+            self.model = pick_model(models)
         return self.model
 
     def chat_json(self, messages: list[dict], schema: dict, schema_name: str, *,
@@ -107,6 +124,14 @@ class OpenAICompatible:
         except (KeyError, IndexError, TypeError) as e:
             raise LLMError(f"unexpected LLM response: {str(resp)[:300]}") from e
         return parse_json(content)
+
+
+def pick_model(models: list[dict]) -> str:
+    """SpawnPoint-Coder if the server has it (Ollama lists every local model), else a fine-tuned adapter
+    (vLLM lists it with a `parent`) over the base model it sits on, else the first model."""
+    ours = [m for m in models if "spawnpoint" in m["id"].lower()]
+    adapters = [m for m in models if m.get("parent")]
+    return (ours or adapters or models)[0]["id"]
 
 
 def parse_json(content: str) -> dict:

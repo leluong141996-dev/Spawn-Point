@@ -1,4 +1,8 @@
-"""`spawnpoint llm up|down|status`: run SpawnPoint-Coder-7B locally in the vLLM Docker image."""
+"""`spawnpoint llm up|down|status`: run SpawnPoint-Coder-7B locally.
+
+Two backends: vLLM in Docker on an NVIDIA GPU (AWQ, fastest), or Ollama anywhere else (GGUF Q4_K_M:
+Apple Silicon, AMD, or plain CPU). `auto` picks vLLM when Docker and an NVIDIA GPU are present.
+"""
 
 from __future__ import annotations
 
@@ -14,6 +18,35 @@ NAME = os.environ.get("SPAWNPOINT_LLM_CONTAINER", "spawnpoint-llm")
 IMAGE = os.environ.get("VLLM_IMAGE", "vllm/vllm-openai:v0.10.2")  # CUDA 12.8: NVIDIA driver >= 570
 MODEL = os.environ.get("SPAWNPOINT_MODEL", "smoky1496/SpawnPoint-Coder-7B-AWQ")
 SERVED = "SpawnPoint-Coder-7B"
+OLLAMA_MODEL = os.environ.get("SPAWNPOINT_OLLAMA_MODEL", "hf.co/smoky1496/SpawnPoint-Coder-7B-GGUF:Q4_K_M")
+OLLAMA_PORT = 11434
+
+
+def pick_backend(choice: str = "auto") -> str:
+    if choice != "auto":
+        return choice
+    if shutil.which("docker") and shutil.which("nvidia-smi"):
+        return "vllm"
+    if shutil.which("ollama"):
+        return "ollama"
+    raise RuntimeError("no local backend found: install Ollama (https://ollama.com/download) on any machine, "
+                       "or Docker + the NVIDIA container toolkit for vLLM. A hosted API works too: "
+                       "set SPAWNPOINT_LLM_BASE_URL / SPAWNPOINT_LLM_MODEL / SPAWNPOINT_LLM_API_KEY.")
+
+
+def _ollama(*args: str, capture: bool = True) -> subprocess.CompletedProcess:
+    return subprocess.run(["ollama", *args], capture_output=capture, text=True)
+
+
+def ollama_up(say=print) -> int:
+    if _ollama("list").returncode != 0:
+        say("Ollama is installed but its server is not running: start the Ollama app or run `ollama serve`.")
+        return 1
+    say(f"Pulling {OLLAMA_MODEL} with Ollama (first time ~4.7 GB) ...")
+    if _ollama("pull", OLLAMA_MODEL, capture=False).returncode != 0:
+        return 1
+    say(f"Ready: http://localhost:{OLLAMA_PORT}/v1 (model {OLLAMA_MODEL}). Spawn Point finds it automatically.")
+    return 0
 
 
 def _docker(*args: str, check: bool = True, capture: bool = True) -> subprocess.CompletedProcess:
@@ -39,7 +72,9 @@ def ready(port: int = 8000) -> bool:
         return False
 
 
-def up(port: int = 8000, max_len: int = 16384, say=print) -> int:
+def up(port: int = 8000, max_len: int = 16384, say=print, backend: str = "auto") -> int:
+    if pick_backend(backend) == "ollama":
+        return ollama_up(say)
     if _exists():
         _docker("start", NAME)
     else:
@@ -62,8 +97,11 @@ def up(port: int = 8000, max_len: int = 16384, say=print) -> int:
     return 0
 
 
-def down(say=print) -> int:
-    if _exists():
+def down(say=print, backend: str = "auto") -> int:
+    if pick_backend(backend) == "ollama":
+        _ollama("stop", OLLAMA_MODEL)
+        say("Unloaded from Ollama.")
+    elif _exists():
         _docker("stop", NAME)
         say("Stopped.")
     else:
@@ -71,7 +109,12 @@ def down(say=print) -> int:
     return 0
 
 
-def status(port: int = 8000, say=print) -> int:
+def status(port: int = 8000, say=print, backend: str = "auto") -> int:
+    if pick_backend(backend) == "ollama":
+        have = OLLAMA_MODEL.split(":")[0].lower() in _ollama("list").stdout.lower()
+        say(f"Ollama model {OLLAMA_MODEL}: {'pulled' if have else 'not pulled'}; "
+            f"API on :{OLLAMA_PORT}: {'ready' if ready(OLLAMA_PORT) else 'not responding'}")
+        return 0
     say(f"container {NAME}: {'running' if _exists() and _running() else 'stopped'}; "
         f"API on :{port}: {'ready' if ready(port) else 'not responding'}")
     return 0

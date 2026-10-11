@@ -42,12 +42,12 @@ graph.json ──► validate (Python) ──► build scenes (Godot headless) �
 ## Install
 
 Requirements: Python ≥ 3.10, [Godot 4.6](https://godotengine.org/download) on your `PATH` (`godot4` or
-`godot`, or set `GODOT_BIN`), and for the LLM features either a 12 GB NVIDIA GPU with Docker (local model)
-or any OpenAI-compatible API.
+`godot`, or set `GODOT_BIN`), and for the LLM features one of: a 12 GB NVIDIA GPU with Docker (vLLM, fastest),
+[Ollama](https://ollama.com/download) on any machine (Mac, AMD, or CPU), or any OpenAI-compatible API.
 
 ```bash
 pip install spawnpoint-studio
-spawnpoint llm up                      # serves SpawnPoint-Coder-7B locally (or set SPAWNPOINT_LLM_* for an API)
+spawnpoint llm up                      # SpawnPoint-Coder-7B: vLLM on NVIDIA, otherwise Ollama (or set SPAWNPOINT_LLM_*)
 spawnpoint create "a ninja platformer where you collect stars"
 ```
 
@@ -82,7 +82,7 @@ Standard library only on the server, one HTML/JS page on the client, Server-Sent
 ## Make a game from a sentence
 
 ```bash
-scripts/llm-up.sh                     # SpawnPoint-Coder-7B on vLLM (~11 GB VRAM) — or any OpenAI-compatible API
+spawnpoint llm up                     # SpawnPoint-Coder-7B: vLLM (~11 GB VRAM) or Ollama — or any OpenAI-compatible API
 spawnpoint create "a ninja platformer where you collect stars"
 ```
 
@@ -128,10 +128,13 @@ edits as strict JSON, and the compiler turns that into Godot scenes and GDScript
 GPU (AWQ 4-bit). v2 on 30 human-written game ideas (English and Vietnamese): 87% fully right (v1: 73%),
 97% of checks passed; on held-out tasks: briefs 88% exact (v1: 36%), Vietnamese → English 97% (v1: 52%),
 tweaks 98%, entity edits 91%. It is tuned for 2D platformers and 2D top-down games only; other genres
-are no better than a general 7B coder. `scripts/llm-up.sh` downloads and serves it.
+are no better than a general 7B coder. `spawnpoint llm up` downloads and serves it: the AWQ build on vLLM when
+Docker and an NVIDIA GPU are present, otherwise the [GGUF build](https://huggingface.co/smoky1496/SpawnPoint-Coder-7B-GGUF)
+(Q4_K_M, ~4.7 GB) in Ollama. Force one with `--backend vllm|ollama`.
 
-LLM settings: `SPAWNPOINT_LLM_BASE_URL` (default `http://localhost:8000/v1`),
-`SPAWNPOINT_LLM_MODEL` (default: the server's first model), `SPAWNPOINT_LLM_API_KEY`.
+LLM settings: `SPAWNPOINT_LLM_BASE_URL` (default: vLLM at `http://localhost:8000/v1`, or Ollama at
+`http://localhost:11434/v1` when only Ollama answers), `SPAWNPOINT_LLM_MODEL` (default: SpawnPoint-Coder if the
+server has it, else its first model), `SPAWNPOINT_LLM_API_KEY`.
 Web builds need the Godot **web export templates** (Editor → Manage Export Templates, or unpack
 `web_*.zip` from the official `.tpz` into `~/.local/share/godot/export_templates/<version>/`);
 use `--no-web` to skip and play natively with `spawnpoint run`.

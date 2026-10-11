@@ -73,9 +73,11 @@ def main(argv: list[str] | None = None) -> int:
     tw.add_argument("--no-web", action="store_true")
     tw.add_argument("--record", action="store_true", help="save LLM calls as local fine-tuning data")
 
-    lm = sub.add_parser("llm", help="run SpawnPoint-Coder-7B locally (Docker + NVIDIA GPU)")
+    lm = sub.add_parser("llm", help="run SpawnPoint-Coder-7B locally (vLLM on NVIDIA, or Ollama anywhere)")
     lm.add_argument("action", choices=["up", "down", "status"])
     lm.add_argument("--port", type=int, default=8000)
+    lm.add_argument("--backend", choices=["auto", "vllm", "ollama"], default="auto",
+                    help="auto: vLLM with Docker + an NVIDIA GPU, otherwise Ollama")
 
     ex = sub.add_parser("examples", help="list the example graphs, or copy one here")
     ex.add_argument("action", nargs="?", choices=["list", "copy"], default="list")
@@ -212,8 +214,9 @@ def _llm(args) -> int:
     from . import llm_server
 
     try:
-        return {"up": lambda: llm_server.up(args.port), "down": llm_server.down,
-                "status": lambda: llm_server.status(args.port)}[args.action]()
+        return {"up": lambda: llm_server.up(args.port, backend=args.backend),
+                "down": lambda: llm_server.down(backend=args.backend),
+                "status": lambda: llm_server.status(args.port, backend=args.backend)}[args.action]()
     except (RuntimeError, subprocess.CalledProcessError) as e:
         print(f"error: {e}", file=sys.stderr)
         return 2

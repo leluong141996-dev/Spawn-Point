@@ -351,3 +351,48 @@ def test_topdown_score_target_takes_a_real_fight():
     b, notes = normalize(b)
     assert b.score_target == 20 * 16 and any("raised" in n for n in notes)
     assert b.intro == "Score 320 points!"
+
+
+def test_pick_model_prefers_spawnpoint_then_adapters():
+    from spawnpoint.studio.llm import pick_model
+
+    ollama = [{"id": "bge-m3:latest"}, {"id": "qwen3:4b"}, {"id": "hf.co/smoky1496/SpawnPoint-Coder-7B-GGUF:Q4_K_M"}]
+    assert pick_model(ollama) == "hf.co/smoky1496/SpawnPoint-Coder-7B-GGUF:Q4_K_M"
+    vllm = [{"id": "base"}, {"id": "coder-v1", "parent": "base"}]
+    assert pick_model(vllm) == "coder-v1"
+    assert pick_model([{"id": "gpt-x"}]) == "gpt-x"
+
+
+def test_default_base_url_falls_back_to_ollama(monkeypatch):
+    from spawnpoint.studio import llm
+
+    monkeypatch.delenv("SPAWNPOINT_LLM_BASE_URL", raising=False)
+    monkeypatch.setattr(llm, "_answers", lambda url: url == llm.OLLAMA_BASE_URL)
+    assert llm.default_base_url() == llm.OLLAMA_BASE_URL
+    monkeypatch.setattr(llm, "_answers", lambda url: True)
+    assert llm.default_base_url() == llm.DEFAULT_BASE_URL
+    monkeypatch.setenv("SPAWNPOINT_LLM_BASE_URL", "http://example:1/v1")
+    assert llm.default_base_url() == "http://example:1/v1"
+
+
+def test_llm_backend_choice(monkeypatch):
+    from spawnpoint import llm_server
+
+    tools = {"docker", "nvidia-smi", "ollama"}
+    monkeypatch.setattr(llm_server.shutil, "which", lambda t: t if t in tools else None)
+    assert llm_server.pick_backend() == "vllm"
+    tools.discard("nvidia-smi")
+    assert llm_server.pick_backend() == "ollama"
+    tools.clear()
+    with pytest.raises(RuntimeError, match="Ollama"):
+        llm_server.pick_backend()
+    assert llm_server.pick_backend("vllm") == "vllm"
+
+
+def test_topdown_score_target_the_player_asked_for_is_kept():
+    from spawnpoint.studio.brief import EnemyBrief, GameBrief, normalize
+
+    b = GameBrief(title="t", genre="topdown", goal="score_target", score_target=200, difficulty=2,
+                  enemies=[EnemyBrief(name="LaserTurret", archetype="turret", count=2)])
+    b, notes = normalize(b)
+    assert b.score_target == 200 and not any("raised" in n for n in notes)

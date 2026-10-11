@@ -12,6 +12,8 @@ Palette = Literal["night", "forest", "desert", "neon", "candy", "ocean", "lava",
 Ability = Literal["double_jump", "dash", "stomp", "shoot"]
 Archetype = Literal["walker", "hopper", "chaser", "shooter", "turret"]
 Speed = Literal["slow", "normal", "fast"]
+DEFAULT_SCORE_TARGET = 100
+
 # Points per defeated enemy, by archetype (the assembler writes them as rules).
 ENEMY_POINTS = {"walker": 5, "hopper": 10, "chaser": 10, "shooter": 25, "turret": 20}
 
@@ -61,7 +63,7 @@ class GameBrief(_Model):
     collectible: CollectibleBrief = Field(default_factory=CollectibleBrief)
     health_pickups: int = Field(default=1, ge=0, le=10)
     goal: Goal = "collect_all_then_exit"
-    score_target: int = Field(default=100, ge=10, le=10000)
+    score_target: int = Field(default=DEFAULT_SCORE_TARGET, ge=10, le=10000)
     survive_seconds: int = Field(default=60, ge=10, le=600)
     hazards: list[Hazard] = Field(default_factory=list, max_length=2)
     length: Literal["short", "medium", "long"] = "medium"
@@ -183,8 +185,9 @@ def normalize(brief: GameBrief) -> tuple[GameBrief, list[str]]:
         if reachable < b.score_target and b.genre == "platformer":
             b.score_target = max(10, reachable - reachable % 5)
             notes.append(f"score_target lowered to {b.score_target} (the level holds only that many points)")
-        elif b.genre == "topdown" and b.enemies:
-            # Enemies keep spawning in top-down arenas: the target should take a real fight, not five shots.
+        elif b.genre == "topdown" and b.enemies and b.score_target == DEFAULT_SCORE_TARGET:
+            # Enemies keep spawning in top-down arenas: an unspecified target should take a real fight, not
+            # five shots. A target the player asked for is kept as it is.
             per_kill = max(ENEMY_POINTS.get(e.archetype, 10) for e in b.enemies)
             floor = per_kill * (8 + 4 * b.difficulty)
             if b.score_target < floor:
