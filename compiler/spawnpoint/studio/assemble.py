@@ -96,6 +96,39 @@ LEVEL_UP_UPGRADES = ";".join([
 ])
 
 SPEED = {"slow": 0.75, "normal": 1.0, "fast": 1.3}
+
+# Farm: (grow seconds, price) for the first, second and third crop: cheap and quick to slow and valuable.
+FARM_CROPS = ((8, 4), (14, 9), (24, 20))
+FARM_CROP_PAL = {"pickup": "#ff9f1c", "bg": "#4f8a3a"}
+FARM_GROUND = {"forest": "#4f8a3a", "night": "#2f5a3a", "desert": "#c9a66b", "snow": "#dfe9ee",
+               "candy": "#9ad08a", "ocean": "#5a9a5a", "lava": "#6b4a3a", "neon": "#24453a"}
+ROAD_COLORS = {"snow": "#9fb4c2", "lava": "#4a3030", "neon": "#3a2a5a", "night": "#a08a62"}
+
+# Tower defense. A tower's role comes from its name (cannon, mage...) or else its place in the list.
+TOWER_PROFILES: dict[str, dict[str, Any]] = {
+    "fast": {"fire_rate": 1.8, "range": 140, "damage": 1, "speed": 520, "cost": 50, "color": "#a0663c",
+             "shot": "#fff1e8"},
+    "heavy": {"fire_rate": 0.7, "range": 170, "damage": 5, "speed": 360, "pierce": 1, "cost": 110,
+              "color": "#5f574f", "shot": "#29243a"},
+    "long": {"fire_rate": 1.0, "range": 210, "damage": 3, "speed": 460, "cost": 90, "color": "#7e2553",
+             "shot": "#ff77a8"},
+}
+TOWER_WORDS = {"heavy": {"cannon", "bomb", "catapult", "mortar", "rock", "boulder", "artillery", "dwarf"},
+               "long": {"mage", "wizard", "magic", "sniper", "laser", "lightning", "tesla", "crystal", "ice",
+                        "frost", "fire", "flame", "storm"},
+               "fast": {"archer", "arrow", "bow", "crossbow", "elf", "ninja", "gun", "machine", "dart"}}
+WAVE_PATTERN = (0, 0, 1, 2, 1, 0, 2, 1, 0)
+INVADER_SPEED = {"slow": 38, "normal": 62, "fast": 105}
+INVADER_HP = {"slow": 18, "normal": 6, "fast": 4}
+INVADER_GOLD = {"slow": 14, "normal": 5, "fast": 4}
+
+
+def tower_profile(name: str, index: int) -> str:
+    words = _words(name)
+    for prof, keys in TOWER_WORDS.items():
+        if words & keys:
+            return prof
+    return ("fast", "heavy", "long")[index % 3]
 ENEMY_SYMBOLS = "1234"
 
 FEEL_PLATFORMER = {
@@ -190,7 +223,11 @@ class _Assembler:
     def graph(self) -> dict:
         b = self.b
         if b.genre == "bubble":
-            return self._bubble_graph()
+            return self._styled(self._bubble_graph())
+        if b.genre == "farm":
+            return self._styled(self._farm_graph())
+        if b.genre == "tower_defense":
+            return self._styled(self._td_graph())
         lay = self._layout()
         grid: dict[tuple[int, int], str] = {}
         self._player(grid, lay)
@@ -207,7 +244,7 @@ class _Assembler:
         self.rules.insert(0, {"on": "Game.ready", "do": [f"message({_q(intro)})"]})
         if self.layer >= 2:
             self._polish()
-        return {
+        return self._styled({
             "spawnpoint": 1,
             "name": b.title or "Untitled",
             "genre": b.genre,
@@ -223,7 +260,217 @@ class _Assembler:
             "entities": self.entities,
             "level": {"map": _render(lay, grid), "legend": self.legend},
             "rules": self.rules,
-        }
+        })
+
+    def _styled(self, g: dict) -> dict:
+        if self.b.art_style != "pixel" and self.layer >= 2:
+            g["settings"]["art_style"] = self.b.art_style
+        return g
+
+    # -- farm --------------------------------------------------------------------------------
+    def _farm_graph(self) -> dict:
+        b, pal = self.b, self.pal
+        d = b.difficulty
+        lay = levelgen.farm(self.seed, b.length)
+        target, minutes = self._farm_target(), self._farm_seconds()
+        crops = ";".join(f"{c}|{pickup_color(c, FARM_CROP_PAL)}|{grow}|{price}"
+                         for c, (grow, price) in zip(b.crops, FARM_CROPS))
+        comps: dict[str, dict] = {"TopDownMovement": {"max_speed": round(210 * SPEED[b.player.speed]),
+                                                       "acceleration": 2200}, "PlayerInput": {},
+                                  "Farmer": {"crops": crops, "reach": 44, "basket_size": 12}}
+        if "dash" in b.player.abilities:
+            comps["TopDownMovement"]["dash_speed"] = 640.0
+        self.entities["Player"] = {"shape": {"type": "circle", "size": [24, 24], "color": pal["player"]},
+                                   "components": comps}
+        chasers = [e for e in b.enemies if e.archetype in ("chaser", "shooter")]
+        if chasers:  # something hunts the farmer, so the farmer can get hurt
+            comps["Health"] = {"max_health": b.player.health, "invincibility_time": 1.0}
+            comps["Hurtbox"] = {}
+        if b.enemies:
+            self._melee_or_gust(comps)
+        self.entities["Plot"] = {"body": "area", "juice": "none", "shape": {"type": "none", "size": [30, 30]},
+                                 "components": {"FarmPlot": {"water_seconds": round(7.0 - 0.5 * d, 1), "size": 30}}}
+        self.entities["Stall"] = {"body": "area", "juice": "none",
+                                  "shape": {"type": "rect", "size": [64, 48], "color": "#00000000"},
+                                  "components": {"Market": {"width": 64, "color": pal["enemies"][0]}}}
+        legend = {"#": "solid", "P": "Player", "f": "Plot", "M": "Stall"}
+        cells: dict[tuple[int, int], str] = {lay.player: "P", lay.market: "M"}
+        for c in lay.plots:
+            cells[c] = "f"
+        for c in lay.rocks:
+            cells[c] = "#"
+        for i, e in enumerate(b.enemies[:3]):
+            self._pest(e, i)
+            nest = f"{e.name}Nest"
+            k = SPEED[e.speed]
+            self.entities[nest] = {
+                "body": "static", "juice": "none", "shape": {"type": "none", "size": [4, 4]},
+                "components": {"Spawner": {"entity": e.name, "interval": round(14.0 / (0.6 + 0.2 * d) / k, 1),
+                                           "interval_ramp": 0.95, "min_interval": 5.0,
+                                           "start_delay": 20.0 + 15 * i, "max_alive": max(1, min(e.count, 6))}}}
+            legend["nqr"[i]] = nest
+            cells[lay.nests[i % len(lay.nests)]] = "nqr"[i]
+        rows = []
+        for y in range(lay.height):
+            rows.append("".join("#" if x in (0, lay.width - 1) or y in (0, lay.height - 1)
+                                else cells.get((x, y), ".") for x in range(lay.width)).rstrip("."))
+        intro = b.intro or f"Earn ${target} before sunset!"
+        if intro in (f"Score {b.score_target} points!", f"Earn ${b.score_target} before sunset!"):
+            intro = f"Earn ${target} before sunset!"  # the default intro follows the real target
+        rules = [
+            {"on": "Game.ready", "do": [f"set_var('time_limit', {minutes})", "set_var('score_label', 'MONEY')",
+                                        f"message({_q(intro + ' Space: plant, water, harvest')})"]},
+            {"on": "GameState.score_changed", "if": f"score >= {target}", "do": ["message('What a harvest!')", "win()"]},
+            {"on": "GameState.second_passed", "if": f"event.seconds >= {minutes}",
+             "do": ["message('The sun has set')", "lose()"]},
+        ]
+        if b.enemies:
+            pest = b.enemies[0].name
+            rules.append({"on": "GameState.second_passed", "if": "event.seconds == 20",
+                          "do": [f"message({_q(pest + 's are coming! Chase them off with X')})"]})
+            for e in b.enemies[:3]:
+                rules.append({"on": f"{e.name}.died", "do": ["add_score(2)"]})
+        self.rules = rules
+        if self.layer >= 2:
+            self._polish()
+        bg = FARM_GROUND.get(b.palette, FARM_GROUND["forest"])
+        return {"spawnpoint": 1, "name": b.title or "Untitled", "genre": "topdown",
+                "settings": {"tile_size": TILE, "lives": 1, "seed": self.seed, "zoom": 1.25, "background": bg,
+                             "tiles": {"solid": {"color": "#8a5a3b", "top": "#c2a476"}}},
+                "entities": self.entities, "level": {"map": rows, "legend": legend}, "rules": self.rules}
+
+    def _farm_target(self) -> int:
+        b = self.b
+        if b.score_target != DEFAULT_SCORE_TARGET:
+            return b.score_target
+        return 150 + 50 * b.difficulty  # an unspecified target: a full day's work
+
+    def _farm_seconds(self) -> int:
+        return self.b.survive_seconds if self.b.survive_seconds != 60 else 180
+
+    def _pest(self, e: EnemyBrief, index: int) -> None:
+        k = SPEED[e.speed]
+        color = self.pal["enemies"][index % len(self.pal["enemies"])]
+        comps: dict[str, dict] = {"TopDownMovement": {"max_speed": round(75 * k), "acceleration": 600}}
+        if e.archetype in ("chaser", "shooter"):
+            comps["ChaseAI"] = {"detect_radius": 260.0}
+            comps["Hitbox"] = {"damage": 1, "knockback": 260.0}
+        else:
+            comps["CropPest"] = {"eat_seconds": round(3.5 - 0.3 * self.b.difficulty, 1), "appetite": 2}
+        comps["Health"] = {"max_health": e.health, "invincibility_time": 0.05}
+        comps["Hurtbox"] = {"size_scale": 1.2}
+        self.entities[e.name] = {"team": "enemy", "shape": {"type": "circle", "size": [22, 22], "color": color},
+                                 "components": comps}
+
+    def _melee_or_gust(self, comps: dict) -> None:
+        """The farmer's way to chase pests off: a sword swing, or a puff of air."""
+        if "sword" in self.b.player.abilities:
+            self._sword(comps)
+            return
+        comps["Aim"] = {"mode": "movement"}
+        comps["Weapon"] = {"projectile": "Gust", "fire_rate": 3.0, "spread_deg": 0, "muzzle_distance": 14}
+        self.entities["Gust"] = {"body": "area", "juice": "none",
+                                 "shape": {"type": "circle", "size": [10, 10], "color": "#fff1e8"},
+                                 "components": {"Projectile": {"speed": 380, "lifetime": 0.2, "pierce": 2},
+                                                "Hitbox": {"damage": 1, "knockback": 300}}}
+
+    def _sword(self, comps: dict) -> None:
+        """Melee: the Weapon spawns a short-lived, slow, piercing swipe right in front of the hero."""
+        if not self.platformer and "Aim" not in comps:
+            comps["Aim"] = {"mode": "mouse" if self.b.genre == "topdown" else "movement"}
+        comps["Weapon"] = {"projectile": "Slash", "fire_rate": 3.2, "spread_deg": 0, "muzzle_distance": 24}
+        self.entities["Slash"] = {"body": "area", "team": "player", "juice": "none",
+                                  "shape": {"type": "circle", "size": [30, 40], "color": "#e8f1ff"},
+                                  "components": {"Projectile": {"speed": 140.0, "lifetime": 0.16, "pierce": 99},
+                                                 "Hitbox": {"damage": 2, "knockback": 340.0}}}
+
+    # -- tower defense -----------------------------------------------------------------------
+    def _td_graph(self) -> dict:
+        b, pal = self.b, self.pal
+        d = b.difficulty
+        lay = levelgen.td_road(self.seed, b.length)
+        towers = []
+        for i, name in enumerate(b.towers[:3]):
+            prof = tower_profile(name, i)
+            stats = TOWER_PROFILES[prof]
+            shot = name.removesuffix("Tower") + "Shot"
+            self.entities[name] = {"body": "area", "team": "player",
+                                   "shape": {"type": "rect", "size": [26, 26], "color": stats["color"]},
+                                   "components": {"Weapon": {"projectile": shot, "fire_rate": stats["fire_rate"],
+                                                             "spread_deg": 2, "muzzle_distance": 14},
+                                                  "TowerBrain": {"fire_range": stats["range"]}}}
+            proj: dict[str, Any] = {"speed": stats["speed"], "lifetime": round(stats["range"] / stats["speed"] + 0.15, 2)}
+            if stats.get("pierce"):
+                proj["pierce"] = stats["pierce"]
+            self.entities[shot] = {"body": "area", "juice": "none",
+                                   "shape": {"type": "circle", "size": [8, 8] if prof == "fast" else [12, 12],
+                                             "color": stats["shot"]},
+                                   "components": {"Projectile": proj,
+                                                  "Hitbox": {"damage": stats["damage"], "knockback": 40}}}
+            towers.append(f"{name}|{stats['cost']}")
+        self.entities["Commander"] = {"body": "character", "juice": "none", "shape": {"type": "none", "size": [4, 4]},
+                                      "components": {"PlayerInput": {},
+                                                     "TowerBuilder": {"towers": ";".join(towers), "start_gold": 150}}}
+        self.entities["Road"] = {"body": "area", "juice": "none", "shape": {"type": "none", "size": [4, 4]},
+                                 "components": {"GroundPatch": {"color": ROAD_COLORS.get(b.palette, "#c9ad7a"),
+                                                                "size": 32, "round_corners": 0.4}}}
+        self.entities["Pad"] = {"body": "area", "juice": "none", "shape": {"type": "none", "size": [30, 30]},
+                                "components": {"TowerSlot": {"size": 30}}}
+        self.entities["Lair"] = {"body": "area", "juice": "none",
+                                 "shape": {"type": "circle", "size": [36, 36], "color": pal["enemies"][-1]},
+                                 "components": {"WaveSpawner": {"waves": self._waves(), "pause": 7.0}}}
+        self.entities["Castle"] = {"body": "area", "juice": "none",
+                                   "shape": {"type": "rect", "size": [40, 40], "color": pal["exit"]},
+                                   "components": {"Base": {}}}
+        rules = [{"on": "Game.ready", "do": ["set_var('score_label', 'GOLD')",
+                                             f"message({_q((b.intro or 'Hold the castle!') + ' Click a pad to build')})"]}]
+        for i, e in enumerate(b.enemies[:3]):
+            self._invader(e, i)
+            rules.append({"on": f"{e.name}.died", "do": [f"add_score({INVADER_GOLD[e.speed] * e.health})"]})
+        rules.append({"on": "Lair.WaveSpawner.cleared", "do": ["message('The castle stands!')", "win()"]})
+        self.rules = rules
+        cells = {c: "~" for c in lay.road}
+        cells.update({c: "o" for c in lay.pads})
+        cells[lay.road[0]], cells[lay.road[-1]], cells[lay.commander] = "S", "B", "P"
+        rows = ["".join("#" if x in (0, lay.width - 1) or y in (0, lay.height - 1) else cells.get((x, y), ".")
+                        for x in range(lay.width)) for y in range(lay.height)]
+        if self.layer >= 2:
+            self._polish()
+        return {"spawnpoint": 1, "name": b.title or "Untitled", "genre": "topdown",
+                "settings": {"tile_size": TILE, "lives": max(5, 12 - d), "seed": self.seed,
+                             "zoom": round(min(1.0, 960 / (lay.width * TILE), 560 / (lay.height * TILE)), 2),
+                             "background": FARM_GROUND.get(b.palette, FARM_GROUND["forest"]),
+                             "tiles": {"solid": {"color": "#7a6f62", "top": "#a39a8c"}}},
+                "entities": self.entities,
+                "level": {"map": rows, "legend": {"#": "solid", "~": "Road", "S": "Lair", "B": "Castle",
+                                                  "o": "Pad", "P": "Commander"}},
+                "rules": self.rules}
+
+    def _invader(self, e: EnemyBrief, index: int) -> None:
+        color = self.pal["enemies"][index % len(self.pal["enemies"])]
+        self.entities[e.name] = {
+            "team": "enemy", "shape": {"type": "circle", "size": [22, 22], "color": color},
+            "components": {"TopDownMovement": {"max_speed": INVADER_SPEED[e.speed], "acceleration": 900},
+                           "PathFollower": {"road": "Road"},
+                           "Health": {"max_health": round(INVADER_HP[e.speed] * e.health * (0.8 + 0.1 * self.b.difficulty)),
+                                      "invincibility_time": 0.02},
+                           "Hurtbox": {"size_scale": 1.0}}}
+
+    def _waves(self) -> str:
+        """Waves cycle through the invader types and grow; slow ones come in small groups, fast ones in swarms."""
+        b = self.b
+        n = {"short": 5, "medium": 7, "long": 9}[b.length]
+        k = 0.7 + 0.15 * b.difficulty
+        out = []
+        # Easy invaders open; the toughest type first shows up once a few towers can stand.
+        order = sorted(b.enemies[:3], key=lambda e: {"normal": 0, "slow": 1, "fast": 2}[e.speed])
+        for i in range(n):
+            e = order[WAVE_PATTERN[i] % len(order)]
+            size = (6 + 2.5 * i) * k * max(0.5, e.count / 3) * {"slow": 0.4, "normal": 1.0, "fast": 0.85}[e.speed]
+            every = {"slow": max(0.9, 2.2 - 0.15 * i), "normal": max(0.45, 1.4 - 0.12 * i),
+                     "fast": max(0.4, 0.8 - 0.05 * i)}[e.speed]
+            out.append(f"{max(3, round(size))} x {e.name} every {round(every, 2)}")
+        return "; ".join(out)
 
     def _bubble_graph(self) -> dict:
         b, pal = self.b, self.pal
@@ -293,6 +540,8 @@ class _Assembler:
         comps["Hurtbox"] = {}
         if self.platformer and "stomp" in abilities:
             comps["Stomp"] = {}
+        if "sword" in abilities and "shoot" not in abilities:
+            self._sword(comps)
         if "shoot" in abilities:
             if not self.platformer:
                 comps["Aim"] = {"mode": "mouse"}
@@ -623,8 +872,8 @@ class _Assembler:
         archetypes = {e.name: e.archetype for e in self.b.enemies}
         ai_art = self.ai_art
         for name, ent in self.entities.items():
-            if ent["shape"].get("type") == "none":  # invisible helpers (survivor nests)
-                continue
+            if ent["shape"].get("type") == "none" or "Market" in ent.get("components", {}):
+                continue  # invisible helpers (survivor nests, plots, roads) and self-drawn stalls
             kind = sprite_kind(name, ent, archetypes.get(name), self.b, self.platformer)
             color = ent["shape"]["color"]
             if ai_art:
@@ -666,7 +915,17 @@ def sprite_kind(name: str, ent: dict, archetype: str | None, brief: GameBrief, p
     comps = ent.get("components", {})
     if name == "Player":
         return "hero"
-    if name in ("Bullet", "EnemyBullet"):
+    if name in ("Bullet", "EnemyBullet", "Gust"):
+        return "bullet"
+    if name == "Slash":
+        return "slash"
+    if name == "Lair":
+        return "portal"
+    if "Base" in comps:
+        return "exit"
+    if "TowerBrain" in comps:
+        return "turret"
+    if "Projectile" in comps:
         return "bullet"
     if name in ("Door", "Cage"):
         return "door"

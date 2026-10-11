@@ -350,3 +350,102 @@ def _connected(lay: Layout) -> bool:
 
 def _nearest_free(lay: Layout, dist: dict[Cell, int], c: Cell) -> Cell:
     return min(dist, key=lambda d: (abs(d[0] - c[0]) + abs(d[1] - c[1]), d))
+
+
+# --- tower defense ----------------------------------------------------------------------------
+
+TD_SIZE = {"short": (26, 15, 2), "medium": (30, 17, 3), "long": (34, 21, 4)}
+
+
+@dataclass
+class RoadLayout:
+    width: int
+    height: int
+    road: list[Cell]  # in walking order, from the lair to the base
+    pads: list[Cell]
+    commander: Cell
+
+
+def td_road(seed: int, length: str) -> RoadLayout:
+    """A snake road with `lanes` horizontal runs joined at alternating ends, inside a walled field, and
+    build pads in the strips between the runs (each pad covers two runs)."""
+    w, h, lanes = TD_SIZE[length]
+    rng = random.Random(f"td:{seed}")
+    step = (h - 6) / max(1, lanes - 1)
+    ys = [round(3 + i * step) for i in range(lanes)]
+    road: list[Cell] = []
+    x = 1
+    for j, y in enumerate(ys):
+        last = j == lanes - 1
+        if j % 2 == 0:
+            end = w - 3 if last else w - 4 - rng.randint(0, 1)
+        else:
+            end = 2 if last else 3 + rng.randint(0, 1)
+        dx = 1 if end > x else -1
+        for xx in range(x, end + dx, dx):
+            if (xx, y) not in road:
+                road.append((xx, y))
+        x = end
+        if not last:
+            for yy in range(y + 1, ys[j + 1]):
+                road.append((x, yy))
+    mirror = rng.random() < 0.5
+    if mirror:
+        road = [(w - 1 - cx, cy) for cx, cy in road]
+    on_road = set(road)
+    near = {(cx + i, cy + k) for cx, cy in road for i in (-1, 0, 1) for k in (-1, 0, 1)}
+    pads: list[Cell] = []
+    rows = [(ys[j] + ys[j + 1]) // 2 for j in range(lanes - 1)] + [ys[0] - 2, ys[-1] + 2]
+    for r, y in enumerate(rows):
+        if not 1 <= y <= h - 2:
+            continue
+        for xx in range(3 + (r % 2) * 2, w - 3, 4):
+            c = (xx, y)
+            if c not in near and c not in on_road:
+                pads.append(c)
+    cx, cy = w // 2, h // 2  # the camera follows the commander: keep it in the middle
+    commander = next(c for c in sorted(((x2, y2) for x2 in range(1, w - 1) for y2 in range(1, h - 1)),
+                                       key=lambda c: abs(c[0] - cx) + abs(c[1] - cy))
+                     if c not in on_road and c not in pads)
+    return RoadLayout(w, h, road, pads, commander)
+
+
+FARM_SIZE = {"short": (26, 17, 2, 4), "medium": (32, 19, 3, 4), "long": (36, 21, 3, 6)}
+
+
+@dataclass
+class FarmLayout:
+    width: int
+    height: int
+    player: Cell
+    market: Cell
+    plots: list[Cell]
+    nests: list[Cell]
+    rocks: list[Cell]
+
+
+def farm(seed: int, length: str) -> FarmLayout:
+    """Rows of plots in the middle, the farmer on one side, the market stall on the other; pests come
+    from the corners."""
+    w, h, rows, cols = FARM_SIZE[length]
+    rng = random.Random(f"farm:{seed}")
+    mirror = rng.random() < 0.5
+    x0 = 7
+    y0 = h // 2 - (rows - 1) * 3 // 2
+    plots = [(x0 + i * 3, y0 + j * 3) for j in range(rows) for i in range(cols)]
+    player, market = (3, h // 2), (w - 6, h // 2)
+    nests = [(2, 1), (w - 3, 1), (2, h - 2), (w - 3, h - 2)]
+    taken = set(plots) | {player, market, (market[0] + 1, market[1])}
+    rocks: list[Cell] = []
+    for _ in range(40):
+        if len(rocks) >= 2 + rng.randint(0, 2):
+            break
+        c = (rng.randint(2, w - 3), rng.randint(2, h - 3))
+        if all(abs(c[0] - t[0]) > 2 or abs(c[1] - t[1]) > 2 for t in taken) and c[0] > x0 + cols * 3 - 1:
+            rocks.append(c)
+            taken.add(c)
+    if mirror:
+        flip = lambda c: (w - 1 - c[0], c[1])  # noqa: E731
+        plots, rocks, nests = [flip(c) for c in plots], [flip(c) for c in rocks], [flip(c) for c in nests]
+        player, market = flip(player), (w - 1 - market[0] - 1, market[1])
+    return FarmLayout(w, h, player, market, plots, nests, rocks)

@@ -400,11 +400,28 @@ def draw_bullet(P: Painter, p: Pose) -> None:
     P.ellipse(w / 2, h / 2, w / 4, h / 4, (255, 255, 255), shade=False, top=True)
 
 
+def draw_slash(P: Painter, p: Pose) -> None:
+    c = P.p
+    w, h = P.w, P.h
+    cx, cy = w * 0.1, h / 2
+    pts_out, pts_in = [], []
+    for k in range(25):  # an outer arc and a thinner inner arc make a crescent
+        a = -1.25 + 2.5 * k / 24
+        pts_out.append((cx + math.cos(a) * w * 0.8, cy + math.sin(a) * h * 0.46))
+        t = 1 - abs(k - 12) / 12  # thick in the middle, sharp at the tips
+        thick = (0.42 - 0.09 * p.i) * t
+        pts_in.append((cx + math.cos(a) * w * (0.8 - thick), cy + math.sin(a) * h * (0.46 - thick * 0.35)))
+    P.poly(pts_out + pts_in[::-1], _shade(c.base, 1.5), shade=False)
+    P.line([(cx + math.cos(a) * w * 0.76, cy + math.sin(a) * h * 0.44)
+            for a in [-1.0 + 2.0 * k / 16 for k in range(17)]], 1.4, (255, 255, 255))
+
+
 PAINTERS = {"hero": draw_hero, "slime": draw_blob, "hopper": draw_blob, "bug": draw_blob, "flyer": draw_flyer,
             "robot": draw_robot, "turret": draw_turret, "coin": draw_coin, "star": draw_star, "gem": draw_gem,
             "heart": draw_heart, "orb": draw_orb, "door": draw_door, "exit": draw_exit, "portal": draw_portal,
-            "spikes": draw_spikes, "bullet": draw_bullet}
-OUTLINE = {"bullet": 0.8, "coin": 1.0, "gem": 1.0, "star": 1.1, "heart": 1.1, "spikes": 1.0, "orb": 1.0}
+            "spikes": draw_spikes, "bullet": draw_bullet,
+            "slash": draw_slash}
+OUTLINE = {"bullet": 0.8, "slash": 0.8, "coin": 1.0, "gem": 1.0, "star": 1.1, "heart": 1.1, "spikes": 1.0, "orb": 1.0}
 
 
 def generate_cartoon(name: str, kind: str, color: str, features: list[str] | None = None, seed: int = 0) -> SpriteSet:

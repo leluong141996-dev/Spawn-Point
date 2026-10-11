@@ -27,9 +27,15 @@ func _ready() -> void:
 	if aim:
 		aim.set(&"mode", "nearest_enemy")  # the mouse is not ours to move
 	var shot := 0
+	var ended_at := -1
 	for frame in range(skip + total):
 		_drive(frame)
 		await get_tree().physics_frame
+		if not GameState.is_playing():
+			if ended_at < 0:
+				ended_at = frame
+			elif frame - ended_at > 90 and frame >= skip:  # keep 1.5 s of the end screen, then stop
+				break
 		if frame >= skip and (frame - skip) % step == 0:
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png("%s/frame_%04d.png" % [out_dir, shot])

@@ -472,6 +472,22 @@ def paint_bullet(c: Ctx) -> None:
     cv.set(w / 2 - 1 + (c.i % 2), h / 2 - 1, r.white)
 
 
+def paint_slash(c: Ctx) -> None:
+    """A crescent swipe pointing right (projectiles rotate to their direction); it thins out as it fades."""
+    cv, r = c.cv, c.r
+    w, h = cv.w, cv.h
+    cx, cy, ro = w * 0.15, h / 2, w * 0.82
+    inner = ro * (0.62 + 0.12 * c.i)
+    for y in range(h):
+        for x in range(w):
+            dx, dy = x + 0.5 - cx, (y + 0.5 - cy) * (w / h) * 1.35
+            d_out = math.hypot(dx / ro, dy / ro)
+            d_in = math.hypot((x + 0.5 - cx + ro * 0.32) / inner, dy / inner)
+            if d_out <= 1.0 and d_in > 1.0 and dx > -0.5:
+                cv.set(x, y, r.white if d_out > 0.86 else r.light)
+    cv.outline(r.outline)
+
+
 KINDS: dict[str, Kind] = {
     "hero": Kind((12, 16), {"idle": (2, 3, True), "run": (4, 10, True), "jump": (1, 1, False),
                             "fall": (1, 1, False), "hurt": (1, 1, False)}, paint_hero, "bottom"),
@@ -493,6 +509,7 @@ KINDS: dict[str, Kind] = {
     "portal": Kind((20, 20), {"idle": (4, 8, True)}, paint_portal),
     "spikes": Kind((15, 7), {"idle": (1, 1, False)}, paint_spikes, "bottom"),
     "bullet": Kind((4, 4), {"idle": (2, 12, True)}, paint_bullet),
+    "slash": Kind((10, 16), {"idle": (3, 20, False)}, paint_slash),
 }
 
 

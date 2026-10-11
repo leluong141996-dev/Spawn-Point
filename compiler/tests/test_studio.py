@@ -366,7 +366,8 @@ def test_topdown_score_target_the_player_asked_for_is_kept():
     assert "score >= 200" in json.dumps(assemble(b, 2, seed=1)["rules"])
 
 
-@pytest.mark.parametrize("kind", ["bubble", "rescue", "survivor"])
+@pytest.mark.parametrize("kind", ["bubble", "rescue", "survivor", "farm", "tower_defense", "sword_platformer",
+                                  "sword_topdown"])
 def test_new_game_kinds_assemble_clean(manifest, kind):
     from spawnpoint.analyze import analyze
     from spawnpoint.studio.assemble import assemble
@@ -380,6 +381,19 @@ def test_new_game_kinds_assemble_clean(manifest, kind):
                             enemies=[EnemyBrief(name="Slime", archetype="walker", count=3)]),
         "survivor": GameBrief(title="Night", genre="topdown", goal="survive", level_ups=True,
                               enemies=[EnemyBrief(name="Bat", archetype="chaser", count=3)]),
+        "farm": GameBrief(title="Valley", genre="farm", art_style="cartoon", crops=["carrots", "Corn"],
+                          player=PlayerBrief(character="Farmer", abilities=["sword"]),
+                          enemies=[EnemyBrief(name="Crow", archetype="walker", count=3),
+                                   EnemyBrief(name="Fox", archetype="chaser", count=2)]),
+        "tower_defense": GameBrief(title="Siege", genre="tower_defense", towers=["Archer", "Cannon", "Mage"],
+                                   enemies=[EnemyBrief(name="Goblin", archetype="walker"),
+                                            EnemyBrief(name="Ogre", archetype="walker", speed="slow")]),
+        "sword_platformer": GameBrief(title="Knight", genre="platformer", goal="defeat_all",
+                                      player=PlayerBrief(character="Knight", abilities=["sword"]),
+                                      enemies=[EnemyBrief(name="Slime", archetype="walker", count=3)]),
+        "sword_topdown": GameBrief(title="Blade", genre="topdown", goal="defeat_all",
+                                   player=PlayerBrief(character="Samurai", abilities=["sword", "dash"]),
+                                   enemies=[EnemyBrief(name="Skeleton", archetype="chaser", count=3)]),
     }
     brief, _ = normalize(briefs[kind])
     for layer in (0, 1, 2):
@@ -393,6 +407,19 @@ def test_new_game_kinds_assemble_clean(manifest, kind):
     elif kind == "rescue":
         assert {"Cage", "CageKey", "Mom"} <= set(ents) and "Cage.open()" in rules
         assert "hair" in ents["Mom"]["sprite"]["generate"]["features"]
+    elif kind == "farm":
+        player = ents["Player"]["components"]
+        assert player["Farmer"]["crops"].startswith("Carrot|") and "Corn|" in player["Farmer"]["crops"]
+        assert ents["Slash"]["sprite"]["generate"]["kind"] == "slash" and "Health" in player  # the fox bites
+        assert "CropPest" in ents["Crow"]["components"] and "ChaseAI" in ents["Fox"]["components"]
+        assert graph["settings"]["art_style"] == "cartoon" and "score >= 250" in rules and "lose()" in rules
+    elif kind == "tower_defense":
+        towers = ents["Commander"]["components"]["TowerBuilder"]["towers"]
+        assert towers == "ArcherTower|50;CannonTower|110;MageTower|90"
+        assert "Lair.WaveSpawner.cleared" in rules and "Ogre" in ents["Lair"]["components"]["WaveSpawner"]["waves"]
+        assert ents["CannonTower"]["sprite"]["generate"]["kind"] == "turret" and "PathFollower" in ents["Goblin"]["components"]
+    elif kind.startswith("sword"):
+        assert ents["Player"]["components"]["Weapon"]["projectile"] == "Slash" and "Bullet" not in ents
     else:
         player = ents["Player"]["components"]
         assert {"Experience", "LevelUpMenu"} <= set(player) and player["Weapon"]["auto_fire"]
@@ -433,3 +460,22 @@ def test_llm_backend_choice(monkeypatch):
     with pytest.raises(RuntimeError, match="Ollama"):
         llm_server.pick_backend()
     assert llm_server.pick_backend("vllm") == "vllm"
+
+
+def test_normalize_farm_and_tower_defense():
+    from spawnpoint.studio.brief import EnemyBrief, GameBrief, PlayerBrief, normalize
+
+    farm, notes = normalize(GameBrief(title="f", genre="farm", goal="survive", hazards=["spikes"],
+                                      player=PlayerBrief(abilities=["shoot", "sword", "double_jump"])))
+    assert farm.goal == "score_target" and farm.crops == ["Carrot", "Tomato", "Pumpkin"]
+    assert farm.player.abilities == ["sword"] and not farm.hazards and notes
+    td, _ = normalize(GameBrief(title="t", genre="tower_defense", towers=["archers", "Goblin"],
+                                enemies=[EnemyBrief(name="Goblins", archetype="chaser")],
+                                player=PlayerBrief(abilities=["shoot"])))
+    assert td.goal == "defend" and td.player.abilities == [] and td.towers == ["ArcherTower", "GoblinTower"]
+    td2, _ = normalize(GameBrief(title="t", genre="tower_defense"))
+    assert td2.enemies and td2.towers == ["ArcherTower", "CannonTower"]
+    both, notes = normalize(GameBrief(title="b", genre="topdown", player=PlayerBrief(abilities=["sword", "shoot"])))
+    assert both.player.abilities == ["shoot"] and any("one weapon" in n for n in notes)
+    other, _ = normalize(GameBrief(title="o", genre="platformer", goal="defend"))
+    assert other.goal == "survive"
