@@ -89,6 +89,34 @@
       "doc": "Plays the entity sprite's animations from what the entity is doing: idle, run, jump, fall and hurt. Run speed follows movement speed. Attached automatically to entities that have a sprite."
     },
     {
+      "name": "Base",
+      "class": "BaseComponent",
+      "script": "res://addons/spawn_point/components/base_component.gd",
+      "base": "Node",
+      "hosts": [
+        "Area2D"
+      ],
+      "requires": [],
+      "category": "core",
+      "entity_params": [],
+      "params": [],
+      "state": [],
+      "signals": [
+        {
+          "name": "breached",
+          "args": [
+            {
+              "name": "lives",
+              "type": "int"
+            }
+          ],
+          "doc": "Emitted when an enemy gets in; [param lives] is what is left."
+        }
+      ],
+      "methods": [],
+      "doc": "The base that tower-defense enemies walk to. Each enemy that reaches it is removed and costs a life; with no lives left the game is lost (the HUD shows the lives)."
+    },
+    {
       "name": "BubbleBoard",
       "class": "BubbleBoardComponent",
       "script": "res://addons/spawn_point/components/bubble_board_component.gd",
@@ -770,6 +798,46 @@
       "doc": "A solid barrier that can be opened and closed by rules (doors, bridges, locked exits)."
     },
     {
+      "name": "GroundPatch",
+      "class": "GroundPatchComponent",
+      "script": "res://addons/spawn_point/components/ground_patch_component.gd",
+      "base": "Node",
+      "hosts": [],
+      "requires": [],
+      "category": "juice",
+      "entity_params": [],
+      "params": [
+        {
+          "name": "color",
+          "type": "Color",
+          "hint": "",
+          "hint_string": "",
+          "default": "(0.7608, 0.6431, 0.4627, 1.0)",
+          "doc": "Patch colour."
+        },
+        {
+          "name": "size",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "4.0,512.0,1.0",
+          "default": 32.0,
+          "doc": "Patch size in px."
+        },
+        {
+          "name": "round_corners",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,1.0,0.05",
+          "default": 0.3,
+          "doc": "Corner rounding, 0..1 of half the size (1 = a circle)."
+        }
+      ],
+      "state": [],
+      "signals": [],
+      "methods": [],
+      "doc": "Paints a patch of ground under everything else: roads, paths, rugs, puddles. Purely visual."
+    },
+    {
       "name": "Health",
       "class": "HealthComponent",
       "script": "res://addons/spawn_point/components/health_component.gd",
@@ -1312,6 +1380,41 @@
       ],
       "methods": [],
       "doc": "A market stall for farming games: a [FarmerComponent] that walks in sells everything in the basket."
+    },
+    {
+      "name": "PathFollower",
+      "class": "PathFollowerComponent",
+      "script": "res://addons/spawn_point/components/path_follower_component.gd",
+      "base": "Node",
+      "hosts": [
+        "CharacterBody2D"
+      ],
+      "requires": [
+        "TopDownMovement"
+      ],
+      "category": "controller",
+      "entity_params": [
+        "road"
+      ],
+      "params": [
+        {
+          "name": "road",
+          "type": "String",
+          "hint": "",
+          "hint_string": "",
+          "default": "Road",
+          "doc": "Entity type that marks the road cells."
+        }
+      ],
+      "state": [
+        {
+          "name": "route",
+          "type": "Array"
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "doc": "Walks its entity along the road to the [BaseComponent] (tower-defense enemies). The road is every entity of type [member road]; the route is the shortest chain of road cells from where the entity spawns to the base. Drives a TopDownMovement."
     },
     {
       "name": "PatrolAI",
@@ -1967,6 +2070,115 @@
       "doc": "Eight-direction movement seen from above, with acceleration, friction and an optional dash. Reads intent (move_vector, dash requests) from a controller such as PlayerInput or ChaseAI."
     },
     {
+      "name": "TowerBrain",
+      "class": "TowerBrainComponent",
+      "script": "res://addons/spawn_point/components/tower_brain_component.gd",
+      "base": "Node",
+      "hosts": [],
+      "requires": [
+        "Weapon"
+      ],
+      "category": "controller",
+      "entity_params": [],
+      "params": [
+        {
+          "name": "fire_range",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "16.0,2000.0,1.0",
+          "default": 150.0,
+          "doc": "Firing range in px."
+        }
+      ],
+      "state": [],
+      "signals": [],
+      "methods": [],
+      "doc": "A defence tower's brain: aims its Weapon at the enemy furthest along the road within [member fire_range] and keeps firing while one is there."
+    },
+    {
+      "name": "TowerBuilder",
+      "class": "TowerBuilderComponent",
+      "script": "res://addons/spawn_point/components/tower_builder_component.gd",
+      "base": "Node",
+      "hosts": [],
+      "requires": [],
+      "category": "core",
+      "entity_params": [],
+      "params": [
+        {
+          "name": "towers",
+          "type": "String",
+          "hint": "",
+          "hint_string": "",
+          "default": "ArcherTower|50;CannonTower|100",
+          "doc": "The towers on offer (see the class description)."
+        },
+        {
+          "name": "start_gold",
+          "type": "int",
+          "hint": "range",
+          "hint_string": "0.0,100000.0",
+          "default": 120,
+          "doc": "Gold at the start."
+        }
+      ],
+      "state": [
+        {
+          "name": "tower_list",
+          "type": "Array"
+        },
+        {
+          "name": "selected",
+          "type": "int"
+        }
+      ],
+      "signals": [
+        {
+          "name": "built",
+          "args": [
+            {
+              "name": "tower",
+              "type": "Node"
+            }
+          ],
+          "doc": "Emitted after a tower is built."
+        }
+      ],
+      "methods": [],
+      "doc": "The player's builder (tower defense): keys 1-3 pick a tower, a click or tap on a [TowerSlotComponent] builds it if the gold (score) covers the cost. Kills earn gold through the rules.\n[member towers] is a \";\"-separated list of \"Entity|cost\", e.g. \"ArcherTower|50;CannonTower|100\"."
+    },
+    {
+      "name": "TowerSlot",
+      "class": "TowerSlotComponent",
+      "script": "res://addons/spawn_point/components/tower_slot_component.gd",
+      "base": "Node",
+      "hosts": [
+        "Area2D"
+      ],
+      "requires": [],
+      "category": "core",
+      "entity_params": [],
+      "params": [
+        {
+          "name": "size",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "16.0,128.0,1.0",
+          "default": 30.0,
+          "doc": "Pad size in px."
+        }
+      ],
+      "state": [
+        {
+          "name": "tower",
+          "type": "Object"
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "doc": "A build pad beside the road (tower defense). A [TowerBuilderComponent] builds a tower here when the player clicks or taps the pad (or presses build while standing next to it)."
+    },
+    {
       "name": "TriggerZone",
       "class": "TriggerZoneComponent",
       "script": "res://addons/spawn_point/components/trigger_zone_component.gd",
@@ -2010,6 +2222,59 @@
       ],
       "methods": [],
       "doc": "An invisible-or-visible zone that fires [signal triggered] when an entity of [member group] enters (exit doors, checkpoints, kill zones, tutorial hints)."
+    },
+    {
+      "name": "WaveSpawner",
+      "class": "WaveSpawnerComponent",
+      "script": "res://addons/spawn_point/components/wave_spawner_component.gd",
+      "base": "Node",
+      "hosts": [],
+      "requires": [],
+      "category": "core",
+      "entity_params": [],
+      "params": [
+        {
+          "name": "waves",
+          "type": "String",
+          "hint": "",
+          "hint_string": "",
+          "default": "6 x Goblin every 1.5; 8 x Goblin every 1.0",
+          "doc": "The waves (see the class description)."
+        },
+        {
+          "name": "pause",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,120.0,0.5",
+          "default": 6.0,
+          "doc": "Seconds before the first wave and between waves."
+        }
+      ],
+      "state": [
+        {
+          "name": "wave",
+          "type": "int"
+        }
+      ],
+      "signals": [
+        {
+          "name": "wave_started",
+          "args": [
+            {
+              "name": "number",
+              "type": "int"
+            }
+          ],
+          "doc": "Emitted when a wave starts; [param number] counts from 1."
+        },
+        {
+          "name": "cleared",
+          "args": [],
+          "doc": "Emitted when every wave is done and the field is clear."
+        }
+      ],
+      "methods": [],
+      "doc": "Sends waves of enemies from its entity (tower defense). [member waves] is a \";\"-separated list of \"count x Entity every seconds\", e.g. \"8 x Goblin every 1.2; 5 x Orc every 2\". Emits [signal cleared] once every wave has been sent and no spawned enemy is left."
     },
     {
       "name": "Weapon",

@@ -1,0 +1,340 @@
+{
+  "spawnpoint": 1,
+  "name": "Castle Defense",
+  "genre": "topdown",
+  "settings": {
+    "tile_size": 32,
+    "lives": 10,
+    "seed": 9,
+    "zoom": 1.0,
+    "background": "#5a8f43",
+    "tiles": {
+      "solid": {
+        "color": "#7a6f62",
+        "top": "#a39a8c"
+      }
+    }
+  },
+  "entities": {
+    "Commander": {
+      "body": "character",
+      "juice": "none",
+      "shape": {
+        "type": "none",
+        "size": [
+          4,
+          4
+        ]
+      },
+      "components": {
+        "PlayerInput": {},
+        "TowerBuilder": {
+          "towers": "ArcherTower|50;CannonTower|110",
+          "start_gold": 110
+        }
+      }
+    },
+    "Road": {
+      "body": "area",
+      "juice": "none",
+      "shape": {
+        "type": "none",
+        "size": [
+          4,
+          4
+        ]
+      },
+      "components": {
+        "GroundPatch": {
+          "color": "#c9ad7a",
+          "size": 32,
+          "round_corners": 0.4
+        }
+      }
+    },
+    "Pad": {
+      "body": "area",
+      "juice": "none",
+      "shape": {
+        "type": "none",
+        "size": [
+          30,
+          30
+        ]
+      },
+      "components": {
+        "TowerSlot": {
+          "size": 30
+        }
+      }
+    },
+    "Cave": {
+      "body": "area",
+      "juice": "none",
+      "components": {
+        "WaveSpawner": {
+          "waves": "6 x Goblin every 1.4; 8 x Goblin every 1.0; 5 x Orc every 2.2; 12 x Wolf every 0.7; 8 x Orc every 1.3; 24 x Goblin every 0.45; 10 x Orc every 0.9",
+          "pause": 7.0
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "portal",
+          "color": "#7e2553"
+        }
+      }
+    },
+    "Castle": {
+      "body": "area",
+      "juice": "none",
+      "shape": {
+        "type": "rect",
+        "size": [
+          40,
+          40
+        ],
+        "color": "#c2c3c7"
+      },
+      "components": {
+        "Base": {}
+      },
+      "sprite": {
+        "generate": {
+          "kind": "exit",
+          "color": "#29adff"
+        }
+      }
+    },
+    "Goblin": {
+      "team": "enemy",
+      "components": {
+        "TopDownMovement": {
+          "max_speed": 62,
+          "acceleration": 900
+        },
+        "PathFollower": {
+          "road": "Road"
+        },
+        "Health": {
+          "max_health": 6,
+          "invincibility_time": 0.02
+        },
+        "Hurtbox": {
+          "size_scale": 1.0
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "hero",
+          "color": "#5fb83d",
+          "features": [
+            "ears"
+          ]
+        }
+      }
+    },
+    "Orc": {
+      "team": "enemy",
+      "components": {
+        "TopDownMovement": {
+          "max_speed": 38,
+          "acceleration": 600
+        },
+        "PathFollower": {
+          "road": "Road"
+        },
+        "Health": {
+          "max_health": 22,
+          "invincibility_time": 0.02
+        },
+        "Hurtbox": {
+          "size_scale": 1.0
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "hero",
+          "color": "#3e7d4a",
+          "features": [
+            "horns"
+          ]
+        }
+      }
+    },
+    "Wolf": {
+      "team": "enemy",
+      "components": {
+        "TopDownMovement": {
+          "max_speed": 105,
+          "acceleration": 1200
+        },
+        "PathFollower": {
+          "road": "Road"
+        },
+        "Health": {
+          "max_health": 4,
+          "invincibility_time": 0.02
+        },
+        "Hurtbox": {
+          "size_scale": 1.0
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "hopper",
+          "color": "#8a8f98",
+          "features": [
+            "ears",
+            "tail"
+          ]
+        }
+      }
+    },
+    "ArcherTower": {
+      "body": "area",
+      "team": "player",
+      "components": {
+        "Weapon": {
+          "projectile": "Arrow",
+          "fire_rate": 1.8,
+          "spread_deg": 2,
+          "muzzle_distance": 14
+        },
+        "TowerBrain": {
+          "fire_range": 140
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "turret",
+          "color": "#a0663c"
+        }
+      }
+    },
+    "CannonTower": {
+      "body": "area",
+      "team": "player",
+      "components": {
+        "Weapon": {
+          "projectile": "Cannonball",
+          "fire_rate": 0.7,
+          "spread_deg": 0,
+          "muzzle_distance": 16
+        },
+        "TowerBrain": {
+          "fire_range": 170
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "turret",
+          "color": "#5f574f"
+        }
+      }
+    },
+    "Arrow": {
+      "body": "area",
+      "juice": "none",
+      "components": {
+        "Projectile": {
+          "speed": 520,
+          "lifetime": 0.6
+        },
+        "Hitbox": {
+          "damage": 1,
+          "knockback": 40
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "bullet",
+          "color": "#fff1e8"
+        }
+      }
+    },
+    "Cannonball": {
+      "body": "area",
+      "juice": "none",
+      "components": {
+        "Projectile": {
+          "speed": 360,
+          "lifetime": 0.8,
+          "pierce": 1
+        },
+        "Hitbox": {
+          "damage": 5,
+          "knockback": 80
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "bullet",
+          "color": "#1d2b53"
+        }
+      }
+    }
+  },
+  "level": {
+    "map": [
+      "##############################",
+      "#......................o.....#",
+      "#............................#",
+      "#S~~~~~~~~~~~~~~~~~~~~~~~~...#",
+      "#........................~...#",
+      "#.....o...o...o...o...o..~...#",
+      "#........................~.o.#",
+      "#..............P.........~...#",
+      "#...~~~~~~~~~~~~~~~~~~~~~~...#",
+      "#...~........................#",
+      "#...~...o...o...o...o......o.#",
+      "#.o.~........................#",
+      "#...~........................#",
+      "#...~~~~~~~~~~~~~~~~~~~~~~~B.#",
+      "#............................#",
+      "#.....o.....o.....o.....o....#",
+      "##############################"
+    ],
+    "legend": {
+      "#": "solid",
+      "~": "Road",
+      "S": "Cave",
+      "B": "Castle",
+      "o": "Pad",
+      "P": "Commander"
+    }
+  },
+  "rules": [
+    {
+      "on": "Game.ready",
+      "do": [
+        "set_var('score_label', 'GOLD')",
+        "message('Click a pad to build a tower! 1: archer, 2: cannon')"
+      ]
+    },
+    {
+      "on": "Goblin.died",
+      "do": [
+        "add_score(4)"
+      ]
+    },
+    {
+      "on": "Wolf.died",
+      "do": [
+        "add_score(4)"
+      ]
+    },
+    {
+      "on": "Orc.died",
+      "do": [
+        "add_score(14)"
+      ]
+    },
+    {
+      "on": "Cave.WaveSpawner.cleared",
+      "do": [
+        "message('The castle stands!')",
+        "win()"
+      ]
+    }
+  ]
+}

@@ -34,13 +34,18 @@ func _ready() -> void:
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png("%s/frame_%04d.png" % [out_dir, shot])
 			shot += 1
-	print("SPAWNPOINT_RECORD_SCORE %d" % GameState.score)
+	print("SPAWNPOINT_RECORD_SCORE %d lives %d phase %d" % [GameState.score, GameState.lives, GameState.phase])
 	get_tree().quit(0)
 
 
 func _drive(frame: int) -> void:
 	var p := World.player() as CharacterBody2D
 	if p == null or frame < 20:
+		return
+	var builder := SP.component(p, &"TowerBuilder") as TowerBuilderComponent
+	if builder:
+		if frame % 30 == 0:
+			_defend(builder)
 		return
 	var farmer := SP.component(p, &"Farmer") as FarmerComponent
 	if farmer:
@@ -79,6 +84,40 @@ func _platformer(p: CharacterBody2D, mv: PlatformerMovementComponent) -> void:
 	if (p.is_on_floor() and (wall or not ground or enemy)) or (falling_into_gap and mv.air_jumps > 0):
 		Input.action_press(&"jump")
 		_jump_hold = 14
+
+
+func _defend(builder: TowerBuilderComponent) -> void:
+	# Archers first; from three archers on, save up for cannons. Build on the free pad that covers the
+	# most road within range.
+	var archers := 0
+	for e in get_tree().get_nodes_in_group(&"tower_slot"):
+		var s := SP.component(e, &"TowerSlot") as TowerSlotComponent
+		if not s.is_free():
+			archers += 1
+	var want := 1 if archers >= 3 and builder.tower_list.size() > 1 else 0
+	builder.select(want)
+	if GameState.score < int(builder.tower_list[want].cost):
+		return
+	var road: Array[Vector2] = []
+	for e in get_tree().get_nodes_in_group(SP.ENTITY_GROUP):
+		var c := SP.core(e)
+		if c and String(c.entity_type) == "Road":
+			road.append((e as Node2D).global_position)
+	var best: TowerSlotComponent = null
+	var best_cover := -1
+	for e in get_tree().get_nodes_in_group(&"tower_slot"):
+		var s := SP.component(e, &"TowerSlot") as TowerSlotComponent
+		if not s.is_free():
+			continue
+		var cover := 0
+		for r in road:
+			if r.distance_to((e as Node2D).global_position) < 140.0:
+				cover += 1
+		if cover > best_cover:
+			best_cover = cover
+			best = s
+	if best:
+		builder.build_on(best)
 
 
 func _farm(p: CharacterBody2D, farmer: FarmerComponent, frame: int) -> void:
