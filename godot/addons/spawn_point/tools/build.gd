@@ -254,7 +254,8 @@ func _sprite_visual(sprite: Dictionary, size: Vector2, pivot_bottom: bool) -> No
 	spr.autoplay = first
 	spr.scale = Vector2(sprite.scale, sprite.scale)
 	spr.position = Vector2(sprite.offset[0], sprite.offset[1])
-	spr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	# Pixel art stays crisp; the cartoon style is drawn at 4x detail and filtered smoothly.
+	spr.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR if bool(sprite.get("smooth", false)) else CanvasItem.TEXTURE_FILTER_NEAREST
 	holder.add_child(spr)
 	return visual
 
@@ -348,6 +349,8 @@ func _build_tileset(plan: Dictionary) -> TileSet:
 	# Pixel-art atlas from the compiler when present; otherwise the painted flat tiles.
 	src.texture = pixel_tex if pixel_tex else ImageTexture.create_from_image(img)
 	src.texture_region_size = Vector2i(ts, ts)
+	if pixel_tex and plan.tiles.has("separation"):  # smooth atlases leave a gap so filtering cannot bleed
+		src.separation = Vector2i(int(plan.tiles.separation), 0)
 	tileset.add_source(src, 0)
 	var h := ts * 0.5
 	for coords in [TILE_SOLID_TOP, TILE_SOLID]:
@@ -422,6 +425,8 @@ func _build_level(plan: Dictionary, tileset: TileSet) -> Node2D:
 
 	var tiles := TileMapLayer.new()
 	tiles.name = "Tiles"
+	if bool(plan.tiles.get("smooth", false)):  # cartoon tiles: smooth filtering (pixel art stays nearest)
+		tiles.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	tiles.tile_set = tileset
 	var solid := {}
 	for cell in plan.map.cells:
@@ -506,6 +511,9 @@ func _build_backdrop(root: Node2D, plan: Dictionary, bounds: Rect2) -> void:
 	holder.name = "Backdrop"
 	holder.z_index = -10
 	_own(root, holder, root)
+	if plan.genre == "topdown" and String(plan.get("art_style", "pixel")) == "cartoon":
+		_build_cartoon_floor(root, holder, bg, bounds, int(plan.get("seed", 0)))
+		return
 	if plan.genre == "topdown":
 		var floor_rect := ColorRect.new()
 		floor_rect.name = "Floor"
@@ -520,6 +528,9 @@ func _build_backdrop(root: Node2D, plan: Dictionary, bounds: Rect2) -> void:
 		mat.set_shader_parameter(&"color_b", bg.lightened(0.08))
 		floor_rect.material = mat
 		_own(holder, floor_rect, root)
+		return
+	if String(plan.get("art_style", "pixel")) == "cartoon":
+		_build_cartoon_backdrop(root, holder, bg, bounds, Color(String(plan.tiles.solid.top)))
 		return
 	var width := 1280.0
 	var ground := bounds.end.y
@@ -561,6 +572,163 @@ func _build_backdrop(root: Node2D, plan: Dictionary, bounds: Rect2) -> void:
 				cloud.position = Vector2(width * i / 6.0 + rng.randf_range(0, 120), bounds.position.y + rng.randf_range(20, 160))
 				cloud.color = layer.color
 				_own(px, cloud, root)
+
+
+## Cartoon platformer scenery: a gradient sky, a sun (or a moon and stars on dark palettes), fluffy clouds
+## and three hazy hill layers with lit ridges and round trees, all on parallax layers.
+func _build_cartoon_backdrop(root: Node2D, holder: Node2D, bg: Color, bounds: Rect2, grass: Color) -> void:
+	var night := bg.get_luminance() < 0.25
+	var top := bg.darkened(0.15) if night else bg.lightened(0.15)
+	var horizon := bg.lightened(0.25) if night else bg.lightened(0.55)
+	var width := 1600.0
+	var ground := bounds.end.y
+	var sky_px := Parallax2D.new()
+	sky_px.name = "Sky"
+	sky_px.scroll_scale = Vector2.ZERO
+	_own(holder, sky_px, root)
+	var sky := Polygon2D.new()
+	sky.name = "Gradient"
+	sky.polygon = PackedVector2Array([Vector2(-2000, -2000), Vector2(4000, -2000), Vector2(4000, 3000), Vector2(-2000, 3000)])
+	sky.vertex_colors = PackedColorArray([top, top, horizon, horizon])
+	_own(sky_px, sky, root)
+	var orb := Polygon2D.new()
+	orb.name = "Moon" if night else "Sun"
+	orb.polygon = _ellipse(70, 70)
+	orb.color = Color("#f4f1de") if night else Color("#ffe066")
+	orb.position = Vector2(860, 190)
+	_own(sky_px, orb, root)
+	var glow := Polygon2D.new()
+	glow.name = "Glow"
+	glow.polygon = _ellipse(130, 130)
+	glow.color = Color(orb.color, 0.18)
+	glow.position = orb.position
+	_own(sky_px, glow, root)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7
+	if night:
+		for i in 40:
+			var star := Polygon2D.new()
+			star.polygon = _ellipse(2.5, 2.5)
+			star.color = Color(1, 1, 0.9, rng.randf_range(0.4, 0.9))
+			star.position = Vector2(rng.randf_range(0, 1100), rng.randf_range(0, 300))
+			_own(sky_px, star, root)
+	var clouds := Parallax2D.new()
+	clouds.name = "Clouds"
+	clouds.scroll_scale = Vector2(0.12, 1.0)
+	clouds.repeat_size = Vector2(width, 0)
+	clouds.repeat_times = 3
+	_own(holder, clouds, root)
+	for i in 5:
+		var cloud := Node2D.new()
+		cloud.position = Vector2(width * i / 5.0 + rng.randf_range(0, 160), bounds.position.y + rng.randf_range(30, 170))
+		_own(clouds, cloud, root)
+		var base_w := rng.randf_range(50, 80)
+		for j in 4:  # a cluster of puffs with a shaded underside
+			var puff := Polygon2D.new()
+			var r: float = base_w * [0.6, 0.85, 0.7, 0.5][j]
+			puff.polygon = _ellipse(r, r * 0.8)
+			puff.position = Vector2((j - 1.5) * base_w * 0.55, -r * 0.35 if j in [1, 2] else 0.0)
+			puff.color = Color(1, 1, 1, 0.22 if night else 0.92)
+			_own(cloud, puff, root)
+	var hills := [
+		{"scroll": 0.2, "base": ground - 230.0, "amp": 60.0, "seed": 1.3, "mix": 0.55},
+		{"scroll": 0.35, "base": ground - 160.0, "amp": 45.0, "seed": 3.7, "mix": 0.35},
+		{"scroll": 0.55, "base": ground - 90.0, "amp": 35.0, "seed": 6.1, "mix": 0.15},
+	]
+	for h: Dictionary in hills:
+		var px := Parallax2D.new()
+		px.scroll_scale = Vector2(h.scroll, 1.0)
+		px.repeat_size = Vector2(width, 0)
+		px.repeat_times = 3
+		_own(holder, px, root)
+		# Green hills by day (from the grass colour), dark silhouettes at night; far hills fade into the sky
+		# (aerial perspective).
+		var land := grass.darkened(0.15) if not night else bg.darkened(0.45)
+		var col := land.lerp(horizon, h.mix) if not night else land.lerp(top, h.mix * 0.7)
+		var pts := PackedVector2Array()
+		var ridge := PackedVector2Array()
+		for i in 81:
+			var x := width * i / 80.0
+			var t := TAU * i / 80.0
+			var y: float = h.base - h.amp * (0.6 * sin(t * 2.0 + h.seed) + 0.4 * sin(t * 3.0 + h.seed * 2.0))
+			pts.append(Vector2(x, y))
+			ridge.append(Vector2(x, y))
+		pts.append(Vector2(width, ground + 600.0))
+		pts.append(Vector2(0, ground + 600.0))
+		var poly := Polygon2D.new()
+		poly.polygon = pts
+		poly.color = col
+		_own(px, poly, root)
+		var lit := Line2D.new()  # a lit ridge line
+		lit.points = ridge
+		lit.width = 5.0
+		lit.default_color = col.lightened(0.18 if not night else 0.05)
+		_own(px, lit, root)
+		if h.mix < 0.2:  # round trees on the nearest hills
+			for k in 7:
+				var tx := width * (k + rng.randf()) / 7.0
+				var t2 := TAU * tx / width
+				var ty: float = h.base - h.amp * (0.6 * sin(t2 * 2.0 + h.seed) + 0.4 * sin(t2 * 3.0 + h.seed * 2.0))
+				var trunk := Polygon2D.new()
+				trunk.polygon = PackedVector2Array([Vector2(-3, 0), Vector2(3, 0), Vector2(3, 18), Vector2(-3, 18)])
+				trunk.color = col.darkened(0.35)
+				trunk.position = Vector2(tx, ty - 14)
+				_own(px, trunk, root)
+				var crown := Polygon2D.new()
+				crown.polygon = _ellipse(16, 18)
+				crown.color = col.darkened(0.12)
+				crown.position = Vector2(tx, ty - 24)
+				_own(px, crown, root)
+
+
+## Cartoon top-down ground: one soft colour with darker and lighter patches, grass tufts, pebbles and
+## little flowers scattered by the level seed (no grid).
+func _build_cartoon_floor(root: Node2D, holder: Node2D, bg: Color, bounds: Rect2, seed: int) -> void:
+	var ground := ColorRect.new()
+	ground.name = "Floor"
+	ground.position = bounds.position
+	ground.size = bounds.size
+	ground.color = bg.lightened(0.06)
+	ground.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_own(holder, ground, root)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed + 17
+	var area := bounds.size.x * bounds.size.y
+	for i in int(area / 9000.0):  # soft patches
+		var patch := Polygon2D.new()
+		patch.polygon = _ellipse(rng.randf_range(60, 160), rng.randf_range(40, 110))
+		patch.color = Color(bg.darkened(0.08) if i % 2 else bg.lightened(0.12), 0.6)
+		patch.position = bounds.position + Vector2(rng.randf() * bounds.size.x, rng.randf() * bounds.size.y)
+		_own(holder, patch, root)
+	for i in int(area / 2500.0):  # tufts, pebbles and flowers
+		var pos := bounds.position + Vector2(rng.randf() * bounds.size.x, rng.randf() * bounds.size.y)
+		var kind := rng.randi() % 6
+		if kind < 3:
+			var tuft := Polygon2D.new()
+			var c := bg.lightened(0.22)
+			tuft.polygon = PackedVector2Array([Vector2(-6, 0), Vector2(-4, -9), Vector2(-1, -2), Vector2(1, -12),
+					Vector2(3, -2), Vector2(6, -8), Vector2(7, 0)])
+			tuft.color = c
+			tuft.position = pos
+			_own(holder, tuft, root)
+		elif kind < 5:
+			var pebble := Polygon2D.new()
+			pebble.polygon = _ellipse(rng.randf_range(6, 11), rng.randf_range(4, 7))
+			pebble.color = bg.darkened(0.25)
+			pebble.position = pos
+			_own(holder, pebble, root)
+		else:
+			for k in 5:
+				var petal := Polygon2D.new()
+				petal.polygon = _ellipse(5, 5)
+				petal.color = [Color("#fff1e8"), Color("#ffccaa"), Color("#ff77a8")][i % 3]
+				petal.position = pos + Vector2.from_angle(TAU * k / 5.0) * 4.0
+				_own(holder, petal, root)
+			var heart := Polygon2D.new()
+			heart.polygon = _ellipse(4, 4)
+			heart.color = Color("#ffec27")
+			heart.position = pos
+			_own(holder, heart, root)
 
 
 func _ellipse(w: float, h: float) -> PackedVector2Array:

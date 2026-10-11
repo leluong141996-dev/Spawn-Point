@@ -110,7 +110,8 @@ class _Analyzer:
             try:
                 path = join_path("entities", name, "sprite")
                 sprite = sprite_resolve.resolve(name, ent, self.base_dir, color,
-                                                warn=lambda m, p=path: self.d.warning("W_AI_SPRITE", p, m))
+                                                warn=lambda m, p=path: self.d.warning("W_AI_SPRITE", p, m),
+                                                style=self.g.settings.art_style)
             except SpriteError as e:
                 self.d.error("E_SPRITE", join_path("entities", name, "sprite"), str(e),
                              "Generator kinds: " + ", ".join(sorted(sprite_resolve.KINDS)) if "kind" in str(e) else None)
@@ -332,10 +333,15 @@ class _Analyzer:
             "oneway": {"color": (oneway and oneway.color) or self.genre["oneway"]},
         }
         if s.tile_style == "pixel":
-            from .sprites.tiles import tileset
-            self.tiles_image = tileset(g.genre, tiles_style["solid"]["color"], tiles_style["solid"]["top"],
-                                       tiles_style["oneway"]["color"], ts, s.seed)
+            from .sprites.tiles import tileset, tileset_cartoon
+            draw = tileset_cartoon if s.art_style == "cartoon" else tileset
+            self.tiles_image = draw(g.genre, tiles_style["solid"]["color"], tiles_style["solid"]["top"],
+                                    tiles_style["oneway"]["color"], ts, s.seed)
             tiles_style["texture"] = "res://sprites/tiles.png"
+            tiles_style["smooth"] = s.art_style == "cartoon"
+            if s.art_style == "cartoon":
+                from .sprites.tiles import CARTOON_GAP
+                tiles_style["separation"] = CARTOON_GAP
         return {
             "format": PLAN_FORMAT,
             "name": g.name,
@@ -344,6 +350,7 @@ class _Analyzer:
             "lives": s.lives,
             "viewport": list(s.viewport),
             "zoom": s.zoom,
+            "art_style": s.art_style,
             "background": s.background or self.genre["background"],
             "gravity": s.gravity if s.gravity is not None else self.genre["gravity"],
             "tiles": tiles_style,

@@ -259,3 +259,34 @@ def test_plan_carries_tiles_and_zoom(manifest):
     flat = analyze(minimal(settings={"tile_style": "flat"}), manifest)
     assert "texture" not in flat.plan["tiles"] and flat.tiles_image is None
     assert "E_SCHEMA" in codes(analyze(minimal(settings={"zoom": 9}), manifest).diagnostics)
+
+
+# --- cartoon style ----------------------------------------------------------------------------
+
+@pytest.mark.parametrize("kind", sorted(KINDS))
+def test_every_kind_renders_in_cartoon(kind):
+    from spawnpoint.sprites.cartoon import DETAIL, SCALE, generate_cartoon
+    s = generate_cartoon("Thing", kind, "#29adff")
+    assert s.smooth and s.scale == SCALE
+    w, h = KINDS[kind].size
+    assert s.frame_size == (w * DETAIL, h * DETAIL)  # same on-screen size as the pixel sprite
+    for name, a in s.animations.items():
+        for col, row in a.frames:
+            assert (s.frame(col, row)[..., 3] > 0).any(), f"{kind}.{name} frame empty"
+    assert len(s.polygon) >= 3
+    assert generate_cartoon("Thing", kind, "#29adff").sheet.tobytes() == s.sheet.tobytes()  # deterministic
+
+
+def test_art_style_switches_sprites_and_tiles(manifest):
+    g = minimal(settings={"art_style": "cartoon"})
+    g["entities"]["Player"]["sprite"] = {"generate": {"kind": "hero"}}
+    a = analyze(g, manifest)
+    assert a.ok, [str(d) for d in a.diagnostics]
+    player = next(e for e in a.plan["entities"] if e["name"] == "Player")
+    assert player["sprite"]["smooth"] is True and player["sprite"]["scale"] == 0.5
+    assert a.plan["art_style"] == "cartoon" and a.plan["tiles"]["smooth"] and a.plan["tiles"]["separation"] == 4
+    px = np.asarray(a.tiles_image)
+    assert a.tiles_image.size == (32 * 3 + 2 * 4, 32)
+    assert px[14:, 2 * (32 + 4), 3].max() == 0  # nothing bleeds into the one-way plank's empty part
+    pixel = analyze(minimal(), manifest)
+    assert pixel.plan["art_style"] == "pixel" and not pixel.plan["tiles"].get("smooth")

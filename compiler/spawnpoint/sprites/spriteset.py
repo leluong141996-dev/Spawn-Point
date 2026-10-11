@@ -36,11 +36,12 @@ class SpriteSet:
     sheet: Image.Image
     frame_size: tuple[int, int]
     animations: dict[str, Animation]
-    scale: int = 2
+    scale: float = 2  # world px per frame px (2 for pixel art, 0.5 for the 4x-detail cartoon style)
     anchor: str = "center"  # center | bottom
     bounds: tuple[int, int, int, int] = (0, 0, 0, 0)  # opaque box of the idle pose, frame pixels
     polygon: list[tuple[float, float]] = field(default_factory=list)  # outline of the idle pose
     color: str = "#ffffff"
+    smooth: bool = False  # draw with linear filtering (cartoon art) instead of nearest (pixel art)
 
     @property
     def columns(self) -> int:
@@ -72,7 +73,7 @@ class SpriteSet:
 
 
 def finalize(name: str, sheet: Image.Image, frame_size: tuple[int, int], animations: dict[str, Animation],
-             scale: int = 2, anchor: str = "center") -> SpriteSet:
+             scale: float = 2, anchor: str = "center") -> SpriteSet:
     """Validates the grid and derives bounds, outline and dominant color from the idle pose."""
     sheet = sheet.convert("RGBA")
     s = SpriteSet(name, sheet, tuple(frame_size), dict(animations), scale, anchor)

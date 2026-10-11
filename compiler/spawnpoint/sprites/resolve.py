@@ -12,8 +12,9 @@ SPRITE_DIR = "res://sprites"
 
 
 def resolve(name: str, ent: Entity, base_dir: Path | None, default_color: str,
-            warn=lambda msg: None) -> SpriteSet:
-    """`warn(message)` reports a non-fatal problem (an AI sprite falling back to a generated one)."""
+            warn=lambda msg: None, style: str = "pixel") -> SpriteSet:
+    """`warn(message)` reports a non-fatal problem (an AI sprite falling back to a generated one).
+    `style` picks the generator for generated sprites: "pixel" art or smooth "cartoon"."""
     ref = ent.sprite
     if isinstance(ref, str):
         path = Path(ref)
@@ -38,11 +39,18 @@ def resolve(name: str, ent: Entity, base_dir: Path | None, default_color: str,
                 return ai_sprite(name, spec.kind, spec.prompt, provider, spec.seed)
             except SpriteError as e:
                 warn(f"AI sprite failed ({e}); using a generated sprite")
-        return generate(name, spec.kind, spec.color or default_color, None, spec.seed)
+        return _generate(style, name, spec.kind, spec.color or default_color, None, spec.seed)
     gen = ref.generate
     if gen.kind not in KINDS:
         raise SpriteError(f"unknown sprite kind '{gen.kind}'")
-    return generate(name, gen.kind, gen.color or default_color, gen.features, gen.seed)
+    return _generate(style, name, gen.kind, gen.color or default_color, gen.features, gen.seed)
+
+
+def _generate(style: str, name: str, kind: str, color: str, features, seed: int) -> SpriteSet:
+    if style == "cartoon":
+        from .cartoon import generate_cartoon
+        return generate_cartoon(name, kind, color, features, seed)
+    return generate(name, kind, color, features, seed)
 
 
 def derived_shape(ent: Entity, s: SpriteSet, genre: str) -> Shape:
@@ -72,6 +80,7 @@ def plan_entry(entity: str, s: SpriteSet) -> dict:
                        for n, a in s.animations.items()},
         "polygon": [[round((x - cx) * k, 2), round((y - cy) * k, 2)] for x, y in safe_polygon(s.polygon)],
         "color": s.color,
+        "smooth": s.smooth,
     }
 
 
