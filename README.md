@@ -128,10 +128,10 @@ Only what you asked for changes, and the level layout is kept. Prompts can be in
 **The model.** [SpawnPoint-Coder-7B](https://huggingface.co/smoky1496/SpawnPoint-Coder-7B-AWQ) is a 7B model
 fine-tuned to generate Godot 4 games through this pipeline: it writes the game design, tweaks and entity
 edits as strict JSON, and the compiler turns that into Godot scenes and GDScript. It runs on a single 12 GB
-GPU (AWQ 4-bit). v2 on 30 human-written game ideas (English and Vietnamese): 87% fully right (v1: 73%),
-97% of checks passed; on held-out tasks: briefs 88% exact (v1: 36%), Vietnamese → English 97% (v1: 52%),
-tweaks 98%, entity edits 91%. It is tuned for 2D platformers and 2D top-down games only; other genres
-are no better than a general 7B coder. `spawnpoint llm up` downloads and serves it: the AWQ build on vLLM when
+GPU (AWQ 4-bit). v3 also designs bubble shooters, rescue missions and survivor games with level-ups. On a sealed set of
+12 human-written prompts written after training it gets 67% fully right (v2: 42%), and 93% of 30 human-written game
+ideas in English and Vietnamese (v2: 87%); the downloadable 4-bit builds score 80% (AWQ) and 90% (GGUF Q4_K_M) on
+those 30. It is tuned for the 2D game kinds Spawn Point builds; other genres are no better than a general 7B coder. `spawnpoint llm up` downloads and serves it: the AWQ build on vLLM when
 Docker and an NVIDIA GPU are present, otherwise the [GGUF build](https://huggingface.co/smoky1496/SpawnPoint-Coder-7B-GGUF)
 (Q4_K_M, ~4.7 GB) in Ollama. Force one with `--backend vllm|ollama`.
 
