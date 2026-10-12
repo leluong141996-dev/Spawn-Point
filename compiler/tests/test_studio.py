@@ -479,3 +479,14 @@ def test_normalize_farm_and_tower_defense():
     assert both.player.abilities == ["shoot"] and any("one weapon" in n for n in notes)
     other, _ = normalize(GameBrief(title="o", genre="platformer", goal="defend"))
     assert other.goal == "survive"
+
+
+def test_level_ups_turn_a_platformer_into_a_survivor():
+    from spawnpoint.studio.brief import GameBrief, PlayerBrief, normalize
+
+    b, notes = normalize(GameBrief(title="s", genre="platformer", goal="survive", level_ups=True, hazards=["pits"],
+                                   player=PlayerBrief(abilities=["stomp", "dash"])))
+    assert b.genre == "topdown" and b.level_ups and b.goal == "survive" and not b.hazards
+    assert b.player.abilities == ["dash", "shoot"] and any("survivor" in n for n in notes)
+    plain, _ = normalize(GameBrief(title="p", genre="platformer", goal="reach_exit"))
+    assert plain.genre == "platformer"

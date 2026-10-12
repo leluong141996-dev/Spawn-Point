@@ -191,6 +191,14 @@ def normalize(brief: GameBrief) -> tuple[GameBrief, list[str]]:
         notes.append("rescue missions are platformers here; using 'reach_exit'")
     if b.goal == "rescue":
         b.rescue_target = unique(b.rescue_target, "Mom", "rescue target")
+    if b.level_ups and b.genre == "platformer":
+        # Level-ups mean a survivor game, and those are top-down: the level-ups are the stronger signal.
+        b.genre = "topdown"
+        b.player.abilities = [a for a in b.player.abilities if a not in ("double_jump", "stomp")]
+        b.hazards = [h for h in b.hazards if h != "pits"]
+        if b.goal in ("reach_exit", "collect_all_then_exit", "rescue"):
+            b.goal = "survive"
+        notes.append("level-ups are a top-down survivor feature; switched the genre to 'topdown'")
     if b.level_ups and b.genre != "topdown":
         b.level_ups = False
         notes.append("level-ups are for top-down games; ignored")
