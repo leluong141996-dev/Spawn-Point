@@ -86,6 +86,9 @@ func _platformer(p: CharacterBody2D, mv: PlatformerMovementComponent) -> void:
 		var d := (e as Node2D).global_position - p.global_position
 		if d.x > 0 and d.x < 90 and absf(d.y) < 48:
 			enemy = true
+	var weapon := SP.component(p, &"Weapon") as WeaponComponent
+	if weapon:  # swing / fire at anything just ahead
+		weapon.trigger_held = enemy
 	var falling_into_gap := not p.is_on_floor() and p.velocity.y > 120 and not ground
 	if (p.is_on_floor() and (wall or not ground or enemy)) or (falling_into_gap and mv.air_jumps > 0):
 		Input.action_press(&"jump")

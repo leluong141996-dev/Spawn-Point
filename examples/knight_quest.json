@@ -1,0 +1,348 @@
+{
+  "spawnpoint": 1,
+  "name": "Knight's Quest",
+  "genre": "platformer",
+  "settings": {
+    "tile_size": 32,
+    "lives": 3,
+    "seed": 11,
+    "background": "#8ecae6",
+    "zoom": 1.5,
+    "tiles": {
+      "solid": {
+        "color": "#4a3728",
+        "top": "#5fb83d"
+      },
+      "oneway": {
+        "color": "#8a5a3b"
+      }
+    },
+    "art_style": "cartoon"
+  },
+  "entities": {
+    "Slash": {
+      "body": "area",
+      "team": "player",
+      "juice": "none",
+      "components": {
+        "Projectile": {
+          "speed": 140.0,
+          "lifetime": 0.16,
+          "pierce": 99
+        },
+        "Hitbox": {
+          "damage": 2,
+          "knockback": 340.0
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "slash",
+          "color": "#e8f1ff",
+          "seed": 11
+        }
+      }
+    },
+    "Player": {
+      "components": {
+        "PlatformerMovement": {
+          "max_speed": 230,
+          "jump_velocity": 574.2,
+          "air_jumps": 1
+        },
+        "PlayerInput": {},
+        "Health": {
+          "max_health": 4,
+          "invincibility_time": 0.8
+        },
+        "Hurtbox": {},
+        "Weapon": {
+          "projectile": "Slash",
+          "fire_rate": 3.2,
+          "spread_deg": 0,
+          "muzzle_distance": 24
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "hero",
+          "color": "#f4d35e",
+          "seed": 11,
+          "features": [
+            "helmet"
+          ]
+        }
+      },
+      "juice": {
+        "squash_amount": 0.476,
+        "shake_on_hurt": 0.595,
+        "shake_on_death": 0.765,
+        "shake_on_fire": 0.102,
+        "hitstop_on_hurt": 0.102,
+        "hitstop_on_death": 0.068
+      }
+    },
+    "Exit": {
+      "body": "area",
+      "components": {
+        "TriggerZone": {
+          "once": true
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "exit",
+          "color": "#a7f070",
+          "seed": 11
+        }
+      },
+      "juice": {
+        "squash_amount": 0.476,
+        "shake_on_hurt": 0.595,
+        "shake_on_death": 0.765,
+        "shake_on_fire": 0.102,
+        "hitstop_on_hurt": 0.102,
+        "hitstop_on_death": 0.068
+      }
+    },
+    "Slime": {
+      "team": "enemy",
+      "components": {
+        "PlatformerMovement": {
+          "max_speed": 65
+        },
+        "PatrolAI": {},
+        "Health": {
+          "max_health": 2,
+          "invincibility_time": 0.1
+        },
+        "Hurtbox": {
+          "size_scale": 1.0
+        },
+        "Hitbox": {
+          "damage": 1,
+          "knockback": 280.0
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "slime",
+          "color": "#d1495b",
+          "seed": 11
+        }
+      },
+      "juice": {
+        "squash_amount": 0.476,
+        "shake_on_hurt": 0.595,
+        "shake_on_death": 0.765,
+        "shake_on_fire": 0.102,
+        "hitstop_on_hurt": 0.102,
+        "hitstop_on_death": 0.068
+      }
+    },
+    "Bat": {
+      "team": "enemy",
+      "components": {
+        "PlatformerMovement": {
+          "max_speed": 110
+        },
+        "ChaseAI": {
+          "detect_radius": 360.0
+        },
+        "Health": {
+          "max_health": 2,
+          "invincibility_time": 0.1
+        },
+        "Hurtbox": {
+          "size_scale": 1.0
+        },
+        "Hitbox": {
+          "damage": 1,
+          "knockback": 280.0
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "flyer",
+          "color": "#9b5de5",
+          "seed": 11
+        }
+      },
+      "juice": {
+        "squash_amount": 0.476,
+        "shake_on_hurt": 0.595,
+        "shake_on_death": 0.765,
+        "shake_on_fire": 0.102,
+        "hitstop_on_hurt": 0.102,
+        "hitstop_on_death": 0.068
+      }
+    },
+    "Goblin": {
+      "team": "enemy",
+      "components": {
+        "PlatformerMovement": {
+          "max_speed": 90,
+          "jump_velocity": 480.0
+        },
+        "PatrolAI": {
+          "jump_interval": 1.6
+        },
+        "Health": {
+          "max_health": 2,
+          "invincibility_time": 0.1
+        },
+        "Hurtbox": {
+          "size_scale": 1.0
+        },
+        "Hitbox": {
+          "damage": 1,
+          "knockback": 280.0
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "hero",
+          "color": "#ee964b",
+          "seed": 11
+        }
+      },
+      "juice": {
+        "squash_amount": 0.476,
+        "shake_on_hurt": 0.595,
+        "shake_on_death": 0.765,
+        "shake_on_fire": 0.102,
+        "hitstop_on_hurt": 0.102,
+        "hitstop_on_death": 0.068
+      }
+    },
+    "Coin": {
+      "body": "area",
+      "components": {
+        "Collectible": {
+          "kind": "coin",
+          "score": 1
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "coin",
+          "color": "#ffd23f",
+          "seed": 11
+        }
+      },
+      "juice": {
+        "squash_amount": 0.476,
+        "shake_on_hurt": 0.595,
+        "shake_on_death": 0.765,
+        "shake_on_fire": 0.102,
+        "hitstop_on_hurt": 0.102,
+        "hitstop_on_death": 0.068
+      }
+    },
+    "HealthPack": {
+      "body": "area",
+      "components": {
+        "Collectible": {
+          "kind": "heart",
+          "score": 0,
+          "heal": 1
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "heart",
+          "color": "#ff8fab",
+          "seed": 11
+        }
+      },
+      "juice": {
+        "squash_amount": 0.476,
+        "shake_on_hurt": 0.595,
+        "shake_on_death": 0.765,
+        "shake_on_fire": 0.102,
+        "hitstop_on_hurt": 0.102,
+        "hitstop_on_death": 0.068
+      }
+    },
+    "Spikes": {
+      "body": "area",
+      "team": "enemy",
+      "juice": "none",
+      "components": {
+        "Hitbox": {
+          "damage": 1,
+          "knockback": 420.0
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "spikes",
+          "color": "#b8b8b8",
+          "seed": 11
+        }
+      }
+    }
+  },
+  "level": {
+    "map": [
+      ".",
+      ".",
+      ".",
+      ".",
+      ".",
+      ".",
+      "......................................C....................CCC....................................C...............................C",
+      ".........................................................................................................................C",
+      "........########.....................====......C.........======..................................====............................======",
+      "......................................................................C..+.......C..C.....................C............###",
+      ".........C...C................====...........====.........................................====.........................###",
+      "..P......................3..1..............1............1......2....^.....^^....3....2.........3..............^^...1...###..2...1...............E",
+      "###################################################################################################################################################",
+      "###################################################################################################################################################"
+    ],
+    "legend": {
+      "#": "solid",
+      "=": "oneway",
+      "P": "Player",
+      "E": "Exit",
+      "1": "Slime",
+      "2": "Bat",
+      "3": "Goblin",
+      "C": "Coin",
+      "+": "HealthPack",
+      "^": "Spikes"
+    }
+  },
+  "rules": [
+    {
+      "on": "Game.ready",
+      "do": [
+        "message('Slash your way to the castle gate!')"
+      ]
+    },
+    {
+      "on": "Exit.triggered",
+      "do": [
+        "win()"
+      ]
+    },
+    {
+      "on": "Slime.died",
+      "do": [
+        "add_score(5)"
+      ]
+    },
+    {
+      "on": "Bat.died",
+      "do": [
+        "add_score(10)"
+      ]
+    },
+    {
+      "on": "Goblin.died",
+      "do": [
+        "add_score(10)"
+      ]
+    }
+  ]
+}

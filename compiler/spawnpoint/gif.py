@@ -34,7 +34,7 @@ def record_frames(project: Path, out_dir: Path, seconds: float, fps: int, skip: 
     return frames
 
 
-def make_gif(frames: list[Path], out: Path, fps: int, width: int, colors: int = 128) -> Path:
+def make_gif(frames: list[Path], out: Path, fps: int, width: int, colors: int = 256) -> Path:
     images = [Image.open(f).convert("RGB") for f in frames]
     w, h = images[0].size
     size = (width, round(h * width / w))
@@ -44,7 +44,8 @@ def make_gif(frames: list[Path], out: Path, fps: int, width: int, colors: int = 
     sample = Image.new("RGB", (size[0], size[1] * min(6, len(images))))
     for i, im in enumerate(images[:: max(1, len(images) // 6)][:6]):
         sample.paste(im, (0, i * size[1]))
-    palette = sample.quantize(colors=colors, method=Image.Quantize.MEDIANCUT)
+    # Octree keeps small saturated sprites; median cut spends the palette on big gradients (cartoon skies).
+    palette = sample.quantize(colors=colors, method=Image.Quantize.FASTOCTREE)
     quantized = [im.quantize(palette=palette, dither=Image.Dither.NONE) for im in images]
     out.parent.mkdir(parents=True, exist_ok=True)
     quantized[0].save(out, save_all=True, append_images=quantized[1:], duration=round(1000 / fps), loop=0,

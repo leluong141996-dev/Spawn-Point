@@ -9,17 +9,20 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 <p align="center">
+  <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/knight-quest.gif" width="48%" alt="Knight's Quest: a cartoon-style sword platformer">
+  <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/castle-defense.gif" width="48%" alt="Castle Defense: a tower defense game">
   <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/ninja-rescue.gif" width="48%" alt="Ninja Rescue: a platformer where a ninja frees his mother">
   <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/dino-eggs.gif" width="48%" alt="Dino Eggs: a bubble shooter with dinosaur eggs">
   <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/night-survivor.gif" width="48%" alt="Night Survivor: auto-fire, gems, level-ups">
   <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/pixel-hopper.gif" width="48%" alt="Pixel Hopper: a Mario-style platformer">
 </p>
-<p align="center"><sub>Four of the demo games, each one a small JSON graph in <code>examples/</code> built from the
-same component library: generated pixel art, collision traced from pixels, juice on by default. Recorded with
-<code>spawnpoint gif</code> (autopilot).</sub></p>
+<p align="center"><sub>Six of the demo games, each one a small JSON graph in <code>examples/</code> built from the
+same component library: generated cartoon or pixel art, collision traced from the sprites, juice on by default.
+Recorded with <code>spawnpoint gif</code> (autopilot).</sub></p>
 
-<p align="center"><b><a href="https://leluong141996-dev.github.io/Spawn-Point/">▶ Play the demos in your browser</a></b>: a Mario-style platformer, a ninja
-rescue, a dinosaur-egg bubble shooter, a survivor with level-ups, a farming game and an arena shooter. No install needed, and
+<p align="center"><b><a href="https://leluong141996-dev.github.io/Spawn-Point/">▶ Play the demos in your browser</a></b>: a Mario-style platformer, a cartoon
+knight with a sword, tower defense, a ninja rescue, a dinosaur-egg bubble shooter, a survivor with level-ups, a farming
+game and an arena shooter. No install needed, and
 they work on phones too (touch controls).</p>
 
 Spawn Point is an open-source, autonomous game studio that runs on your own machine. Instead of asking an LLM to type
@@ -128,10 +131,11 @@ Only what you asked for changes, and the level layout is kept. Prompts can be in
 **The model.** [SpawnPoint-Coder-7B](https://huggingface.co/smoky1496/SpawnPoint-Coder-7B-AWQ) is a 7B model
 fine-tuned to generate Godot 4 games through this pipeline: it writes the game design, tweaks and entity
 edits as strict JSON, and the compiler turns that into Godot scenes and GDScript. It runs on a single 12 GB
-GPU (AWQ 4-bit). v3 also designs bubble shooters, rescue missions and survivor games with level-ups. On a sealed set of
-12 human-written prompts written after training it gets 67% fully right (v2: 42%), and 93% of 30 human-written game
-ideas in English and Vietnamese (v2: 87%); the downloadable 4-bit builds score 80% (AWQ) and 90% (GGUF Q4_K_M) on
-those 30. It is tuned for the 2D game kinds Spawn Point builds; other genres are no better than a general 7B coder. `spawnpoint llm up` downloads and serves it: the AWQ build on vLLM when
+GPU (AWQ 4-bit). v4 also designs **farming games, tower defense and sword fighting**, and picks a **cartoon
+(non-pixel) art style** when you ask for one; v3 added bubble shooters, rescue missions and survivor games with
+level-ups. The downloadable AWQ build gets 75% of a sealed set of 12 human-written prompts for the new kinds fully
+right (v3: 33%) and 90% of 30 human-written game ideas in English and Vietnamese (same as v3); the GGUF Q4_K_M build
+scores 87% on those 30. It is tuned for the 2D game kinds Spawn Point builds; other genres are no better than a general 7B coder. `spawnpoint llm up` downloads and serves it: the AWQ build on vLLM when
 Docker and an NVIDIA GPU are present, otherwise the [GGUF build](https://huggingface.co/smoky1496/SpawnPoint-Coder-7B-GGUF)
 (Q4_K_M, ~4.7 GB) in Ollama. Force one with `--backend vllm|ollama`.
 
@@ -144,7 +148,10 @@ use `--no-web` to skip and play natively with `spawnpoint run`.
 
 ## Sprites: generated or your own
 
-Layer 2 replaces placeholder shapes with **procedural pixel-art sprites** — no assets, no GPU. The
+Layer 2 replaces placeholder shapes with **procedural sprites** — no assets, no GPU — in one of two art styles:
+**pixel art** (the default) or **cartoon** (`"art_style": "cartoon"` in the graph settings, or "cartoon style" in
+the prompt): smooth shaded sprites with a sticker outline, rounded tiles, and a parallax sky with hills, clouds and
+trees. The
 kind follows the entity (`Goblin` → humanoid, `FireBat` → flyer, `LaserBot` → robot, `Crystal` → gem…)
 and details follow the name (`Ninja` → mask, `Fox` → ears and tail, `Spider` → legs). Every sprite has
 idle / run / jump / fall / hurt animations driven automatically by an `Animator` component.
@@ -311,10 +318,11 @@ headless smoke test (spawn, scripted input, crash detection) and report `E_RUNTI
 |---|---|
 | Movement | `PlatformerMovement` (coyote time, jump buffer, variable jump, apex hang, dash, double jump), `TopDownMovement` (accel/friction, dash) |
 | Controllers | `PlayerInput`, `PatrolAI`, `ChaseAI`, `Aim` |
-| Combat | `Health`, `Hitbox`, `Hurtbox`, `Stomp`, `Weapon`, `Projectile` |
+| Combat | `Health`, `Hitbox`, `Hurtbox`, `Stomp`, `Weapon`, `Projectile` (a sword is a `Weapon` whose projectile is a short, piercing slash) |
 | World | `Collectible`, `TriggerZone`, `Spawner` (ramping waves, spawns around the player), `Gate` |
 | Progression | `Experience` (XP and levels), `XpOrb` (gems that fly to the player), `LevelUpMenu` (pause and pick one of three upgrades) |
 | Game modes | `BubbleBoard` (a complete bubble shooter: bank shots, colour pops, falling clusters, a descending ceiling) |
+| Tower defense | `PathFollower` (walks the road to the base), `Base` (loses a life per invader that gets in), `WaveSpawner` ("8 x Goblin every 1.2; ..."), `TowerSlot`, `TowerBuilder` (click a pad, pay in gold), `TowerBrain` (targets the invader furthest along), `GroundPatch` (roads and paths) |
 | Farming | `FarmPlot` (soil that grows a crop only while watered), `Farmer` (plant / water / harvest, a basket, crop choice), `Market` (sell the basket), `CropPest` (crows that eat crops) |
 | Feel | `Juice` — attached to every entity unless `"juice": "none"` |
 

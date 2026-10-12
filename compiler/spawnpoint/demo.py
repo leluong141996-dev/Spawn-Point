@@ -34,6 +34,14 @@ SHOWCASE = [
      "Mom has been caged! Throw shurikens, dodge the masked throwers, grab the key up high and set her free.",
      "Move: arrows / WASD | Jump: Space | Shuriken: X / J | Dash: Shift | Restart: R",
      {"pad": "lr", "buttons": [["JUMP", "Space"], ["STAR", "KeyX"], ["DASH", "ShiftLeft"]]}),
+    ("knight_quest.json", "sword platformer",
+     "A cartoon knight's run: slash slimes, bats and goblins with your sword, double-jump the spikes and reach the gate.",
+     "Move: arrows / WASD | Jump: Space (twice to double-jump) | Sword: X / J | Restart: R",
+     {"pad": "lr", "buttons": [["JUMP", "Space"], ["SWORD", "KeyX"]]}),
+    ("castle_defense.json", "tower defense",
+     "Goblins, orcs and wolves march on the castle: build archer and cannon towers beside the road and hold all seven waves.",
+     "Build: click a pad | Tower: 1 archer / 2 cannon | Restart: R",
+     {"pad": None, "buttons": [["2", "Digit2"], ["1", "Digit1"]], "tap": "Tap a pad to build; 1 / 2 picks the tower"}),
     ("dino_eggs.json", "bubble shooter",
      "The classic egg shooter: bank shots off the walls, pop three dinosaur eggs of a colour, drop whole clusters.",
      "Aim: mouse or Left / Right | Shoot: click / Space / X | Restart: R",
@@ -193,7 +201,7 @@ def index_html(games: list[Game]) -> str:
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Spawn Point demos</title>
-<meta name="description" content="Six Godot 4 games built with Spawn Point: platformers, a bubble shooter, a survivor, a farm. Play in your browser.">
+<meta name="description" content="Eight Godot 4 games built with Spawn Point: platformers, a sword fighter, tower defense, a bubble shooter, a survivor, a farm. Play in your browser.">
 <meta property="og:title" content="Spawn Point demos: play Godot games in your browser">
 <meta property="og:description" content="A Mario-style platformer, a ninja rescue, a dinosaur-egg shooter, a survivor and an arena, all built from Spawn Point components.">
 <style>
@@ -232,8 +240,8 @@ footer {{ color:var(--muted); font-size:13px; padding-bottom:40px }}
 <body>
 <header>
   <h1>Spawn<span>Point</span> demos</h1>
-  <p class="lede">Six games, six ways to play, all built by Spawn Point from small JSON game graphs and a
-  library of tested Godot 4 components: game feel, pixel art and collisions come for free. Click a card to play in
+  <p class="lede">Eight games, eight ways to play, all built by Spawn Point from small JSON game graphs and a
+  library of tested Godot 4 components: game feel, cartoon or pixel art and collisions come for free. Click a card to play in
   your browser, no install needed.</p>
   <div class="links">
     <a href="{REPO}">⭐ GitHub repo</a>

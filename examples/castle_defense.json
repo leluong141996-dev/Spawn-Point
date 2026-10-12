@@ -13,7 +13,8 @@
         "color": "#7a6f62",
         "top": "#a39a8c"
       }
-    }
+    },
+    "art_style": "cartoon"
   },
   "entities": {
     "Commander": {
