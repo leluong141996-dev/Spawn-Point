@@ -153,8 +153,22 @@ Layer 2 replaces placeholder shapes with **procedural sprites** — no assets, n
 the prompt): smooth shaded sprites with a sticker outline, rounded tiles, and a parallax sky with hills, clouds and
 trees. The
 kind follows the entity (`Goblin` → humanoid, `FireBat` → flyer, `LaserBot` → robot, `Crystal` → gem…)
-and details follow the name (`Ninja` → mask, `Fox` → ears and tail, `Spider` → legs). Every sprite has
-idle / run / jump / fall / hurt animations driven automatically by an `Animator` component.
+and details follow the name (`Ninja` → mask, `Fox` → ears and tail, `Spider` → legs, a sword-wielder holds a sword).
+Every sprite has idle / run / jump / fall / hurt animations driven automatically by an `Animator` component, plus
+`attack` (played each time its weapon fires) and `die` (a death sequence that plays on after the entity is gone) for
+anything that fights or can be hurt; heroes breathe and blink while they stand.
+
+**Pixel-art settings** (`settings` in the graph; the assembler sets the first two from the game's theme):
+
+| Setting | Values | What it does |
+|---|---|---|
+| `pixel_palette` | `none`, `pico8`, `sweetie16`, `endesga32` | Limits every sprite, tile and backdrop colour to a classic palette, so the whole game shares one set of colours. |
+| `scenery` | `auto`, `flat`, or a theme (`night`, `forest`, `desert`, `neon`, `candy`, `ocean`, `lava`, `snow`) | A banded sky with sun or moon and stars, parallax clouds, mountains, hills and themed trees, cacti, skylines or kelp (a themed floor for top-down games). `auto` picks one that fits the background colour, `flat` keeps the plain hills. |
+| `pixel_size` | `2` (default), `1` | `2` is chunky (NES-like); `1` draws the same art at twice the resolution (SNES-like) at the same on-screen size. |
+
+Ground tiles are drawn for their neighbours (grass on top, outlined exposed edges, rounded and notched corners,
+varied interiors, capped one-way planks), and pixel-art levels get pixel effects: skidding dust, hit sparks and a
+screen shake in whole pixels.
 
 **Collision comes from the pixels.** Hitboxes, hurtboxes, pickups, hazards and static bodies use the
 sprite's traced outline (`CollisionPolygon2D`); moving bodies keep a smooth capsule/circle fitted to

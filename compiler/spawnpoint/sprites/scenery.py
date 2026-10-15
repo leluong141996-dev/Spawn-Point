@@ -387,7 +387,9 @@ def floor_tile(theme: str, background: str, palette: str | None, seed: int) -> n
         img[rng.randrange(FLOOR), rng.randrange(FLOOR)] = (*(hi if rng.random() < 0.5 else lo), 255)
     accent = {"forest": (70, 150, 80), "night": (60, 80, 140), "desert": (230, 190, 120), "neon": (60, 220, 235),
               "candy": (255, 255, 255), "ocean": (90, 170, 230), "lava": (255, 120, 40), "snow": (255, 255, 255)}[theme]
-    detail = pick(mix(base, accent, 0.45), base, hi, lo)
+    # Themes with a signature colour use it; the rest use a lighter tone of the floor itself (a palette often has no
+    # other near colour to pick, and a stray one would show up as a regular pattern of odd dots).
+    detail = pick(mix(base, accent, 0.45), base, hi, lo) if theme in ("neon", "lava", "ocean") else hi
     for _ in range(5):
         x, y = rng.randrange(2, FLOOR - 3), rng.randrange(3, FLOOR - 3)
         if theme in ("forest", "night", "candy"):  # tufts
