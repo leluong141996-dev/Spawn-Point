@@ -104,6 +104,37 @@ func ghost(visual: Node2D, color := Color(1, 1, 1, 0.5)) -> void:
 	t.tween_callback(copy.queue_free)
 
 
+## A copy of [param entity]'s picture that plays its "die" animation where it stood and then goes away.
+## Returns false (and does nothing) when the entity has no such animation.
+func death_anim(entity: Node2D) -> bool:
+	var parent := _fx_parent()
+	var visual := entity.get_node_or_null(^"Visual") as Node2D if entity else null
+	if parent == null or visual == null:
+		return false
+	var src := visual.get_node_or_null(^"Shape/Sprite") as AnimatedSprite2D
+	if src == null or src.sprite_frames == null or not src.sprite_frames.has_animation(&"die"):
+		return false
+	var copy := visual.duplicate(0) as Node2D
+	copy.material = null
+	for c in copy.find_children("*", "CanvasItem", true, false):
+		(c as CanvasItem).material = null
+	parent.add_child(copy)
+	copy.global_transform = visual.global_transform
+	copy.global_scale = Vector2.ONE  # the squash of the moment is not part of the death
+	copy.modulate = Color.WHITE
+	var spr := copy.get_node(^"Shape/Sprite") as AnimatedSprite2D
+	spr.speed_scale = 1.0
+	spr.play(&"die")
+	spr.animation_finished.connect(copy.queue_free)
+	var failsafe := Timer.new()  # a child of the copy, so it goes away with it
+	failsafe.wait_time = 1.5
+	failsafe.one_shot = true
+	failsafe.autostart = true
+	failsafe.timeout.connect(copy.queue_free)
+	copy.add_child(failsafe)
+	return true
+
+
 func _fx_parent() -> Node:
 	if not is_inside_tree():
 		return null

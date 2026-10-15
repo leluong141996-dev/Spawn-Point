@@ -62,6 +62,8 @@ func _on_died() -> void:
 	var e := get_parent() as Node2D
 	if death_cause == "":
 		death_cause = _attacker_type(e)
+	if death_cause != "fall":
+		FX.death_anim(e)  # the sprite's death sequence plays on as a copy
 	if not is_player:
 		e.queue_free.call_deferred()
 		return

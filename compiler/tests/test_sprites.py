@@ -58,7 +58,7 @@ def test_every_kind_renders(kind):
     assert "idle" in s.animations
     w, h = s.frame_size
     for name, a in s.animations.items():
-        for col, row in a.frames:
+        for col, row in (a.frames[:-1] if name == "die" else a.frames):  # a death ends on an empty frame
             assert (s.frame(col, row)[..., 3] > 0).any(), f"{kind}.{name} frame empty"
     bx, by, bw, bh = s.bounds
     assert 0 <= bx and 0 <= by and bx + bw <= w and by + bh <= h
@@ -84,7 +84,8 @@ def test_names_change_the_look():
 def art(tmp_path):
     """An artist-style sheet (4 columns, 2px spacing) and a folder of frames, from a generated knight."""
     s = generate("Knight", "hero", "#c2c3c7", ["helmet"])
-    cells = [s.frame(*f) for a in ("idle", "run") for f in s.animations[a].frames]  # 2 idle + 4 run
+    two_idle = {"idle": s.animations["idle"].frames[:2], "run": s.animations["run"].frames}  # the sheet has 6 idle frames
+    cells = [s.frame(*f) for a in ("idle", "run") for f in two_idle[a]]  # 2 idle + 4 run
     sheet = Image.new("RGBA", (4 * 26, 2 * 26))
     for i, f in enumerate(cells):
         sheet.paste(Image.fromarray(f), ((i % 4) * 26 + 6, (i // 4) * 26 + 4))
@@ -92,7 +93,7 @@ def art(tmp_path):
     frames = tmp_path / "frames"
     frames.mkdir()
     for a, fname in (("idle", "idle"), ("run", "walk")):
-        for i, f in enumerate(s.animations[a].frames):
+        for i, f in enumerate(two_idle[a]):
             Image.fromarray(s.frame(*f)).save(frames / f"knight_{fname}_{i}.png")
     return tmp_path
 
@@ -271,7 +272,7 @@ def test_every_kind_renders_in_cartoon(kind):
     w, h = KINDS[kind].size
     assert s.frame_size == (w * DETAIL, h * DETAIL)  # same on-screen size as the pixel sprite
     for name, a in s.animations.items():
-        for col, row in a.frames:
+        for col, row in (a.frames[:-1] if name == "die" else a.frames):  # a death ends on an empty frame
             assert (s.frame(col, row)[..., 3] > 0).any(), f"{kind}.{name} frame empty"
     assert len(s.polygon) >= 3
     assert generate_cartoon("Thing", kind, "#29adff").sheet.tobytes() == s.sheet.tobytes()  # deterministic
@@ -290,3 +291,102 @@ def test_art_style_switches_sprites_and_tiles(manifest):
     assert px[14:, 2 * (32 + 4), 3].max() == 0  # nothing bleeds into the one-way plank's empty part
     pixel = analyze(minimal(), manifest)
     assert pixel.plan["art_style"] == "pixel" and not pixel.plan["tiles"].get("smooth")
+
+
+# --- classic pixel palettes -------------------------------------------------------------------
+
+@pytest.mark.parametrize("name", ["pico8", "sweetie16", "endesga32"])
+def test_palette_ramp_is_ordered_and_distinct(name):
+    from spawnpoint.sprites import palettes
+    from spawnpoint.sprites.generate import ramp
+
+    pal = palettes.get(name)
+    for color in ("#29adff", "#ff004d", "#00e436", "#ffec27", "#7e2553", "#ffffff", "#000000", "#808080"):
+        r = ramp(color, pal)
+        tones = [r.outline, r.shadow, r.base, r.light]
+        assert len(set(tones)) == 4, (name, color, tones)
+        assert all(t[:3] in {tuple(c) for c in pal.rgb.tolist()} for t in tones)
+
+
+@pytest.mark.parametrize("name", ["pico8", "sweetie16", "endesga32"])
+def test_palette_sprites_and_tiles_use_only_palette_colours(name):
+    from spawnpoint.sprites import palettes
+    from spawnpoint.sprites.generate import KINDS, generate
+    from spawnpoint.sprites.tiles import tileset
+
+    allowed = {tuple(c) for c in palettes.get(name).rgb.tolist()}
+
+    def colours(img_or_arr) -> set:
+        a = np.asarray(img_or_arr.convert("RGBA") if hasattr(img_or_arr, "convert") else img_or_arr)
+        a = a.reshape(-1, 4)
+        return {tuple(p[:3]) for p in a.tolist() if p[3] > 0}
+
+    for kind in KINDS:
+        s = generate("Thing", kind, "#ff004d", None, 1, palette=name)
+        assert colours(s.sheet) <= allowed, (name, kind)
+        assert set(np.asarray(s.sheet.convert("RGBA"))[..., 3].ravel().tolist()) <= {0, 255}
+    for genre in ("platformer", "topdown"):
+        assert colours(tileset(genre, "#5f574f", "#00e436", "#ab5236", 32, 1, palette=name)) <= allowed
+
+
+def test_no_palette_keeps_the_free_colours():
+    from spawnpoint.sprites.generate import generate
+
+    a, b = generate("Fox", "hero", "#ff7733", None, 0), generate("Fox", "hero", "#ff7733", None, 0, palette=None)
+    assert a.sheet.tobytes() == b.sheet.tobytes()
+    assert len({tuple(p) for p in np.asarray(a.sheet.convert("RGBA")).reshape(-1, 4).tolist()}) > 5
+
+
+def test_assembler_gives_pixel_games_a_theme_palette():
+    from spawnpoint.sprites.palettes import THEME_PALETTE
+    from spawnpoint.studio.assemble import assemble
+    from spawnpoint.studio.brief import GameBrief, normalize
+
+    for theme, pal in THEME_PALETTE.items():
+        b, _ = normalize(GameBrief(title="t", genre="platformer", palette=theme))
+        assert assemble(b, 2, seed=1)["settings"]["pixel_palette"] == pal
+        assert "pixel_palette" not in assemble(b, 1, seed=1)["settings"]  # layers 0-1 are placeholders
+    b, _ = normalize(GameBrief(title="t", genre="platformer", art_style="cartoon"))
+    assert "pixel_palette" not in assemble(b, 2, seed=1)["settings"]
+
+
+# --- attack and death animations --------------------------------------------------------------
+
+@pytest.mark.parametrize("style", ["pixel", "cartoon"])
+def test_fighters_attack_and_everything_hurtable_dies(style):
+    from spawnpoint.sprites.cartoon import generate_cartoon
+    from spawnpoint.sprites.generate import ATTACKERS
+
+    make = generate if style == "pixel" else generate_cartoon
+    for kind, spec in KINDS.items():
+        s = make("Thing", kind, "#29adff", None, 1)
+        assert ("attack" in s.animations) == (kind in ATTACKERS), kind
+        assert ("die" in s.animations) == ("hurt" in spec.anims), kind
+        if "die" in s.animations:
+            die = s.animations["die"]
+            assert not die.loop and len(die.frames) == 5
+            *_, last = die.frames
+            assert s.frame(*last)[..., 3].max() == 0, "the last frame of the death is empty"
+            assert s.frame(*die.frames[0])[..., 3].max() > 0
+        if "attack" in s.animations:
+            assert not s.animations["attack"].loop
+
+
+def test_hero_breathes_blinks_and_holds_a_sword():
+    plain, sword = generate("Fox", "hero", "#ff7733", [], 0), generate("Fox", "hero", "#ff7733", ["sword"], 0)
+    assert len(plain.animations["idle"].frames) == 6
+    frames = [plain.frame(*f).tobytes() for f in plain.animations["idle"].frames]
+    assert len(set(frames)) >= 3, "breathing and a blink: at least three different poses"
+    attack = [sword.frame(*f).tobytes() for f in sword.animations["attack"].frames]
+    assert len(set(attack)) == 3
+    assert sword.frame(*sword.animations["idle"].frames[0]).tobytes() != plain.frame(*plain.animations["idle"].frames[0]).tobytes()
+
+
+def test_sword_players_get_the_sword_feature():
+    from spawnpoint.studio.assemble import assemble
+    from spawnpoint.studio.brief import GameBrief, PlayerBrief, normalize
+
+    b, _ = normalize(GameBrief(title="k", genre="platformer", player=PlayerBrief(character="Knight", abilities=["sword"])))
+    assert "sword" in assemble(b, 2, seed=1)["entities"]["Player"]["sprite"]["generate"]["features"]
+    b, _ = normalize(GameBrief(title="k", genre="platformer", player=PlayerBrief(character="Knight")))
+    assert "sword" not in assemble(b, 2, seed=1)["entities"]["Player"]["sprite"]["generate"]["features"]

@@ -16,7 +16,8 @@ from dataclasses import dataclass
 import numpy as np
 from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
-from .generate import KINDS, _hex, features_for
+from . import motion
+from .generate import KINDS, _hex, add_derived, features_for
 from .spriteset import SpriteSet, build_sheet, finalize
 
 DETAIL = 4  # frame pixels per pixel-art pixel
@@ -183,7 +184,7 @@ def _bob(p: Pose) -> float:
 
 def draw_hero(P: Painter, p: Pose) -> None:
     f, c = p.feats, P.p
-    b = _bob(p)
+    b = (0, 0.5, 1.2, 1.2, 0.5, 0)[p.i % 6] if p.anim == "idle" else _bob(p)  # a slow breath over six frames
     hurt = p.anim == "hurt"
     # legs
     step = {"run": (-3, 2, 3, -2)[p.i % 4], "jump": 0, "fall": 2}.get(p.anim, 0)
@@ -245,6 +246,10 @@ def draw_hero(P: Painter, p: Pose) -> None:
             P.poly([(26, hy + 4), (34, hy + 7), (26, hy + 10)], (255, 190, 60), top=True)
         else:
             P.line([(23, hy + 8), (25, hy + 9), (27, hy + 8)], 0.9, c.outline)
+    if "sword" in f:  # held upright beside the body
+        P.rrect(41, 14 + b, 45, 40 + b, 1.5, (214, 220, 232), top=True)
+        P.rrect(38, 39 + b, 48, 42 + b, 1.2, (160, 104, 56), shade=False, top=True)
+        P.rrect(41, 41 + b, 45, 47 + b, 1.2, (120, 76, 44), shade=False, top=True)
 
 
 def draw_blob(P: Painter, p: Pose) -> None:
@@ -444,8 +449,8 @@ def generate_cartoon(name: str, kind: str, color: str, features: list[str] | Non
             P = Painter(*size, pal)
             PAINTERS[kind](P, Pose(anim, i, feats, random.Random(rng_seed), extra))
             frames[anim].append(P.render(OUTLINE.get(kind, 1.6), flash=anim == "hurt"))
-    sheet, anims = build_sheet(frames, {a: v[1] for a, v in spec.anims.items()},
-                               {a: v[2] for a, v in spec.anims.items()})
-    s = finalize(name, sheet, size, anims, SCALE, spec.anchor)
+    fps, loop = add_derived(kind, frames, spec.anims, False, spec.anchor, motion.FLASH, rng_seed)
+    sheet, anim_set = build_sheet(frames, fps, loop)
+    s = finalize(name, sheet, size, anim_set, SCALE, spec.anchor)
     s.smooth = True
     return s

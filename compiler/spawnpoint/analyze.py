@@ -111,7 +111,8 @@ class _Analyzer:
                 path = join_path("entities", name, "sprite")
                 sprite = sprite_resolve.resolve(name, ent, self.base_dir, color,
                                                 warn=lambda m, p=path: self.d.warning("W_AI_SPRITE", p, m),
-                                                style=self.g.settings.art_style)
+                                                style=self.g.settings.art_style,
+                                                palette=self.g.settings.pixel_palette)
             except SpriteError as e:
                 self.d.error("E_SPRITE", join_path("entities", name, "sprite"), str(e),
                              "Generator kinds: " + ", ".join(sorted(sprite_resolve.KINDS)) if "kind" in str(e) else None)
@@ -334,9 +335,10 @@ class _Analyzer:
         }
         if s.tile_style == "pixel":
             from .sprites.tiles import tileset, tileset_cartoon
+            extra = {"palette": s.pixel_palette} if s.art_style == "pixel" else {}
             draw = tileset_cartoon if s.art_style == "cartoon" else tileset
             self.tiles_image = draw(g.genre, tiles_style["solid"]["color"], tiles_style["solid"]["top"],
-                                    tiles_style["oneway"]["color"], ts, s.seed)
+                                    tiles_style["oneway"]["color"], ts, s.seed, **extra)
             tiles_style["texture"] = "res://sprites/tiles.png"
             tiles_style["smooth"] = s.art_style == "cartoon"
             if s.art_style == "cartoon":

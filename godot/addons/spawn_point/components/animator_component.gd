@@ -1,7 +1,8 @@
 class_name AnimatorComponent
 extends Node
-## Plays the entity sprite's animations from what the entity is doing: idle, run, jump, fall and
-## hurt. Run speed follows movement speed. Attached automatically to entities that have a sprite.
+## Plays the entity sprite's animations from what the entity is doing: idle, run, jump, fall, hurt and
+## attack (each time its Weapon fires). Run speed follows movement speed. Attached automatically to entities
+## that have a sprite. The "die" animation is played by FX.death_anim when the entity is removed.
 
 const SP_NAME := "Animator"
 const SP_HOSTS: Array[String] = []
@@ -10,6 +11,8 @@ const SP_CATEGORY := "juice"
 
 ## Seconds the hurt animation is shown after taking damage.
 @export_range(0.0, 2.0, 0.01) var hurt_time: float = 0.25
+## Seconds the attack animation is shown after the weapon fires (a little under its length, so it never repeats).
+@export_range(0.0, 1.0, 0.01) var attack_time: float = 0.2
 ## Speed (px/s) above which the entity counts as moving.
 @export_range(0.0, 200.0, 1.0) var move_threshold: float = 15.0
 
@@ -19,6 +22,7 @@ var state := "idle"
 var _entity: Node2D
 var _sprite: AnimatedSprite2D
 var _hurt_left := 0.0
+var _attack_left := 0.0
 
 
 func _ready() -> void:
@@ -27,12 +31,22 @@ func _ready() -> void:
 	var health := SP.component(_entity, &"Health") as HealthComponent
 	if health:
 		health.damaged.connect(func(_a: int) -> void: _hurt_left = hurt_time)
+	var weapon := SP.component(_entity, &"Weapon") as WeaponComponent
+	if weapon:
+		weapon.fired.connect(_on_fired)
+
+
+func _on_fired() -> void:
+	if _sprite and _sprite.sprite_frames.has_animation(&"attack"):
+		_attack_left = attack_time
+		_sprite.play(&"attack")  # restart on every shot
 
 
 func _process(delta: float) -> void:
 	if _sprite == null:
 		return
 	_hurt_left -= delta
+	_attack_left -= delta
 	state = pick_state()
 	var anim := state if _sprite.sprite_frames.has_animation(state) else &"idle"
 	if _sprite.animation != anim or not _sprite.is_playing():
@@ -49,6 +63,8 @@ func _process(delta: float) -> void:
 func pick_state() -> String:
 	if _hurt_left > 0.0:
 		return "hurt"
+	if _attack_left > 0.0:
+		return "attack"
 	var body := _entity as CharacterBody2D
 	if body == null:
 		return "idle"

@@ -9,6 +9,7 @@ import re
 from typing import Any
 
 from ..level import jump_model
+from ..sprites import palettes
 from ..sprites.generate import features_for
 from . import levelgen
 from .brief import DEFAULT_SCORE_TARGET, ENEMY_POINTS, EnemyBrief, GameBrief
@@ -263,8 +264,11 @@ class _Assembler:
         })
 
     def _styled(self, g: dict) -> dict:
-        if self.b.art_style != "pixel" and self.layer >= 2:
-            g["settings"]["art_style"] = self.b.art_style
+        if self.layer >= 2:
+            if self.b.art_style != "pixel":
+                g["settings"]["art_style"] = self.b.art_style
+            else:  # pixel art gets the classic palette that suits the theme
+                g["settings"]["pixel_palette"] = palettes.THEME_PALETTE[self.b.palette]
         return g
 
     # -- farm --------------------------------------------------------------------------------
@@ -884,7 +888,8 @@ class _Assembler:
             else:
                 gen: dict[str, Any] = {"kind": kind, "color": color, "seed": self.seed}
                 if name == "Player":
-                    gen["features"] = features_for(self.b.player.character)
+                    gen["features"] = features_for(self.b.player.character) + (
+                        ["sword"] if "sword" in self.b.player.abilities else [])
                 elif "TriggerZone" in ent.get("components", {}) and kind == "hero":
                     gen["features"] = features_for(name)  # "Mom" gets long hair, "Princess" too
                 ent["sprite"] = {"generate": gen}

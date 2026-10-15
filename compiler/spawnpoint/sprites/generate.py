@@ -16,6 +16,7 @@ from typing import Callable
 
 import numpy as np
 
+from . import motion, palettes
 from .spriteset import SpriteSet, build_sheet, finalize
 
 RGBA = tuple[int, int, int, int]
@@ -42,12 +43,28 @@ def _rgba(r: float, g: float, b: float) -> RGBA:
     return (round(max(0, min(1, r)) * 255), round(max(0, min(1, g)) * 255), round(max(0, min(1, b)) * 255), 255)
 
 
-def ramp(color: str) -> Ramp:
+def ramp(color: str, pal: "palettes.Palette | None" = None) -> Ramp:
+    """The 4-tone ramp for one base colour. With a palette, every tone is a palette colour (distinct, ordered by
+    lightness: outline < shadow < base < light)."""
     h, s, v = colorsys.rgb_to_hsv(*_hex(color))
     # Shadows drift toward blue/purple, highlights toward warm: classic pixel-art hue shifting.
     shadow = colorsys.hsv_to_rgb((h + 0.04) % 1, min(1, s * 1.1 + 0.05), v * 0.68)
     light = colorsys.hsv_to_rgb((h - 0.03) % 1, s * 0.75, min(1, v * 1.18 + 0.08))
     outline = colorsys.hsv_to_rgb((h + 0.06) % 1, min(1, s * 0.9 + 0.2), v * 0.28)
+    if pal is not None:
+        def px(c) -> tuple[int, int, int]:
+            return tuple(round(max(0.0, min(1.0, x)) * 255) for x in c)  # type: ignore[return-value]
+
+        def rgba(c: tuple[int, int, int]) -> RGBA:
+            return (c[0], c[1], c[2], 255)
+        bi = pal.nearest_index(px(_hex(color)))
+        lum = pal.lab[bi, 0]
+        si = pal.nearest_index(px(shadow), {bi}, (0.0, lum - 6))
+        li = pal.nearest_index(px(light), {bi, si}, (lum + 6, 100.0))
+        oi = pal.nearest_index(px(outline), {bi, si, li}, (0.0, pal.lab[si, 0] - 3))
+        c = pal.rgb
+        return Ramp(rgba(tuple(c[oi])), rgba(tuple(c[si])), rgba(tuple(c[bi])), rgba(tuple(c[li])),
+                    rgba(tuple(c[pal.dark])), rgba(tuple(c[pal.light])))
     return Ramp(_rgba(*outline), _rgba(*shadow), _rgba(*_hex(color)), _rgba(*light))
 
 
@@ -156,8 +173,13 @@ class Ctx:
 
 def _eyes(c: Ctx, positions: list[tuple[int, int]], big: bool = False) -> None:
     hurt = c.anim == "hurt"
+    blink = c.anim == "idle" and c.i == 2 and c.extra.get("blinks", False)
     for x, y in positions:
-        if hurt:
+        if blink:  # eyes shut for one frame of the idle breath
+            c.cv.set(x, y, c.r.eye)
+            if big:
+                c.cv.set(x - 1, y, c.r.eye)
+        elif hurt:
             c.cv.set(x, y, c.r.eye)
             c.cv.set(x - 1, y - 1, c.r.eye)
             c.cv.set(x + 1, y + 1, c.r.eye)
@@ -170,9 +192,14 @@ def _eyes(c: Ctx, positions: list[tuple[int, int]], big: bool = False) -> None:
 
 def paint_hero(c: Ctx) -> None:
     cv, r, f = c.cv, c.r, c.feats
-    bob = {"idle": c.i % 2, "run": (0, 1, 0, 1)[c.i % 4]}.get(c.anim, 0)
+    atk = c.anim == "attack"
+    sword = "sword" in f
+    c.extra["blinks"] = True
+    # A slow breath: the upper body sinks one pixel for half of the six idle frames.
+    bob = {"idle": (0, 0, 0, 1, 1, 1)[c.i % 6], "run": (0, 1, 0, 1)[c.i % 4]}.get(c.anim, 0)
     # Legs (in shadow tone), positions per animation.
-    legs = {"run": ((-1, 1), (0, 0), (1, -1), (0, 0))[c.i % 4], "jump": (0, 0), "fall": (-1, 1)}.get(c.anim, (0, 0))
+    legs = {"run": ((-1, 1), (0, 0), (1, -1), (0, 0))[c.i % 4], "jump": (0, 0), "fall": (-1, 1),
+            "attack": (-1, 1)}.get(c.anim, (0, 0))
     leg_h = {"jump": 1}.get(c.anim, 2)
     cv.rect(4 + legs[0], 13, 5 + legs[0], 13 + leg_h, r.shadow)
     cv.rect(7 + legs[1], 13, 8 + legs[1], 13 + leg_h, r.shadow)
@@ -186,7 +213,14 @@ def paint_hero(c: Ctx) -> None:
     cv.rect(3, 11 + bob, 8, 12 + bob, r.shadow)
     arm_y = 7 + bob if c.anim in ("jump", "fall") else 9 + bob
     cv.rect(2, arm_y, 2, arm_y + 2, r.shadow)
-    cv.rect(9, arm_y, 9, arm_y + 2, r.shadow)
+    if atk and sword:  # the sword arm winds up, chops, follows through
+        ax, ay = ((9, 6), (9, 8), (9, 10))[c.i % 3]
+        cv.rect(ax, ay, ax, ay + 2, r.shadow)
+    elif atk:  # reach out to shoot
+        cv.rect(9, arm_y + 1, 11, arm_y + 1, r.shadow)
+        cv.set(11, arm_y + 1, r.white if c.i == 1 else r.light)
+    else:
+        cv.rect(9, arm_y, 9, arm_y + 2, r.shadow)
     hair = (92, 52, 34, 255)
     if "hair" in f:  # long hair falls behind the head (the sprite faces right)
         cv.rect(1, 3 + bob, 3, 10 + bob, hair)
@@ -223,7 +257,34 @@ def paint_hero(c: Ctx) -> None:
             cv.set(9, 5 + bob, r.white)
     else:
         _eyes(c, [(7, 5 + bob), (9, 5 + bob)])
+    if sword:
+        _sword(c, bob, arm_y)
     cv.outline(r.outline)
+
+
+BLADE = (214, 220, 232, 255)
+GRIP = (120, 76, 44, 255)
+
+
+def _line(cv: Canvas, x0: int, y0: int, x1: int, y1: int, color: RGBA) -> None:
+    n = max(abs(x1 - x0), abs(y1 - y0), 1)
+    for k in range(n + 1):
+        cv.set(round(x0 + (x1 - x0) * k / n), round(y0 + (y1 - y0) * k / n), color)
+
+
+def _sword(c: Ctx, bob: int, arm_y: int) -> None:
+    """Held upright beside the body; during `attack` it is raised, chopped down and followed through."""
+    cv = c.cv
+    if c.anim == "attack":
+        hx, hy, tx, ty = ((10, 6, 7, 0), (10, 8, 11, 12), (10, 10, 11, 15))[c.i % 3]
+        _line(cv, hx, hy, tx, ty, BLADE)
+        cv.set(hx, hy, GRIP)
+        cv.set(hx + (1 if hx < 11 else 0), hy, GRIP)
+        return
+    cv.rect(11, 3 + bob, 11, 8 + bob, BLADE)
+    cv.set(11, 2 + bob, c.r.white)
+    cv.rect(10, 9 + bob, 11, 9 + bob, GRIP)
+    cv.set(10, 10 + bob, GRIP)
 
 
 def paint_slime(c: Ctx) -> None:
@@ -489,7 +550,7 @@ def paint_slash(c: Ctx) -> None:
 
 
 KINDS: dict[str, Kind] = {
-    "hero": Kind((12, 16), {"idle": (2, 3, True), "run": (4, 10, True), "jump": (1, 1, False),
+    "hero": Kind((12, 16), {"idle": (6, 4, True), "run": (4, 10, True), "jump": (1, 1, False),
                             "fall": (1, 1, False), "hurt": (1, 1, False)}, paint_hero, "bottom"),
     "slime": Kind((14, 10), {"idle": (2, 3, True), "run": (4, 8, True), "jump": (1, 1, False),
                              "fall": (1, 1, False), "hurt": (1, 1, False)}, paint_slime, "bottom"),
@@ -513,8 +574,28 @@ KINDS: dict[str, Kind] = {
 }
 
 
+# Animations a painter draws itself (on top of the kind's own), and the kinds that get a derived attack pulse.
+DRAWN_EXTRA: dict[str, dict[str, tuple[int, float, bool]]] = {"hero": {"attack": (3, 14, False)}}
+ATTACKERS = {"hero", "slime", "hopper", "flyer", "robot", "bug"}
+DERIVED = {"attack": (3, 14.0, False), "die": (5, 10.0, False)}
+
+
+def add_derived(kind: str, frames: dict[str, list[np.ndarray]], anims: dict[str, tuple[int, float, bool]],
+                pixel: bool, anchor: str, flash_color: tuple[int, int, int], seed: int) -> tuple[dict, dict]:
+    """Adds `attack` (for fighters) and `die` (for anything that can be hurt) built from the painted frames.
+    Returns the fps and loop tables for build_sheet."""
+    if "attack" not in frames and kind in ATTACKERS and "idle" in frames:
+        frames["attack"] = motion.attack_frames(frames["idle"][0], anchor, pixel)
+    if "die" not in frames and "hurt" in frames:
+        # Pixel art dies from the hurt pose (closed, crossed eyes); the cartoon hurt frame is washed out by its flash.
+        body = frames["hurt"][0] if pixel else frames["idle"][0]
+        frames["die"] = motion.die_frames(body, anchor, pixel, flash_color, seed % 1000)
+    table = {**anims, **{k: v for k, v in DERIVED.items() if k in frames and k not in anims}}
+    return {a: v[1] for a, v in table.items()}, {a: v[2] for a, v in table.items()}
+
+
 def generate(name: str, kind: str, color: str, features: list[str] | None = None, seed: int = 0,
-             scale: int = 2) -> SpriteSet:
+             scale: int = 2, palette: str | None = None) -> SpriteSet:
     if kind not in KINDS:
         raise ValueError(f"unknown sprite kind '{kind}'")
     spec = KINDS[kind]
@@ -523,14 +604,21 @@ def generate(name: str, kind: str, color: str, features: list[str] | None = None
     extra = {"one_eye": random.Random(rng_seed).random() < 0.3}
     if kind == "slime" and random.Random(rng_seed + 1).random() < 0.5 and "spots" not in feats:
         feats.append("spots")
-    r = ramp(color)
+    pal = palettes.get(palette)
+    r = ramp(color, pal)
     frames: dict[str, list[np.ndarray]] = {}
-    for anim, (n, _fps, _loop) in spec.anims.items():
+    anims = {**spec.anims, **DRAWN_EXTRA.get(kind, {})}
+    for anim, (n, _fps, _loop) in anims.items():
         frames[anim] = []
         for i in range(n):
             cv = Canvas(*spec.size)
             spec.paint(Ctx(cv, r, feats, anim, i, random.Random(rng_seed), extra))
-            frames[anim].append(cv.copy())
-    sheet, anims = build_sheet(frames, {a: v[1] for a, v in spec.anims.items()},
-                               {a: v[2] for a, v in spec.anims.items()})
-    return finalize(name, sheet, spec.size, anims, scale, spec.anchor)
+            frames[anim].append(pal.snap(cv.copy()) if pal else cv.copy())  # hard-coded colours join the palette
+    flash_color = tuple(int(x) for x in pal.rgb[pal.light]) if pal else motion.FLASH
+    fps, loop = add_derived(kind, frames, anims, True, spec.anchor, flash_color, rng_seed)
+    if pal:
+        for name_ in ("attack", "die"):  # derived frames may hold blended colours
+            if name_ in frames:
+                frames[name_] = [pal.snap(f) for f in frames[name_]]
+    sheet, anim_set = build_sheet(frames, fps, loop)
+    return finalize(name, sheet, spec.size, anim_set, scale, spec.anchor)

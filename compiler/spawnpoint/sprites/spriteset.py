@@ -13,7 +13,8 @@ from PIL import Image
 from . import contour
 
 FORMAT = 1
-ANIM_ORDER = ("idle", "run", "jump", "fall", "hurt")
+ANIM_ORDER = ("idle", "run", "jump", "fall", "hurt")  # what imported sheets' rows are called
+SHEET_ORDER = (*ANIM_ORDER, "attack", "die")  # row order of generated sheets
 
 
 class SpriteError(ValueError):
@@ -147,8 +148,8 @@ def load(path: Path) -> SpriteSet:
 
 def build_sheet(frames: dict[str, list[np.ndarray]], fps: dict[str, float], loop: dict[str, bool]
                 ) -> tuple[Image.Image, dict[str, Animation]]:
-    """Lays out frames row-per-animation in ANIM_ORDER (then any others)."""
-    names = [n for n in ANIM_ORDER if n in frames] + [n for n in frames if n not in ANIM_ORDER]
+    """Lays out frames row-per-animation in SHEET_ORDER (then any others)."""
+    names = [n for n in SHEET_ORDER if n in frames] + [n for n in frames if n not in SHEET_ORDER]
     h, w = next(iter(frames.values()))[0].shape[:2]
     cols = max(len(frames[n]) for n in names)
     sheet = np.zeros((h * len(names), w * cols, 4), dtype=np.uint8)

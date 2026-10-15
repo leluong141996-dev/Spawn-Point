@@ -62,6 +62,14 @@
           "doc": "Seconds the hurt animation is shown after taking damage."
         },
         {
+          "name": "attack_time",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,1.0,0.01",
+          "default": 0.2,
+          "doc": "Seconds the attack animation is shown after the weapon fires (a little under its length, so it never repeats)."
+        },
+        {
           "name": "move_threshold",
           "type": "float",
           "hint": "range",
@@ -86,7 +94,7 @@
           "doc": "The state the entity is in right now."
         }
       ],
-      "doc": "Plays the entity sprite's animations from what the entity is doing: idle, run, jump, fall and hurt. Run speed follows movement speed. Attached automatically to entities that have a sprite."
+      "doc": "Plays the entity sprite's animations from what the entity is doing: idle, run, jump, fall, hurt and attack (each time its Weapon fires). Run speed follows movement speed. Attached automatically to entities that have a sprite. The \"die\" animation is played by FX.death_anim when the entity is removed."
     },
     {
       "name": "Base",

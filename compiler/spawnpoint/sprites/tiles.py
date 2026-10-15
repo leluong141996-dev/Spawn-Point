@@ -11,6 +11,7 @@ import random
 import numpy as np
 from PIL import Image
 
+from . import palettes
 from .generate import _hex, _rgba, ramp
 
 TILES = ("solid_top", "solid", "oneway")
@@ -21,25 +22,29 @@ def _shade(color: str, k: float) -> tuple:
     return _rgba(r * k, g * k, b * k)
 
 
-def tileset(genre: str, solid: str, top: str, oneway: str, tile_size: int = 32, seed: int = 0) -> Image.Image:
+def tileset(genre: str, solid: str, top: str, oneway: str, tile_size: int = 32, seed: int = 0,
+            palette: str | None = None) -> Image.Image:
+    pal = palettes.get(palette)
     n = max(tile_size // 2, 4)
     canvas = np.zeros((n, n * 3, 4), dtype=np.uint8)
     rng = random.Random(f"tiles:{seed}")
     if genre == "topdown":
-        _bricks(canvas[:, 0:n], solid, top, rng, lit_top=True)
-        _bricks(canvas[:, n:2 * n], solid, top, rng, lit_top=False)
+        _bricks(canvas[:, 0:n], solid, top, rng, True, pal)
+        _bricks(canvas[:, n:2 * n], solid, top, rng, False, pal)
     else:
-        _dirt(canvas[:, n:2 * n], solid, rng)
-        _dirt(canvas[:, 0:n], solid, rng)
-        _grass(canvas[:, 0:n], top, rng)
-    _plank(canvas[:, 2 * n:3 * n], oneway, rng)
+        _dirt(canvas[:, n:2 * n], solid, rng, pal)
+        _dirt(canvas[:, 0:n], solid, rng, pal)
+        _grass(canvas[:, 0:n], top, rng, pal)
+    _plank(canvas[:, 2 * n:3 * n], oneway, rng, pal)
+    if pal:
+        canvas = pal.snap(canvas)
     img = Image.fromarray(canvas, "RGBA")
     return img.resize((tile_size * 3, tile_size), Image.NEAREST)
 
 
-def _dirt(px: np.ndarray, color: str, rng: random.Random) -> None:
+def _dirt(px: np.ndarray, color: str, rng: random.Random, pal=None) -> None:
     n = px.shape[0]
-    r = ramp(color)
+    r = ramp(color, pal)
     px[:, :] = r.base
     for _ in range(n * n // 10):  # pebbles and specks
         x, y = rng.randrange(n), rng.randrange(n)
@@ -50,9 +55,9 @@ def _dirt(px: np.ndarray, color: str, rng: random.Random) -> None:
     px[:, n - 1] = _shade(color, 0.7)
 
 
-def _grass(px: np.ndarray, color: str, rng: random.Random) -> None:
+def _grass(px: np.ndarray, color: str, rng: random.Random, pal=None) -> None:
     n = px.shape[0]
-    r = ramp(color)
+    r = ramp(color, pal)
     depth = max(2, n // 4)
     for x in range(n):
         d = depth + (1 if rng.random() < 0.45 else 0)
@@ -65,9 +70,9 @@ def _grass(px: np.ndarray, color: str, rng: random.Random) -> None:
         px[rng.randrange(1, depth), rng.randrange(n)] = r.light
 
 
-def _bricks(px: np.ndarray, color: str, cap: str, rng: random.Random, lit_top: bool) -> None:
+def _bricks(px: np.ndarray, color: str, cap: str, rng: random.Random, lit_top: bool, pal=None) -> None:
     n = px.shape[0]
-    r = ramp(color)
+    r = ramp(color, pal)
     mortar = _shade(color, 0.55)
     px[:, :] = r.base
     row_h = max(3, n // 4)
@@ -84,14 +89,14 @@ def _bricks(px: np.ndarray, color: str, cap: str, rng: random.Random, lit_top: b
         if px[y, x].tolist() == list(r.base):
             px[y, x] = r.shadow
     if lit_top:
-        c = ramp(cap)
+        c = ramp(cap, pal)
         px[0:2, :] = c.base
         px[0, :] = c.light
 
 
-def _plank(px: np.ndarray, color: str, rng: random.Random) -> None:
+def _plank(px: np.ndarray, color: str, rng: random.Random, pal=None) -> None:
     n = px.shape[0]
-    r = ramp(color)
+    r = ramp(color, pal)
     h = max(3, int(n * 0.3))
     px[0:h, :] = r.base
     px[0, :] = r.light

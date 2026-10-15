@@ -12,9 +12,10 @@ SPRITE_DIR = "res://sprites"
 
 
 def resolve(name: str, ent: Entity, base_dir: Path | None, default_color: str,
-            warn=lambda msg: None, style: str = "pixel") -> SpriteSet:
+            warn=lambda msg: None, style: str = "pixel", palette: str | None = None) -> SpriteSet:
     """`warn(message)` reports a non-fatal problem (an AI sprite falling back to a generated one).
-    `style` picks the generator for generated sprites: "pixel" art or smooth "cartoon"."""
+    `style` picks the generator for generated sprites: "pixel" art or smooth "cartoon"; `palette` (pixel art only)
+    limits their colours to a classic palette (see palettes.py)."""
     ref = ent.sprite
     if isinstance(ref, str):
         path = Path(ref)
@@ -39,18 +40,18 @@ def resolve(name: str, ent: Entity, base_dir: Path | None, default_color: str,
                 return ai_sprite(name, spec.kind, spec.prompt, provider, spec.seed)
             except SpriteError as e:
                 warn(f"AI sprite failed ({e}); using a generated sprite")
-        return _generate(style, name, spec.kind, spec.color or default_color, None, spec.seed)
+        return _generate(style, name, spec.kind, spec.color or default_color, None, spec.seed, palette)
     gen = ref.generate
     if gen.kind not in KINDS:
         raise SpriteError(f"unknown sprite kind '{gen.kind}'")
-    return _generate(style, name, gen.kind, gen.color or default_color, gen.features, gen.seed)
+    return _generate(style, name, gen.kind, gen.color or default_color, gen.features, gen.seed, palette)
 
 
-def _generate(style: str, name: str, kind: str, color: str, features, seed: int) -> SpriteSet:
+def _generate(style: str, name: str, kind: str, color: str, features, seed: int, palette: str | None = None) -> SpriteSet:
     if style == "cartoon":
         from .cartoon import generate_cartoon
         return generate_cartoon(name, kind, color, features, seed)
-    return generate(name, kind, color, features, seed)
+    return generate(name, kind, color, features, seed, palette=palette)
 
 
 def derived_shape(ent: Entity, s: SpriteSet, genre: str) -> Shape:

@@ -14,9 +14,10 @@ func _with_sprite(e: Node2D) -> AnimatedSprite2D:
 	var img := Image.create(4, 4, false, Image.FORMAT_RGBA8)
 	img.fill(Color.WHITE)
 	var tex := ImageTexture.create_from_image(img)
-	for a in ["idle", "run", "jump", "fall", "hurt"]:
+	for a in ["idle", "run", "jump", "fall", "hurt", "attack", "die"]:
 		frames.add_animation(a)
 		frames.add_frame(a, tex)
+		frames.set_animation_loop(a, a not in ["attack", "die"])
 	var spr := AnimatedSprite2D.new()
 	spr.name = "Sprite"
 	spr.sprite_frames = frames
@@ -58,3 +59,17 @@ func test_sprite_entities_flip_instead_of_rotating() -> void:
 	var holder := e.get_node(^"Visual/Shape") as Node2D
 	assert_eq(holder.scale.x, -1.0)
 	assert_eq(holder.rotation, 0.0)
+
+
+func test_attack_plays_when_the_weapon_fires() -> void:
+	var e := make_entity("Knight", "character", SP.TEAM_PLAYER, Vector2(20, 30),
+			{"TopDownMovement": {}, "Weapon": {"projectile": "Nope", "muzzle_distance": 0.0}})
+	var spr := _with_sprite(e)
+	var weapon := SP.component(e, &"Weapon") as WeaponComponent
+	await frames(5)
+	assert_eq(String(spr.animation), "idle")
+	weapon.fired.emit()  # the animation is driven by the signal, not by spawning a projectile
+	await frames(3)
+	assert_eq(String(spr.animation), "attack")
+	await frames(30)
+	assert_eq(String(spr.animation), "idle", "back to idle after the swing:")
