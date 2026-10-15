@@ -74,6 +74,7 @@ class Canvas:
     def __init__(self, w: int, h: int):
         self.w, self.h = w, h
         self.px = np.zeros((h, w, 4), dtype=np.uint8)
+        self.skip_outline = False  # the fine style outlines after upscaling instead
 
     def set(self, x: float, y: float, c: RGBA) -> None:
         x, y = int(round(x)), int(round(y))
@@ -105,6 +106,8 @@ class Canvas:
 
     def outline(self, c: RGBA) -> None:
         """1px outline around everything opaque (4-neighbourhood)."""
+        if self.skip_outline:
+            return
         a = self.px[..., 3] > 0
         p = np.pad(a, 1)
         ring = (p[:-2, 1:-1] | p[2:, 1:-1] | p[1:-1, :-2] | p[1:-1, 2:]) & ~a
@@ -574,6 +577,40 @@ KINDS: dict[str, Kind] = {
 }
 
 
+# --- the fine (SNES-like) style: the same art at twice the resolution ----------------------------
+
+def _epx(f: np.ndarray) -> np.ndarray:
+    """Scale2x / EPX: doubles the resolution and smooths diagonal steps without blurring anything."""
+    h, w = f.shape[:2]
+    p = np.ascontiguousarray(f).view(np.uint32).reshape(h, w)
+    pad = np.pad(p, 1, mode="edge")
+    a, b, c, d = pad[:-2, 1:-1], pad[1:-1, 2:], pad[1:-1, :-2], pad[2:, 1:-1]
+    out = np.empty((h * 2, w * 2), np.uint32)
+    out[0::2, 0::2] = np.where((c == a) & (c != d) & (a != b), a, p)
+    out[0::2, 1::2] = np.where((a == b) & (a != c) & (b != d), b, p)
+    out[1::2, 0::2] = np.where((d == c) & (d != b) & (c != a), c, p)
+    out[1::2, 1::2] = np.where((b == d) & (b != a) & (d != c), d, p)
+    return out.view(np.uint8).reshape(h * 2, w * 2, 4)
+
+
+def refine(f: np.ndarray, outline: RGBA) -> np.ndarray:
+    """A 1x frame without an outline -> a 2x frame: smoothed, lit from the top left, with a thin outline."""
+    g = _epx(f)
+    a = g[..., 3] > 0
+    pad = np.pad(a, 1)
+    up, down, left, right = pad[:-2, 1:-1], pad[2:, 1:-1], pad[1:-1, :-2], pad[1:-1, 2:]
+    lit = a & (~up | ~left) & ~(~down | ~right)  # the rim facing the light, unless the part is one pixel thin
+    shadow = a & (~down | ~right) & ~(~up | ~left)
+    rgb = g[..., :3].astype(np.float32)
+    rgb[lit] = rgb[lit] * 0.78 + 255 * 0.22
+    rgb[shadow] *= 0.78
+    g = g.copy()
+    g[..., :3] = np.clip(rgb, 0, 255).astype(np.uint8)
+    ring = (up | down | left | right) & ~a
+    g[ring] = outline
+    return g
+
+
 # Animations a painter draws itself (on top of the kind's own), and the kinds that get a derived attack pulse.
 DRAWN_EXTRA: dict[str, dict[str, tuple[int, float, bool]]] = {"hero": {"attack": (3, 14, False)}}
 ATTACKERS = {"hero", "slime", "hopper", "flyer", "robot", "bug"}
@@ -595,7 +632,8 @@ def add_derived(kind: str, frames: dict[str, list[np.ndarray]], anims: dict[str,
 
 
 def generate(name: str, kind: str, color: str, features: list[str] | None = None, seed: int = 0,
-             scale: int = 2, palette: str | None = None) -> SpriteSet:
+             scale: int = 2, palette: str | None = None, fine: bool = False) -> SpriteSet:
+    """`fine` draws the same art at twice the resolution (SNES-like) at the same on-screen size."""
     if kind not in KINDS:
         raise ValueError(f"unknown sprite kind '{kind}'")
     spec = KINDS[kind]
@@ -612,8 +650,10 @@ def generate(name: str, kind: str, color: str, features: list[str] | None = None
         frames[anim] = []
         for i in range(n):
             cv = Canvas(*spec.size)
+            cv.skip_outline = fine
             spec.paint(Ctx(cv, r, feats, anim, i, random.Random(rng_seed), extra))
-            frames[anim].append(pal.snap(cv.copy()) if pal else cv.copy())  # hard-coded colours join the palette
+            frame = refine(cv.copy(), r.outline) if fine else cv.copy()
+            frames[anim].append(pal.snap(frame) if pal else frame)  # hard-coded colours join the palette
     flash_color = tuple(int(x) for x in pal.rgb[pal.light]) if pal else motion.FLASH
     fps, loop = add_derived(kind, frames, anims, True, spec.anchor, flash_color, rng_seed)
     if pal:
@@ -621,4 +661,5 @@ def generate(name: str, kind: str, color: str, features: list[str] | None = None
             if name_ in frames:
                 frames[name_] = [pal.snap(f) for f in frames[name_]]
     sheet, anim_set = build_sheet(frames, fps, loop)
-    return finalize(name, sheet, spec.size, anim_set, scale, spec.anchor)
+    size = (spec.size[0] * 2, spec.size[1] * 2) if fine else spec.size
+    return finalize(name, sheet, size, anim_set, 1 if fine else scale, spec.anchor)

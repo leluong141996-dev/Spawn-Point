@@ -114,7 +114,8 @@ class _Analyzer:
                 sprite = sprite_resolve.resolve(name, ent, self.base_dir, color,
                                                 warn=lambda m, p=path: self.d.warning("W_AI_SPRITE", p, m),
                                                 style=self.g.settings.art_style,
-                                                palette=self.g.settings.pixel_palette)
+                                                palette=self.g.settings.pixel_palette,
+                                                fine=self.g.settings.pixel_size == 1)
             except SpriteError as e:
                 self.d.error("E_SPRITE", join_path("entities", name, "sprite"), str(e),
                              "Generator kinds: " + ", ".join(sorted(sprite_resolve.KINDS)) if "kind" in str(e) else None)
@@ -364,7 +365,7 @@ class _Analyzer:
                 # Pixel ground is drawn for each cell's real neighbours (grass on top, outlines, rounded corners).
                 self.tiles_image, kinds, variant_of = tileset_auto(
                     g.genre, tiles_style["solid"]["color"], tiles_style["solid"]["top"], tiles_style["oneway"]["color"],
-                    ts, s.seed, s.pixel_palette, data.tiles, data.width, data.height)
+                    ts, s.seed, s.pixel_palette, data.tiles, data.width, data.height, s.pixel_size)
                 tiles_style["variants"] = kinds
             else:
                 self.tiles_image = tileset_cartoon(g.genre, tiles_style["solid"]["color"], tiles_style["solid"]["top"],

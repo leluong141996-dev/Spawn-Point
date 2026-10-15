@@ -502,3 +502,36 @@ def test_scenery_in_the_plan(manifest):
     arena = analyze(top, manifest)
     if arena.ok:
         assert arena.plan["scenery"]["floor"] == "res://sprites/scenery_floor.png" and "scenery_floor" in arena.scenery_images
+
+
+# --- the fine (SNES-like) pixel size ----------------------------------------------------------
+
+@pytest.mark.parametrize("kind", sorted(KINDS))
+def test_fine_sprites_are_twice_the_detail_at_the_same_size(kind):
+    from spawnpoint.sprites import palettes
+
+    chunky, fine = generate("Thing", kind, "#29adff", None, 1), generate("Thing", kind, "#29adff", None, 1, fine=True)
+    assert fine.frame_size == (chunky.frame_size[0] * 2, chunky.frame_size[1] * 2) and fine.scale == 1
+    assert fine.frame_size[0] * fine.scale == chunky.frame_size[0] * chunky.scale  # same size on screen
+    assert set(fine.animations) == set(chunky.animations)
+    assert fine.sheet.tobytes() == generate("Thing", kind, "#29adff", None, 1, fine=True).sheet.tobytes()
+    bx, by, bw, bh = fine.bounds
+    cx, cy, cw, ch = chunky.bounds
+    assert abs(bw * fine.scale - cw * chunky.scale) <= 4 and abs(bh * fine.scale - ch * chunky.scale) <= 4
+    pal = palettes.get("endesga32")
+    allowed = {tuple(c) for c in pal.rgb.tolist()}
+    used = {tuple(p[:3]) for p in np.asarray(generate("Thing", kind, "#29adff", None, 1, palette="endesga32", fine=True)
+                                           .sheet.convert("RGBA")).reshape(-1, 4).tolist() if p[3] > 0}
+    assert used <= allowed
+
+
+def test_pixel_size_one_in_a_graph(manifest):
+    g = minimal(settings={"pixel_size": 1})
+    g["entities"]["Player"]["sprite"] = {"generate": {"kind": "hero"}}
+    a = analyze(g, manifest)
+    assert a.ok, [str(d) for d in a.diagnostics]
+    player = next(e for e in a.plan["entities"] if e["name"] == "Player")
+    assert player["sprite"]["scale"] == 1 and player["sprite"]["frame_size"] == [24, 32]
+    assert a.tiles_image.height == 32 and a.tiles_image.width == 32 * len(a.plan["tiles"]["variants"])
+    default = analyze(minimal(), manifest)
+    assert default.plan["tiles"]["variants"], "the default stays chunky"
