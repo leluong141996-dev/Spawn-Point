@@ -390,3 +390,54 @@ def test_sword_players_get_the_sword_feature():
     assert "sword" in assemble(b, 2, seed=1)["entities"]["Player"]["sprite"]["generate"]["features"]
     b, _ = normalize(GameBrief(title="k", genre="platformer", player=PlayerBrief(character="Knight")))
     assert "sword" not in assemble(b, 2, seed=1)["entities"]["Player"]["sprite"]["generate"]["features"]
+
+
+# --- neighbour-aware pixel tiles --------------------------------------------------------------
+
+LEVEL = ["......", "..==..", ".###..", "######", "######"]
+
+
+def _cells(rows):
+    return {(x, y): ("solid" if c == "#" else "oneway") for y, r in enumerate(rows) for x, c in enumerate(r) if c in "#="}
+
+
+def test_tiles_depend_on_their_neighbours():
+    from spawnpoint.sprites.tiles import neighbour_key, tileset_auto
+
+    cells = _cells(LEVEL)
+    w, h = 6, 5
+    top, inner = neighbour_key(cells, 2, 2, w, h), neighbour_key(cells, 2, 3, w, h)
+    assert top[0] is False and all(inner), (top, inner)  # open above vs surrounded
+    # the level border is not an edge: the bottom row and the sides read as ground
+    assert neighbour_key(cells, 0, 4, w, h)[1:4] == (True, True, True)
+    # a diagonal only matters when both its sides are ground (an inner corner)
+    assert neighbour_key(cells, 3, 3, w, h)[4] is False  # (3,3): ground above and right, but (4,2) is empty
+    assert neighbour_key(cells, 1, 3, w, h)[4] is True  # nothing above (1,3): its diagonal does not matter
+    img, kinds, mapping = tileset_auto("platformer", "#4a3728", "#5fb83d", "#8a5a3b", 32, 1, "endesga32", cells, w, h)
+    assert set(mapping) == set(cells) and img.height == 32 and img.width == 32 * len(kinds)
+    assert max(mapping.values()) == len(kinds) - 1
+    assert {kinds[mapping[c]] for c in cells if cells[c] == "oneway"} == {"oneway"}
+    assert mapping[(2, 2)] != mapping[(2, 3)], "the grass-topped cell differs from one buried in the ground"
+    # same level, same seed: identical atlas
+    again = tileset_auto("platformer", "#4a3728", "#5fb83d", "#8a5a3b", 32, 1, "endesga32", cells, w, h)
+    assert again[0].tobytes() == img.tobytes() and again[2] == mapping
+
+
+def test_large_ground_areas_use_interior_variants():
+    from spawnpoint.sprites.tiles import INTERIOR_VARIANTS, tileset_auto
+
+    cells = {(x, y): "solid" for x in range(12) for y in range(6)}
+    _, kinds, mapping = tileset_auto("platformer", "#4a3728", "#5fb83d", "#8a5a3b", 32, 0, None, cells, 12, 6)
+    interior = {mapping[(x, y)] for x in range(1, 11) for y in range(1, 5)}
+    assert 1 < len(interior) <= INTERIOR_VARIANTS, "a big block must not be one stamped tile"
+
+
+def test_pixel_levels_get_variants_in_the_plan(manifest):
+    a = analyze(minimal(), manifest)
+    tiles, m = a.plan["tiles"], a.plan["map"]
+    assert tiles["variants"] and len(m["cell_variants"]) == len(m["cells"])
+    assert a.tiles_image.width == 32 * len(tiles["variants"])
+    flat = analyze(minimal(settings={"tile_style": "flat"}), manifest)
+    assert "variants" not in flat.plan["tiles"] and "cell_variants" not in flat.plan["map"]
+    cartoon = analyze(minimal(settings={"art_style": "cartoon"}), manifest)
+    assert "variants" not in cartoon.plan["tiles"]

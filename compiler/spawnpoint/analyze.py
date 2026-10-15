@@ -333,12 +333,19 @@ class _Analyzer:
                       "top": (solid and solid.top) or self.genre["solid_top"]},
             "oneway": {"color": (oneway and oneway.color) or self.genre["oneway"]},
         }
+        variant_of: dict[tuple[int, int], int] = {}
         if s.tile_style == "pixel":
-            from .sprites.tiles import tileset, tileset_cartoon
-            extra = {"palette": s.pixel_palette} if s.art_style == "pixel" else {}
-            draw = tileset_cartoon if s.art_style == "cartoon" else tileset
-            self.tiles_image = draw(g.genre, tiles_style["solid"]["color"], tiles_style["solid"]["top"],
-                                    tiles_style["oneway"]["color"], ts, s.seed, **extra)
+            from .sprites.tiles import tileset_cartoon
+            if s.art_style == "pixel":
+                from .sprites.tiles import tileset_auto
+                # Pixel ground is drawn for each cell's real neighbours (grass on top, outlines, rounded corners).
+                self.tiles_image, kinds, variant_of = tileset_auto(
+                    g.genre, tiles_style["solid"]["color"], tiles_style["solid"]["top"], tiles_style["oneway"]["color"],
+                    ts, s.seed, s.pixel_palette, data.tiles, data.width, data.height)
+                tiles_style["variants"] = kinds
+            else:
+                self.tiles_image = tileset_cartoon(g.genre, tiles_style["solid"]["color"], tiles_style["solid"]["top"],
+                                                   tiles_style["oneway"]["color"], ts, s.seed)
             tiles_style["texture"] = "res://sprites/tiles.png"
             tiles_style["smooth"] = s.art_style == "cartoon"
             if s.art_style == "cartoon":
@@ -357,7 +364,10 @@ class _Analyzer:
             "gravity": s.gravity if s.gravity is not None else self.genre["gravity"],
             "tiles": tiles_style,
             "map": {"width": data.width, "height": data.height,
-                    "cells": [[x, y, k] for (x, y), k in sorted(data.tiles.items(), key=lambda kv: (kv[0][1], kv[0][0]))]},
+                    "cells": [[x, y, k] for (x, y), k in sorted(data.tiles.items(), key=lambda kv: (kv[0][1], kv[0][0]))],
+                    # parallel to cells: the atlas variant drawn for each one (neighbour-aware pixel tiles)
+                    **({"cell_variants": [variant_of[c] for c, _ in sorted(data.tiles.items(), key=lambda kv: (kv[0][1], kv[0][0]))]}
+                       if variant_of else {})},
             "bounds": [0, 0, data.width * ts, data.height * ts],
             "walls": self.genre["walls"],
             "entities": entities,

@@ -353,17 +353,19 @@ func _build_tileset(plan: Dictionary) -> TileSet:
 		src.separation = Vector2i(int(plan.tiles.separation), 0)
 	tileset.add_source(src, 0)
 	var h := ts * 0.5
-	for coords in [TILE_SOLID_TOP, TILE_SOLID]:
+	var plank_h := maxf(ts * 0.3, 6.0)
+	# Neighbour-aware pixel atlases list the kind of every variant; the classic atlas is [solid top, solid, one-way].
+	var kinds: Array = plan.tiles.variants if plan.tiles.has("variants") else ["solid", "solid", "oneway"]
+	for i in kinds.size():
+		var coords := Vector2i(i, 0)
 		src.create_tile(coords)
 		var td := src.get_tile_data(coords, 0)
 		td.add_collision_polygon(0)
-		td.set_collision_polygon_points(0, 0, PackedVector2Array([Vector2(-h, -h), Vector2(h, -h), Vector2(h, h), Vector2(-h, h)]))
-	src.create_tile(TILE_ONEWAY)
-	var od := src.get_tile_data(TILE_ONEWAY, 0)
-	od.add_collision_polygon(0)
-	var plank_h := maxf(ts * 0.3, 6.0)
-	od.set_collision_polygon_points(0, 0, PackedVector2Array([Vector2(-h, -h), Vector2(h, -h), Vector2(h, -h + plank_h), Vector2(-h, -h + plank_h)]))
-	od.set_collision_polygon_one_way(0, 0, true)
+		if kinds[i] == "oneway":
+			td.set_collision_polygon_points(0, 0, PackedVector2Array([Vector2(-h, -h), Vector2(h, -h), Vector2(h, -h + plank_h), Vector2(-h, -h + plank_h)]))
+			td.set_collision_polygon_one_way(0, 0, true)
+		else:
+			td.set_collision_polygon_points(0, 0, PackedVector2Array([Vector2(-h, -h), Vector2(h, -h), Vector2(h, h), Vector2(-h, h)]))
 	return tileset
 
 
@@ -432,10 +434,14 @@ func _build_level(plan: Dictionary, tileset: TileSet) -> Node2D:
 	for cell in plan.map.cells:
 		if cell[2] == "solid":
 			solid[Vector2i(cell[0], cell[1])] = true
-	for cell in plan.map.cells:
+	var variants: Array = plan.map.get("cell_variants", [])
+	for i in plan.map.cells.size():
+		var cell: Array = plan.map.cells[i]
 		var pos := Vector2i(cell[0], cell[1])
 		var atlas := TILE_ONEWAY
-		if cell[2] == "solid":
+		if i < variants.size():  # the compiler already chose the variant for this cell's neighbours
+			atlas = Vector2i(int(variants[i]), 0)
+		elif cell[2] == "solid":
 			atlas = TILE_SOLID if solid.has(pos + Vector2i.UP) else TILE_SOLID_TOP
 		tiles.set_cell(pos, 0, atlas)
 	_own(root, tiles, root)

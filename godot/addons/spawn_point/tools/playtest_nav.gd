@@ -23,7 +23,9 @@ func setup(tiles: TileMapLayer, tile_size: float, is_platformer: bool, player_h:
 	across = jump_across
 	rect = tiles.get_used_rect()
 	for c in tiles.get_used_cells():
-		cells[c] = 2 if tiles.get_cell_atlas_coords(c) == Vector2i(2, 0) else 1
+		var td := tiles.get_cell_tile_data(c)  # one-way planks are known by their collision, not their atlas slot
+		var one_way := td != null and td.get_collision_polygons_count(0) > 0 and td.is_collision_polygon_one_way(0, 0)
+		cells[c] = 2 if one_way else 1
 
 
 func blocked(c: Vector2i) -> bool:
