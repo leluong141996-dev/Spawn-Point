@@ -422,6 +422,7 @@ func _build_level(plan: Dictionary, tileset: TileSet) -> Node2D:
 	root.set(&"lives", int(plan.lives))
 	root.set(&"tile_size", ts)
 	root.set(&"bounds", bounds)
+	root.set(&"art_style", String(plan.get("art_style", "pixel")))
 
 	_build_backdrop(root, plan, bounds)
 

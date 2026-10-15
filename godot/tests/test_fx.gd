@@ -49,3 +49,42 @@ func test_death_anim_plays_a_copy_and_removes_it() -> void:
 	assert_eq(parent.get_child_count(), before, "the corpse removes itself:")
 	var plain := make_entity("Box", "character", SP.TEAM_ENEMY, Vector2(10, 10), {"TopDownMovement": {}})
 	assert_false(FX.death_anim(plain), "no sprite, no corpse:")
+
+
+func test_dust_and_spark_clean_up_after_themselves() -> void:
+	var parent: Node = World.level if World.level else get_tree().current_scene
+	var before := parent.get_child_count()
+	FX.dust(Vector2(10, 10), 0, 6)
+	FX.dust(Vector2(10, 10), -1, 3)
+	assert_eq(parent.get_child_count(), before + 3, "two puffs for both sides plus one for a single side:")
+	FX.spark(Vector2(20, 20))
+	assert_true(parent.get_child_count() > before + 3, "a spark and its flying pixels:")
+	await frames(60)
+	assert_eq(parent.get_child_count(), before, "everything is gone again:")
+
+
+func test_sparks_are_capped_so_a_swarm_cannot_bury_the_screen() -> void:
+	var parent: Node = World.level if World.level else get_tree().current_scene
+	var before := parent.get_child_count()
+	for i in 200:
+		FX.spark(Vector2(i, 0))
+	assert_true(parent.get_child_count() - before < 24 * 2 + 2, "at most 24 sparks (each with one burst):")
+	await frames(60)
+	assert_eq(parent.get_child_count(), before)
+
+
+func test_pixel_art_shake_is_whole_pixels_and_never_rotates() -> void:
+	var cam := SPCameraRig.new()
+	add_child(cam)
+	await frames(2)
+	FX.pixel_art = true
+	cam.trauma = 1.0
+	await frames(3)
+	assert_eq(cam.rotation, 0.0, "no rotation in pixel art:")
+	assert_eq(cam.offset, cam.offset.round(), "whole-pixel offset:")
+	FX.pixel_art = false
+	cam.trauma = 1.0
+	await frames(3)
+	assert_true(cam.rotation != 0.0 or cam.offset != cam.offset.round(), "smooth shake for other styles:")
+	FX.pixel_art = true
+	cam.queue_free()

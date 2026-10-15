@@ -1,8 +1,12 @@
 extends Node
 ## Autoload "FX": global game-feel effects — hit-stop, screen shake, particle bursts, floating text.
 
+## True while a pixel-art level is loaded: shake snaps to whole pixels, dust and sparks are blocky.
+var pixel_art := true
+
 var _hitstop_token := 0
 var _cameras: Array[Node] = []
+var _sparks := 0
 
 
 func register_camera(cam: Node) -> void:
@@ -64,6 +68,66 @@ func burst(pos: Vector2, color: Color, amount := 16, speed := 180.0, lifetime :=
 	parent.add_child(p)
 	p.emitting = true
 	p.finished.connect(p.queue_free)
+
+
+## A few square specks of dust that skid sideways along the ground and stop: landings, jumps, footsteps.
+## [param dir] is -1 / +1 for one side, 0 for both.
+func dust(pos: Vector2, dir := 0, amount := 4, color := Color(0.92, 0.88, 0.78, 0.9)) -> void:
+	for side in ([-1, 1] if dir == 0 else [dir]):
+		var parent := _fx_parent()
+		if parent == null:
+			return
+		var p := CPUParticles2D.new()
+		p.one_shot = true
+		p.explosiveness = 0.9
+		p.amount = maxi(amount / (2 if dir == 0 else 1), 1)
+		p.lifetime = 0.32
+		p.direction = Vector2(side, -0.18)
+		p.spread = 22.0
+		p.initial_velocity_min = 25.0
+		p.initial_velocity_max = 70.0
+		p.gravity = Vector2.ZERO
+		p.damping_min = 90.0
+		p.damping_max = 140.0
+		p.scale_amount_min = 2.0
+		p.scale_amount_max = 4.0 if pixel_art else 3.0
+		var curve := Curve.new()
+		curve.add_point(Vector2(0, 1))
+		curve.add_point(Vector2(1, 0))
+		p.scale_amount_curve = curve
+		p.color = color
+		p.position = pos
+		p.z_index = 9
+		parent.add_child(p)
+		p.emitting = true
+		p.finished.connect(p.queue_free)
+
+
+## A short hit flash: a plus-shaped spark that pops and shrinks, with a few pixels flying off.
+func spark(pos: Vector2, color := Color.WHITE) -> void:
+	var parent := _fx_parent()
+	if parent == null or _sparks >= 24:  # a swarm of enemies must not bury the screen
+		return
+	_sparks += 1
+	var s := Node2D.new()
+	s.position = pos
+	s.z_index = 11
+	s.draw.connect(func() -> void:
+		s.draw_rect(Rect2(-1, -6, 2, 12), color)
+		s.draw_rect(Rect2(-6, -1, 12, 2), color)
+		s.draw_rect(Rect2(-2, -2, 4, 4), Color.WHITE)
+		for d in [Vector2(-4, -4), Vector2(3, -4), Vector2(-4, 3), Vector2(3, 3)]:
+			s.draw_rect(Rect2(d, Vector2(1, 1)), color))
+	parent.add_child(s)
+	s.rotation = 0.0 if pixel_art else randf_range(-0.4, 0.4)
+	var t := s.create_tween()
+	t.set_parallel(true)
+	t.tween_property(s, ^"scale", Vector2(0.2, 0.2), 0.13).from(Vector2(1.5, 1.5))
+	t.tween_property(s, ^"modulate:a", 0.0, 0.13)
+	t.chain().tween_callback(func() -> void:
+		_sparks -= 1
+		s.queue_free())
+	burst(pos, color, 4, 130.0, 0.22, 2.0, 0.0)
 
 
 ## Rising, fading text (e.g. "+1") at [param pos].

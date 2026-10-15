@@ -69,3 +69,6 @@ func _process(delta: float) -> void:
 			max_shake_offset.x * s * _noise.get_noise_2d(_t * 60.0, 0.0),
 			max_shake_offset.y * s * _noise.get_noise_2d(0.0, _t * 60.0))
 	rotation = max_shake_rotation * s * _noise.get_noise_2d(_t * 60.0, 100.0)
+	if FX.pixel_art:  # pixel art shakes in whole pixels and never rotates, or its edges shimmer
+		offset = offset.round()
+		rotation = 0.0

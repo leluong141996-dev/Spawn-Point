@@ -116,6 +116,7 @@ func _process(delta: float) -> void:
 		if _ghost_accum >= 0.03:
 			_ghost_accum = 0.0
 			FX.ghost(_visual, Color(1, 1, 1, 0.45))
+	_footsteps(delta)
 	if not face_movement or _shape == null:
 		return
 	var mv := SP.movement(_entity)
@@ -123,6 +124,26 @@ func _process(delta: float) -> void:
 		SP.face(_entity, Vector2((mv as PlatformerMovementComponent).facing, 0), false)
 	elif mv is TopDownMovementComponent and SP.component(_entity, &"Aim") == null:
 		SP.face(_entity, (mv as TopDownMovementComponent).facing_dir, true, clampf(delta * 14.0, 0.0, 1.0))
+
+
+var _step_clock := 0.0
+
+
+## A little dust behind a runner's feet, a few times a second (pixel art only).
+func _footsteps(delta: float) -> void:
+	if not particles or not FX.pixel_art:
+		return
+	var body := _entity as CharacterBody2D
+	if body == null or not body.is_on_floor() or not (SP.movement(_entity) is PlatformerMovementComponent):
+		_step_clock = 0.0
+		return
+	if absf(body.velocity.x) < 90.0:
+		_step_clock = 0.0
+		return
+	_step_clock += delta
+	if _step_clock >= 0.2:
+		_step_clock = 0.0
+		FX.dust(_feet(), -int(signf(body.velocity.x)), 2)
 
 
 ## Squash (x wider, y shorter) when [param amount] > 0, stretch when < 0, then spring back.
@@ -147,8 +168,14 @@ func flash_white(duration := 0.12) -> void:
 	_flash_tween.tween_method(func(v: float) -> void: _mat.set_shader_parameter(&"flash", v), 1.0, 0.0, duration)
 
 
+func _feet() -> Vector2:
+	return _entity.global_position + Vector2(0, SP.half_size(_entity).y)
+
+
 func _on_jumped() -> void:
 	squash_stretch(-squash_amount)
+	if particles and FX.pixel_art:
+		FX.dust(_feet(), 0, 4)
 	_play(sound_jump)
 
 
@@ -156,13 +183,18 @@ func _on_landed(impact_speed: float) -> void:
 	var k := clampf(impact_speed / 900.0, 0.2, 1.0)
 	squash_stretch(squash_amount * k)
 	if particles and impact_speed > 250.0:
-		var feet := _entity.global_position + Vector2(0, SP.half_size(_entity).y)
-		FX.burst(feet, Color(1, 1, 1, 0.55), int(6 + 8 * k), 90.0 * k + 40.0, 0.35, 3.0, -60.0)
+		var feet := _feet()
+		if FX.pixel_art:  # two skidding puffs, one each way
+			FX.dust(feet, 0, int(6 + 6 * k))
+		else:
+			FX.burst(feet, Color(1, 1, 1, 0.55), int(6 + 8 * k), 90.0 * k + 40.0, 0.35, 3.0, -60.0)
 	if impact_speed > 250.0:
 		_play(sound_land, -6.0)
 
 
 func _on_dashed() -> void:
+	if particles and FX.pixel_art:
+		FX.dust(_feet(), -int(signf(_entity.get("velocity").x if _entity.get("velocity") != null else 1.0)), 5)
 	if dash_trail:
 		_ghost_timer = 0.15
 	squash_stretch(-squash_amount * 0.6, 0.15)
@@ -172,6 +204,8 @@ func _on_dashed() -> void:
 func _on_damaged(_amount: int) -> void:
 	if flash:
 		flash_white()
+	if particles:
+		FX.spark(_entity.global_position, SP.color_of(_entity).lightened(0.4))
 	squash_stretch(squash_amount * 0.8, 0.18)
 	FX.shake(shake_on_hurt)
 	FX.hitstop(hitstop_on_hurt)
