@@ -109,6 +109,9 @@ class Settings(_Model):
     tile_style: Literal["pixel", "flat"] = "pixel"
     art_style: Literal["pixel", "cartoon"] = "pixel"  # generated sprites and tiles: pixel art or smooth cartoon
     pixel_palette: Literal["none", "pico8", "sweetie16", "endesga32"] = "none"  # pixel art: limit all colours to a classic palette
+    # Pixel-art scenery (sky, parallax layers, top-down floor): "auto" picks a theme that fits the background
+    # colour, a theme name forces one, "flat" keeps the plain hills and checkered floor.
+    scenery: Literal["auto", "flat", "night", "forest", "desert", "neon", "candy", "ocean", "lava", "snow"] = "auto"
     zoom: float = Field(default=1.0, ge=0.5, le=4.0)
 
     _bg = field_validator("background")(_check_color)

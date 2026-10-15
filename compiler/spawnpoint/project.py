@@ -74,7 +74,7 @@ def project_godot(plan: dict, godot_feature: str = "4.6") -> str:
 
 
 def write(out: Path, graph_data: dict, plan: dict, rules_source: str, godot_feature: str = "4.6",
-          sprites: dict | None = None, tiles_image=None) -> None:
+          sprites: dict | None = None, tiles_image=None, scenery_images: dict | None = None) -> None:
     out.mkdir(parents=True, exist_ok=True)
     for d in GENERATED_DIRS:
         shutil.rmtree(out / d, ignore_errors=True)
@@ -88,6 +88,8 @@ def write(out: Path, graph_data: dict, plan: dict, rules_source: str, godot_feat
         sprite.sheet.save(out / "sprites" / f"{entity}.png")
     if tiles_image is not None:
         tiles_image.save(out / "sprites" / "tiles.png")
+    for name, image in (scenery_images or {}).items():
+        image.save(out / "sprites" / f"{name}.png")
     (out / "spawnpoint.json").write_text(json.dumps(graph_data, indent=2, ensure_ascii=False) + "\n")
     gi = out / ".gitignore"
     if not gi.exists():

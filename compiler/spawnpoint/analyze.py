@@ -46,6 +46,7 @@ class Analysis:
     rules_source: str | None = None
     sprites: dict[str, SpriteSet] = field(default_factory=dict)  # entity -> resolved sprite sheet
     tiles_image: Any = None  # pixel-art tile atlas (PIL image), written to res://sprites/tiles.png
+    scenery_images: dict[str, Any] = field(default_factory=dict)  # name -> PIL image, written to res://sprites/<name>.png
 
     @property
     def ok(self) -> bool:
@@ -69,6 +70,7 @@ class _Analyzer:
         self.genre = GENRE_DEFAULTS[graph.genre]
         self.sprites: dict[str, SpriteSet] = {}
         self.tiles_image = None
+        self.scenery_images: dict[str, Any] = {}
 
     # -- entry -----------------------------------------------------------------------------
     def run(self) -> Analysis:
@@ -99,7 +101,7 @@ class _Analyzer:
         if not self.d.ok or data is None:
             return Analysis(g, self.d)
         plan = self._plan(data, teams, params_by_entity, players[0])
-        return Analysis(g, self.d, plan, rules.source, self.sprites, self.tiles_image)
+        return Analysis(g, self.d, plan, rules.source, self.sprites, self.tiles_image, self.scenery_images)
 
     # -- sprites ---------------------------------------------------------------------------
     def _resolve_sprites(self, teams: dict[str, str]) -> None:
@@ -121,6 +123,27 @@ class _Analyzer:
             if "shape" not in ent.model_fields_set:
                 # No explicit shape: the body collision comes from the drawing.
                 ent.shape = sprite_resolve.derived_shape(ent, sprite, self.g.genre)
+
+    def _scenery(self, background: str) -> dict | None:
+        """Pixel-art backdrop images (written next to the sprites) and how the level should lay them out."""
+        s = self.g.settings
+        if s.art_style != "pixel" or s.scenery == "flat" or s.tile_style != "pixel":
+            return None
+        from .sprites import scenery as sc
+
+        theme = s.scenery if s.scenery in sc.THEMES else "auto"
+        if self.g.genre == "topdown":
+            self.scenery_images["scenery_floor"] = sc.to_image(sc.floor_tile(theme, background, s.pixel_palette, s.seed))
+            return {"floor": "res://sprites/scenery_floor.png", "pixel": 2}
+        sky, layers = sc.build(theme, background, s.pixel_palette, s.seed)
+        self.scenery_images["scenery_sky"] = sc.to_image(sky)
+        out = []
+        for layer in layers:
+            name = f"scenery_{layer.name}"
+            self.scenery_images[name] = sc.to_image(layer.image)
+            out.append({"name": layer.name, "texture": f"res://sprites/{name}.png", "scroll": layer.scroll,
+                        "anchor": layer.anchor, "lift": layer.lift, "height": int(layer.image.shape[0])})
+        return {"sky": "res://sprites/scenery_sky.png", "layers": out, "pixel": 2, "width": sc.WIDTH}
 
     # -- entities --------------------------------------------------------------------------
     def _team(self, e: Entity) -> str:
@@ -351,6 +374,8 @@ class _Analyzer:
             if s.art_style == "cartoon":
                 from .sprites.tiles import CARTOON_GAP
                 tiles_style["separation"] = CARTOON_GAP
+        background = s.background or self.genre["background"]
+        scenery_plan = self._scenery(background)
         return {
             "format": PLAN_FORMAT,
             "name": g.name,
@@ -360,7 +385,8 @@ class _Analyzer:
             "viewport": list(s.viewport),
             "zoom": s.zoom,
             "art_style": s.art_style,
-            "background": s.background or self.genre["background"],
+            "background": background,
+            **({"scenery": scenery_plan} if scenery_plan else {}),
             "gravity": s.gravity if s.gravity is not None else self.genre["gravity"],
             "tiles": tiles_style,
             "map": {"width": data.width, "height": data.height,

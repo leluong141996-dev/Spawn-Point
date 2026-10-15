@@ -22,8 +22,8 @@ PALETTES: dict[str, tuple[str, ...]] = {
 NAMES = ("none", *PALETTES)
 
 # Which palette suits which game theme (the brief's palette names).
-THEME_PALETTE = {"night": "pico8", "forest": "endesga32", "desert": "endesga32", "neon": "sweetie16",
-                 "candy": "pico8", "ocean": "sweetie16", "lava": "endesga32", "snow": "sweetie16"}
+THEME_PALETTE = {"night": "sweetie16", "forest": "endesga32", "desert": "endesga32", "neon": "sweetie16",
+                 "candy": "endesga32", "ocean": "sweetie16", "lava": "endesga32", "snow": "endesga32"}
 
 
 def rgb(c: str) -> tuple[int, int, int]:
@@ -74,6 +74,10 @@ class Palette:
             if ok.any():
                 return int(np.argmin(np.where(ok, d, np.inf)))
         return int(np.argmin(d))
+
+    def index_of(self, color: tuple[int, int, int]) -> int | None:
+        hits = np.nonzero((self.rgb == np.array(color, dtype=np.uint8)).all(axis=1))[0]
+        return int(hits[0]) if len(hits) else None
 
     def nearest(self, color: tuple[int, int, int], **kw) -> tuple[int, int, int]:
         r, g, b = self.rgb[self.nearest_index(color, **kw)]

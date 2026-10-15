@@ -441,3 +441,64 @@ def test_pixel_levels_get_variants_in_the_plan(manifest):
     assert "variants" not in flat.plan["tiles"] and "cell_variants" not in flat.plan["map"]
     cartoon = analyze(minimal(settings={"art_style": "cartoon"}), manifest)
     assert "variants" not in cartoon.plan["tiles"]
+
+
+# --- pixel scenery ----------------------------------------------------------------------------
+
+@pytest.mark.parametrize("theme", ["night", "forest", "desert", "neon", "candy", "ocean", "lava", "snow"])
+def test_scenery_themes_tile_and_stay_in_the_palette(theme):
+    from spawnpoint.sprites import palettes, scenery
+    from spawnpoint.studio.assemble import PALETTES
+
+    name = palettes.THEME_PALETTE[theme]
+    sky, layers = scenery.build(theme, PALETTES[theme]["bg"], name, 3)
+    assert sky.shape == (scenery.SKY_H, scenery.SKY_W, 4) and (sky[..., 3] == 255).all()
+    assert len(layers) >= 3 and (layers[0].name == "clouds") == (theme != "neon")  # a neon city has no clouds
+    allowed = {tuple(c) for c in palettes.get(name).rgb.tolist()}
+    for img in [sky] + [layer.image for layer in layers]:
+        used = {tuple(p[:3]) for p in img.reshape(-1, 4).tolist() if p[3] > 0}
+        assert used <= allowed, (theme, used - allowed)
+    for layer in layers:
+        assert layer.image.shape[1] == scenery.WIDTH
+        alpha = layer.image[..., 3] > 0
+
+        def jump(a: int, b: int) -> int:  # rows that differ between two neighbouring columns
+            return int((alpha[:, a] != alpha[:, b]).sum())
+        worst_inside = max(jump(x, x + 1) for x in range(scenery.WIDTH - 1))
+        assert jump(scenery.WIDTH - 1, 0) <= worst_inside, (theme, layer.name)  # the repeat has no visible seam
+    # the same inputs always give the same picture; another seed gives another
+    again = scenery.build(theme, PALETTES[theme]["bg"], name, 3)
+    assert again[0].tobytes() == sky.tobytes() and again[1][1].image.tobytes() == layers[1].image.tobytes()
+    other = scenery.build(theme, PALETTES[theme]["bg"], name, 4)
+    assert other[1][1].image.tobytes() != layers[1].image.tobytes()
+
+
+def test_layers_are_told_apart_from_the_sky_and_each_other():
+    from spawnpoint.sprites import palettes, scenery
+    from spawnpoint.studio.assemble import PALETTES
+
+    for theme in scenery.THEMES:
+        sky, layers = scenery.build(theme, PALETTES[theme]["bg"], palettes.THEME_PALETTE[theme], 1)
+        horizon = tuple(sky[int(scenery.SKY_H * 0.7), 0, :3].tolist())
+        fills = []
+        for layer in layers[1:]:
+            bottom = layer.image[-1]  # the bottom row is solid body colour
+            fills.append(tuple(bottom[np.argmax(bottom[:, 3] > 0)][:3].tolist()))
+        assert horizon not in fills, theme
+        assert len(set(fills)) == len(fills), (theme, fills)
+
+
+def test_scenery_in_the_plan(manifest):
+    plat = analyze(minimal(settings={"background": "#12261e"}), manifest)
+    sc = plat.plan["scenery"]
+    assert sc["sky"] == "res://sprites/scenery_sky.png" and sc["pixel"] == 2
+    assert {layer["name"] for layer in sc["layers"]} >= {"clouds", "far", "mid", "near"}
+    assert set(plat.scenery_images) == {"scenery_sky"} | {f"scenery_{layer['name']}" for layer in sc["layers"]}
+    for name in ("flat",):
+        assert "scenery" not in analyze(minimal(settings={"scenery": name}), manifest).plan
+    assert "scenery" not in analyze(minimal(settings={"art_style": "cartoon"}), manifest).plan
+    top = minimal(settings={"background": "#1d2b53"})
+    top["genre"] = "topdown"
+    arena = analyze(top, manifest)
+    if arena.ok:
+        assert arena.plan["scenery"]["floor"] == "res://sprites/scenery_floor.png" and "scenery_floor" in arena.scenery_images

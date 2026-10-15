@@ -269,6 +269,7 @@ class _Assembler:
                 g["settings"]["art_style"] = self.b.art_style
             else:  # pixel art gets the classic palette that suits the theme
                 g["settings"]["pixel_palette"] = palettes.THEME_PALETTE[self.b.palette]
+                g["settings"]["scenery"] = self.b.palette
         return g
 
     # -- farm --------------------------------------------------------------------------------

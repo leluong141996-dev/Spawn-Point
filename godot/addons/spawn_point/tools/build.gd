@@ -517,6 +517,9 @@ func _build_backdrop(root: Node2D, plan: Dictionary, bounds: Rect2) -> void:
 	holder.name = "Backdrop"
 	holder.z_index = -10
 	_own(root, holder, root)
+	if plan.has("scenery"):
+		_build_pixel_scenery(root, holder, plan, bounds)
+		return
 	if plan.genre == "topdown" and String(plan.get("art_style", "pixel")) == "cartoon":
 		_build_cartoon_floor(root, holder, bg, bounds, int(plan.get("seed", 0)))
 		return
@@ -578,6 +581,55 @@ func _build_backdrop(root: Node2D, plan: Dictionary, bounds: Rect2) -> void:
 				cloud.position = Vector2(width * i / 6.0 + rng.randf_range(0, 120), bounds.position.y + rng.randf_range(20, 160))
 				cloud.color = layer.color
 				_own(px, cloud, root)
+
+
+## Pixel-art scenery drawn by the compiler: a screen-sized banded sky and parallax layers for platformers, a
+## tiled floor for top-down games. Everything is nearest-neighbour at the sprites' pixel size.
+func _build_pixel_scenery(root: Node2D, holder: Node2D, plan: Dictionary, bounds: Rect2) -> void:
+	var sc: Dictionary = plan.scenery
+	var pix := float(sc.get("pixel", 2))
+	if sc.has("floor"):
+		var floor_rect := TextureRect.new()
+		floor_rect.name = "Floor"
+		floor_rect.texture = load(String(sc.floor)) as Texture2D
+		floor_rect.stretch_mode = TextureRect.STRETCH_TILE
+		floor_rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		floor_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		floor_rect.position = bounds.position
+		floor_rect.scale = Vector2(pix, pix)
+		floor_rect.size = bounds.size / pix
+		_own(holder, floor_rect, root)
+		return
+	var sky_layer := CanvasLayer.new()
+	sky_layer.name = "Sky"
+	sky_layer.layer = -100
+	_own(holder, sky_layer, root)
+	var sky := TextureRect.new()
+	sky.name = "Gradient"
+	sky.texture = load(String(sc.sky)) as Texture2D
+	sky.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	sky.stretch_mode = TextureRect.STRETCH_SCALE
+	sky.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	sky.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	sky.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_own(sky_layer, sky, root)
+	var ground := bounds.end.y
+	var width := float(sc.width) * pix
+	for layer: Dictionary in sc.layers:
+		var px := Parallax2D.new()
+		px.name = String(layer.name).capitalize()
+		px.scroll_scale = Vector2(float(layer.scroll), 1.0)
+		px.repeat_size = Vector2(width, 0)
+		px.repeat_times = 3
+		_own(holder, px, root)
+		var spr := Sprite2D.new()
+		spr.name = "Image"
+		spr.texture = load(String(layer.texture)) as Texture2D
+		spr.centered = false
+		spr.scale = Vector2(pix, pix)
+		spr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		spr.position = Vector2(0, ground - (float(layer.height) + float(layer.lift)) * pix)
+		_own(px, spr, root)
 
 
 ## Cartoon platformer scenery: a gradient sky, a sun (or a moon and stars on dark palettes), fluffy clouds
