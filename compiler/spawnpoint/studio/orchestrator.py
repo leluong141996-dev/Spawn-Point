@@ -13,14 +13,14 @@ from .. import manifest as manifest_mod
 from ..analyze import analyze
 from ..build import BuildResult, build
 from ..manifest import Manifest
-from . import web
+from . import genres, web
 from .assemble import LAYERS, ai_art_from_env, assemble, chunks_fit, plan_chunks
 from .brief import GameBrief, json_schema, normalize
 from .creative import CreativeResult, creative_pass
 from .dataset import Recorder
 from .llm import ChatModel, LLMError, Usage
-from .prompts import (TRANSLATE_SCHEMA, brief_messages, needs_translation, translate_messages,
-                      tweak_messages)
+from .prompts import (TRANSLATE_SCHEMA, brief_format, brief_messages, brief_messages_v5, needs_translation,
+                      translate_messages, tweak_messages, tweak_messages_v5)
 
 SESSION_FILE = "studio.json"
 SEED_ATTEMPTS = 8
@@ -69,9 +69,11 @@ def design_brief(prompt: str, llm: ChatModel) -> tuple[GameBrief, list[str], str
     if needs_translation(prompt):
         english = llm.chat_json(translate_messages(prompt), TRANSLATE_SCHEMA, "Translation",
                                 temperature=0.1, max_tokens=300).get("english") or prompt
-    raw = llm.chat_json(brief_messages(english), json_schema(), "GameBrief", temperature=0.4)
+    v5 = brief_format() == "v5"
+    raw = llm.chat_json(brief_messages_v5(english) if v5 else brief_messages(english),
+                        genres.wire_schema() if v5 else json_schema(), "GameBrief", temperature=0.4)
     try:
-        brief = GameBrief.model_validate(raw)
+        brief = genres.parse_wire(raw) if v5 else GameBrief.model_validate(raw)
     except Exception as e:  # guided decoding makes this rare; retry once with the error
         raise StudioError(f"the LLM produced an invalid brief: {e}") from e
     brief, notes = normalize(brief)
@@ -178,9 +180,18 @@ def _annotate_design(recorder: Recorder, brief: GameBrief, notes: list[str]) -> 
         tr.target, tr.corrected = tr.raw, False
     rec = recorder.last("brief")
     if rec:
-        rec.target = brief.model_dump()  # the normalized brief is the answer the model should have given
+        rec.target = _answer(brief)  # the normalized brief is the answer the model should have given
         rec.notes = notes
-        rec.corrected = rec.target != GameBrief.model_validate(rec.raw).model_dump()
+        rec.corrected = rec.target != _answer(_parse(rec.raw))
+
+
+def _parse(raw: dict) -> GameBrief:
+    return genres.parse_wire(raw) if brief_format() == "v5" else GameBrief.model_validate(raw)
+
+
+def _answer(brief: GameBrief) -> dict:
+    """A brief in the shape the model is asked to write (what a training target looks like)."""
+    return genres.to_wire(brief) if brief_format() == "v5" else brief.model_dump()
 
 
 def finalize_graph(graph: dict, session: dict, manifest: Manifest, tuning: bool = True) -> dict:
@@ -238,6 +249,8 @@ def _build_layer(layer: int, graph: dict, out_dir: Path, manifest: Manifest, web
 
 
 def tweak_schema() -> dict:
+    if brief_format() == "v5":
+        return genres.wire_tweak_schema()
     schema = json_schema()
     defs = schema.pop("$defs", {})
     return {"type": "object", "$defs": defs,
@@ -268,10 +281,10 @@ def _tweak(out_dir, request, llm, web_export, on_layer, manifest, recorder: Reco
     if needs_translation(request):
         english = llm.chat_json(translate_messages(request), TRANSLATE_SCHEMA, "Translation",
                                 temperature=0.1, max_tokens=300).get("english") or request
-    raw = llm.chat_json(tweak_messages(old.model_dump(), english), tweak_schema(), TWEAK_SCHEMA_NAME,
-                        temperature=0.1)
+    messages = tweak_messages_v5(genres.to_wire(old), english) if brief_format() == "v5" else tweak_messages(old.model_dump(), english)
+    raw = llm.chat_json(messages, tweak_schema(), TWEAK_SCHEMA_NAME, temperature=0.1)
     try:
-        new = GameBrief.model_validate(raw["brief"])
+        new = _parse(raw["brief"])
     except Exception as e:
         raise StudioError(f"the LLM produced an invalid brief update: {e}") from e
     new, notes = normalize(new)
@@ -281,9 +294,9 @@ def _tweak(out_dir, request, llm, web_export, on_layer, manifest, recorder: Reco
             tr.target, tr.corrected = tr.raw, False
         rec = recorder.last("tweak")
         if rec:
-            rec.target = {"brief": new.model_dump(), "new_level": bool(raw.get("new_level"))}
+            rec.target = {"brief": _answer(new), "new_level": bool(raw.get("new_level"))}
             rec.notes = notes
-            rec.corrected = rec.target["brief"] != GameBrief.model_validate(raw["brief"]).model_dump()
+            rec.corrected = rec.target["brief"] != _answer(_parse(raw["brief"]))
     seed, chunks = session["seed"], session.get("chunks")
     if raw.get("new_level"):
         seed, chunks = choose_seed(new, seed + 1000, manifest)

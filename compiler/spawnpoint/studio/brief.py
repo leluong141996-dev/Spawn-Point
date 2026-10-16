@@ -7,18 +7,19 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-Genre = Literal["platformer", "topdown", "bubble", "farm", "tower_defense"]
+Genre = Literal["platformer", "topdown", "bubble", "farm", "tower_defense", "shmup"]
 Palette = Literal["night", "forest", "desert", "neon", "candy", "ocean", "lava", "snow"]
 Ability = Literal["double_jump", "dash", "stomp", "shoot", "sword"]
-Archetype = Literal["walker", "hopper", "chaser", "shooter", "turret"]
+Archetype = Literal["walker", "hopper", "chaser", "shooter", "turret", "drifter", "weaver", "diver", "gunship"]
 Speed = Literal["slow", "normal", "fast"]
 DEFAULT_SCORE_TARGET = 100
 
 # Points per defeated enemy, by archetype (the assembler writes them as rules).
-ENEMY_POINTS = {"walker": 5, "hopper": 10, "chaser": 10, "shooter": 25, "turret": 20}
+ENEMY_POINTS = {"walker": 5, "hopper": 10, "chaser": 10, "shooter": 25, "turret": 20,
+                "drifter": 5, "weaver": 10, "diver": 15, "gunship": 25}
 
 Goal = Literal["reach_exit", "collect_all", "collect_all_then_exit", "defeat_all", "score_target", "survive",
-               "rescue", "clear_board", "defend"]
+               "rescue", "clear_board", "defend", "defeat_boss"]
 Hazard = Literal["spikes", "pits"]
 
 ARCHETYPES_BY_GENRE: dict[str, tuple[str, ...]] = {
@@ -28,9 +29,13 @@ ARCHETYPES_BY_GENRE: dict[str, tuple[str, ...]] = {
     # Farm pests and tower-defense invaders have their own behaviour; the archetype only flavours them.
     "farm": ("walker", "hopper", "chaser", "shooter", "turret"),
     "tower_defense": ("walker", "hopper", "chaser", "shooter", "turret"),
+    # Side-scrolling space shooter: how an enemy flies (straight / sine wave / dives at you / stops and shoots).
+    "shmup": ("drifter", "weaver", "diver", "gunship"),
 }
 # What an archetype becomes when it does not exist in the genre.
-ARCHETYPE_FALLBACK = {"topdown": {"walker": "chaser", "hopper": "chaser"}}
+ARCHETYPE_FALLBACK = {"topdown": {"walker": "chaser", "hopper": "chaser"},
+                      "shmup": {"walker": "drifter", "hopper": "weaver", "chaser": "diver", "shooter": "gunship",
+                                "turret": "gunship"}}
 
 
 class _Model(BaseModel):
@@ -73,6 +78,7 @@ class GameBrief(_Model):
     hazards: list[Hazard] = Field(default_factory=list, max_length=2)
     rescue_target: str = Field(default="Mom", max_length=24, description="who the player saves (goal rescue)")
     level_ups: bool = Field(default=False, description="XP gems and an upgrade pick each level (top-down survivor)")
+    boss: str = Field(default="", max_length=24, description="the end boss's name (shmup; empty = no boss)")
     crops: list[str] = Field(default_factory=list, max_length=3, description="what the farm grows (farm)")
     towers: list[str] = Field(default_factory=list, max_length=3, description="towers the player builds (tower_defense)")
     art_style: Literal["pixel", "cartoon"] = "pixel"
@@ -94,14 +100,14 @@ RESERVED_NAMES = {
     "Player", "Bullet", "EnemyBullet", "Exit", "Door", "HealthPack", "Spikes", "Portal",
     "GameState", "Game", "World", "FX", "Sfx", "SP", "Entity", "Visual", "Shape", "Main", "Tiles",
     "Entities", "Rules", "HUD", "Camera", "Cage", "CageKey", "XpGem", "Slash", "Plot", "Stall", "Gust",
-    "Road", "Pad", "Commander", "Lair", "Castle",
+    "Road", "Pad", "Commander", "Lair", "Castle", "BossGate", "PowerUp", "Starfield",
 }
 COMPONENT_NAMES = {
     "Health", "Hitbox", "Hurtbox", "Weapon", "Projectile", "Collectible", "TriggerZone", "Spawner",
     "Gate", "PlayerInput", "PatrolAI", "ChaseAI", "PlatformerMovement", "TopDownMovement", "Aim",
     "Juice", "Stomp", "BubbleBoard", "Experience", "XpOrb", "LevelUpMenu", "FarmPlot", "Farmer", "Market",
     "CropPest", "Base", "GroundPatch", "PathFollower", "TowerBrain", "TowerBuilder", "TowerSlot", "WaveSpawner",
-    "Animator",
+    "Animator", "FlightPath", "ShmupShip", "HealthBar",
 }
 _IRREGULAR = {"enemies": "enemy", "bodies": "body", "ponies": "pony", "berries": "berry", "cherries": "cherry",
               "flies": "fly", "mice": "mouse", "geese": "goose", "children": "child", "leaves": "leaf",
@@ -156,6 +162,21 @@ def normalize(brief: GameBrief) -> tuple[GameBrief, list[str]]:
         b.health_pickups = 0
         if b.collectible.name == "Coin":  # the default pickup makes no sense as a bubble
             b.collectible.name = "Egg"
+    elif b.genre == "shmup":
+        if b.goal not in ("defeat_boss", "score_target", "survive"):
+            notes.append(f"shooters are won by beating the boss, scoring or surviving; goal '{b.goal}' -> 'defeat_boss'")
+            b.goal = "defeat_boss"
+        if b.hazards or b.level_ups or b.player.abilities:
+            notes.append("a shooter has no hazards, level-ups or abilities; dropped them")
+        b.hazards, b.level_ups, b.player.abilities = [], False, []
+        b.health_pickups, b.collectible.count = 0, 0
+        if not b.enemies:
+            b.enemies = [EnemyBrief(name="Drone", archetype="drifter", count=6), EnemyBrief(name="Saucer", archetype="weaver", count=4)]
+            notes.append("a shooter needs enemies; added Drones and Saucers")
+        if b.goal == "defeat_boss":
+            b.boss = unique(b.boss or "Warship", "Warship", "boss")
+        elif b.boss:
+            b.boss = unique(b.boss, "Warship", "boss")
     elif b.genre == "farm":
         if b.goal != "score_target":
             notes.append(f"farms are won by earning money before sunset; goal '{b.goal}' -> 'score_target'")
@@ -186,6 +207,9 @@ def normalize(brief: GameBrief) -> tuple[GameBrief, list[str]]:
     if b.goal == "clear_board" and b.genre != "bubble":
         b.goal = "reach_exit" if b.genre == "platformer" else "score_target"
         notes.append(f"goal 'clear_board' is for bubble shooters; using '{b.goal}'")
+    if b.goal == "defeat_boss" and b.genre != "shmup":
+        b.goal = "reach_exit" if b.genre == "platformer" else "score_target"
+        notes.append(f"goal 'defeat_boss' is for shooters; using '{b.goal}'")
     if b.goal == "rescue" and b.genre != "platformer":
         b.goal = "reach_exit"
         notes.append("rescue missions are platformers here; using 'reach_exit'")
@@ -206,6 +230,9 @@ def normalize(brief: GameBrief) -> tuple[GameBrief, list[str]]:
         b.player.abilities.append("shoot")
         notes.append("level-up games fire on their own; gave the player 'shoot'")
 
+    if b.boss and b.genre != "shmup":
+        b.boss = ""
+        notes.append("only shooters have a boss; ignored")
     allowed = ARCHETYPES_BY_GENRE[b.genre]
     enemies = []
     seen_names: set[str] = set()
@@ -278,4 +305,5 @@ def _default_intro(b: GameBrief) -> str:
         "rescue": f"Find the key and save {b.rescue_target}!",
         "clear_board": f"Pop every {c}!",
         "defend": "Build towers and hold the castle!",
+        "defeat_boss": f"Fight through the waves and destroy the {b.boss or 'boss'}!",
     }[b.goal]

@@ -32,6 +32,15 @@ def _report_layer(r: LayerReport) -> None:
             _say(f"      {d}")
 
 
+def _load_brief(data: dict) -> GameBrief:
+    """A GameBrief, or the per-genre shape the v5 model writes."""
+    try:
+        return GameBrief.model_validate(data)
+    except Exception:
+        from .studio import genres
+        return genres.parse_wire(data)
+
+
 def _brief_summary(brief: GameBrief, notes: list[str]) -> None:
     b = brief
     enemies = ", ".join(f"{e.count}x {e.name} ({e.archetype})" for e in b.enemies) or "none"
@@ -48,7 +57,7 @@ def create(args) -> int:
         import os
         os.environ["SPAWNPOINT_AI_ART"] = "1"  # read by create(); stored in studio.json for later tweaks
     llm = OpenAICompatible()
-    brief = GameBrief.model_validate(json.loads(args.brief.read_text())) if args.brief else None
+    brief = _load_brief(json.loads(args.brief.read_text())) if args.brief else None
     server: web.Server | None = None
     out_holder: dict[str, Path] = {}
 

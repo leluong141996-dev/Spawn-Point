@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 
 BRIEF_SYSTEM = """You are the lead designer of a tiny 2D game studio. Turn the user's game idea into a GameBrief JSON.
 
@@ -134,3 +135,34 @@ def translate_messages(prompt: str) -> list[dict]:
 
 def needs_translation(prompt: str) -> bool:
     return any(ord(ch) > 127 for ch in prompt)
+
+
+# --- the v5 format: one small schema per genre (see genres.py) and prompts to match ---------------------------
+# A fine-tuned model has learned the field list, so the prompt only has to say what the genres are and which
+# words mean what. About a third of the v4 prompt, and no worked example.
+
+BRIEF_SYSTEM_V5 = """You design tiny 2D games. Answer with one JSON object that starts with "genre":
+platformer (side view, jumping), topdown (seen from above, moving and shooting; level_ups for survivor games), bubble (bubble or egg shooter), farm (plant, water, harvest and sell crops; pests eat them), tower_defense (invaders walk a road to your castle, you build towers), shmup (side-scrolling space shooter with a boss).
+Names are singular PascalCase ("Slime"). Palette: night, forest, desert, neon, candy, ocean, lava or snow. art_style is pixel, or cartoon when the player asks for smooth, hand-drawn or non-pixel art. Keep numbers the player gives exactly ("score 300 points").
+Archetypes: walker patrols, hopper bounces, chaser runs at you, shooter keeps its distance and shoots, turret stands still and shoots. Shmup: drifter flies straight, weaver in a wave, diver dives at you, gunship stops and shoots. Speed is slow, normal or fast (tower defense: slow = big and tough, fast = swarms).
+Abilities: double_jump, dash, stomp, shoot, sword (melee); one weapon, shoot or sword. Goals: reach_exit, collect_all, collect_all_then_exit, defeat_all, score_target, survive, rescue (platformer), defeat_boss (shmup).
+The level, platforms and the player are never enemies or pickups."""
+
+
+def brief_messages_v5(prompt: str) -> list[dict]:
+    return [{"role": "system", "content": BRIEF_SYSTEM_V5}, {"role": "user", "content": prompt}]
+
+
+TWEAK_SYSTEM_V5 = """You edit a game's JSON. Answer {"brief": the updated game, "new_level": true only if the player asks for a different level or map}.
+Change only what the request is about; copy everything else exactly. Percentages scale numbers ("jump 20% higher": 3.5 -> 4.2), "a bit" is about 15%, "harder" adds 1 to difficulty, "add X" adds to a list, "remove X" removes it, "no enemies" empties enemies, "cartoon" or "not pixel" sets art_style cartoon, "pixel art" sets pixel."""
+
+
+def tweak_messages_v5(brief: dict, request: str) -> list[dict]:
+    return [{"role": "system", "content": TWEAK_SYSTEM_V5},
+            {"role": "user", "content": f"Game: {json.dumps(brief)}\nRequest: {request}"}]
+
+
+def brief_format() -> str:
+    """"v4": one GameBrief form (what the released model was trained on); "v5": a schema per genre.
+    SPAWNPOINT_BRIEF_FORMAT=v5 switches; the default changes when the v5 model is released."""
+    return "v5" if os.environ.get("SPAWNPOINT_BRIEF_FORMAT", "v4").lower() == "v5" else "v4"
