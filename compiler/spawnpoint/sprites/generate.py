@@ -552,6 +552,39 @@ def paint_slash(c: Ctx) -> None:
     cv.outline(r.outline)
 
 
+def paint_ship(c: Ctx) -> None:
+    """A fighter facing right: swept wings, a cockpit and an engine flame that flickers."""
+    cv, r = c.cv, c.r
+    w, h = cv.w, cv.h
+    hurt = c.anim == "hurt"
+    hull = r.white if hurt else r.base
+    cv.poly([(1.5, 0.2), (10.5, 3.4), (4.8, 3.6)], r.shadow)  # upper wing
+    cv.poly([(1.5, h - 0.2), (10.5, h - 3.4), (4.8, h - 3.6)], r.shadow)  # lower wing
+    cv.poly([(3, 3.3), (12, 2.4), (w - 0.5, h / 2), (12, h - 2.4), (3, h - 3.3)], hull)
+    cv.rect(4, h / 2 + 1, 11, h / 2 + 1, r.shadow)  # a darker belly line
+    cv.ellipse(10.6, h / 2 - 0.9, 2.0, 1.3, r.light)  # cockpit
+    cv.set(10, h / 2 - 1.8, r.white)
+    flame = 1 + c.i % 2
+    for x in range(3 - flame - 1, 3):
+        cv.set(x, h / 2 - 1, (255, 190, 60, 255))
+        cv.set(x, h / 2, (255, 120, 40, 255))
+    cv.outline(r.outline)
+
+
+def paint_ufo(c: Ctx) -> None:
+    """A flying saucer with a glass dome and blinking rim lights."""
+    cv, r = c.cv, c.r
+    w, h = cv.w, cv.h
+    hurt = c.anim == "hurt"
+    cv.ellipse(w / 2, 3.8, 3.4, 2.8, (170, 215, 240, 255) if not hurt else r.white)  # the dome first
+    cv.ellipse(w / 2, h - 3.4, w / 2 - 0.5, 2.4, r.white if hurt else r.base, shade=r)  # then the disc over its base
+    cv.set(w / 2 - 1, 2, r.white)
+    for k, x in enumerate((2, 5, 8, 11)):
+        cv.set(x, h - 4, (255, 236, 120, 255) if (k + c.i) % 2 == 0 else r.shadow)
+    cv.rect(w / 2 - 2, h - 1, w / 2 + 1, h - 1, r.shadow)
+    cv.outline(r.outline)
+
+
 KINDS: dict[str, Kind] = {
     "hero": Kind((12, 16), {"idle": (6, 4, True), "run": (4, 10, True), "jump": (1, 1, False),
                             "fall": (1, 1, False), "hurt": (1, 1, False)}, paint_hero, "bottom"),
@@ -574,6 +607,8 @@ KINDS: dict[str, Kind] = {
     "spikes": Kind((15, 7), {"idle": (1, 1, False)}, paint_spikes, "bottom"),
     "bullet": Kind((4, 4), {"idle": (2, 12, True)}, paint_bullet),
     "slash": Kind((10, 16), {"idle": (3, 20, False)}, paint_slash),
+    "ship": Kind((16, 10), {"idle": (2, 10, True), "hurt": (1, 1, False)}, paint_ship),
+    "ufo": Kind((14, 10), {"idle": (3, 8, True), "hurt": (1, 1, False)}, paint_ufo),
 }
 
 

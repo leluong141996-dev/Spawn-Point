@@ -742,6 +742,92 @@
       "doc": "The player's farming hands. Press interact (Space / E) next to a [FarmPlotComponent]: an empty plot gets the selected seed, a growing one gets water, a ripe one is harvested into the basket. Keys 1-3 choose the crop. Walk into a [MarketComponent] to sell the basket for money (score).\n[member crops] is a \";\"-separated list of \"Name|#color|grow seconds|price\"."
     },
     {
+      "name": "FlightPath",
+      "class": "FlightPathComponent",
+      "script": "res://addons/spawn_point/components/flight_path_component.gd",
+      "base": "Node",
+      "hosts": [],
+      "requires": [],
+      "category": "controller",
+      "entity_params": [],
+      "params": [
+        {
+          "name": "pattern",
+          "type": "String",
+          "hint": "enum",
+          "hint_string": "straight,wave,dive,hover",
+          "default": "straight",
+          "doc": "How it flies."
+        },
+        {
+          "name": "heading_deg",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,360.0,1.0",
+          "default": 180.0,
+          "doc": "Direction of travel in degrees (180 = leftward, 0 = rightward)."
+        },
+        {
+          "name": "speed",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,600.0,1.0",
+          "default": 90.0,
+          "doc": "Speed (px/s) when the entity has no TopDownMovement of its own."
+        },
+        {
+          "name": "amplitude",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,300.0,1.0",
+          "default": 70.0,
+          "doc": "Wave: how far it swings (px). Hover: how far it bobs."
+        },
+        {
+          "name": "frequency",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.1,6.0,0.1",
+          "default": 0.9,
+          "doc": "Wave and hover: swings per second."
+        },
+        {
+          "name": "hover_at",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,1.0,0.01",
+          "default": 0.75,
+          "doc": "Hover: where it stops, as a fraction of the level width from the left edge."
+        },
+        {
+          "name": "aim_at_player",
+          "type": "bool",
+          "hint": "",
+          "hint_string": "",
+          "default": false,
+          "doc": "Point the Weapon at the player every frame."
+        },
+        {
+          "name": "exit_margin",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,400.0,1.0",
+          "default": 72.0,
+          "doc": "Distance from the far edge (px) at which it counts as having left."
+        }
+      ],
+      "state": [],
+      "signals": [
+        {
+          "name": "escaped",
+          "args": [],
+          "doc": "Emitted when the entity flew off the far edge without being destroyed."
+        }
+      ],
+      "methods": [],
+      "doc": "Flies its entity across the screen on a pattern (side-scrolling shooters). \"straight\" keeps its heading, \"wave\" swings up and down along it, \"dive\" turns toward the player's height while the player is still ahead, \"hover\" flies in, stops at [member hover_at] and bobs up and down (gunships and bosses). Drives a TopDownMovement body, or moves an Area2D directly at [member speed]. Leaves the screen quietly past the far edge."
+    },
+    {
       "name": "Gate",
       "class": "GateComponent",
       "script": "res://addons/spawn_point/components/gate_component.gd",
@@ -844,6 +930,56 @@
       "signals": [],
       "methods": [],
       "doc": "Paints a patch of ground under everything else: roads, paths, rugs, puddles. Purely visual."
+    },
+    {
+      "name": "HealthBar",
+      "class": "HealthBarComponent",
+      "script": "res://addons/spawn_point/components/health_bar_component.gd",
+      "base": "Node",
+      "hosts": [],
+      "requires": [
+        "Health"
+      ],
+      "category": "juice",
+      "entity_params": [],
+      "params": [
+        {
+          "name": "always",
+          "type": "bool",
+          "hint": "",
+          "hint_string": "",
+          "default": false,
+          "doc": "Show the bar even at full health."
+        },
+        {
+          "name": "width",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "8.0,400.0,1.0",
+          "default": 48.0,
+          "doc": "Bar width in px."
+        },
+        {
+          "name": "gap",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,100.0,1.0",
+          "default": 8.0,
+          "doc": "Gap between the entity's top edge and the bar (px)."
+        },
+        {
+          "name": "color",
+          "type": "Color",
+          "hint": "",
+          "hint_string": "",
+          "default": "(1.0, 0.0, 0.302, 1.0)",
+          "doc": "Fill colour."
+        }
+      ],
+      "state": [],
+      "signals": [],
+      "methods": [],
+      "doc": "A thin bar above the entity showing how much health is left. Hidden at full health unless [member always] is on (bosses). Draws in the world, so it follows the entity and never flips with its picture."
     },
     {
       "name": "Health",
@@ -1802,6 +1938,65 @@
       "doc": "Moves its entity in a straight line; disappears on walls, after its lifetime, or after hitting [member pierce] + 1 targets. Pair with a Hitbox to deal damage."
     },
     {
+      "name": "ShmupShip",
+      "class": "ShmupShipComponent",
+      "script": "res://addons/spawn_point/components/shmup_ship_component.gd",
+      "base": "Node",
+      "hosts": [],
+      "requires": [
+        "Weapon",
+        "TopDownMovement"
+      ],
+      "category": "controller",
+      "entity_params": [],
+      "params": [
+        {
+          "name": "max_power",
+          "type": "int",
+          "hint": "range",
+          "hint_string": "1.0,6.0",
+          "default": 4,
+          "doc": "Highest power level."
+        },
+        {
+          "name": "auto_fire",
+          "type": "bool",
+          "hint": "",
+          "hint_string": "",
+          "default": true,
+          "doc": "Fire without holding the button."
+        }
+      ],
+      "state": [
+        {
+          "name": "power",
+          "type": "int"
+        }
+      ],
+      "signals": [
+        {
+          "name": "powered",
+          "args": [
+            {
+              "name": "level",
+              "type": "int"
+            }
+          ],
+          "doc": "Emitted when the power level changes."
+        }
+      ],
+      "methods": [
+        {
+          "name": "power_up",
+          "args": [],
+          "default_count": 0,
+          "returns": "Nil",
+          "doc": "One level stronger (a rule calls this when a power-up is collected)."
+        }
+      ],
+      "doc": "The player's ship in a side-scrolling shooter. It fires on its own toward the right, grows stronger with every power-up (more shots, a wider spread, a faster rate) and loses a level of power when it is hit."
+    },
+    {
       "name": "Spawner",
       "class": "SpawnerComponent",
       "script": "res://addons/spawn_point/components/spawner_component.gd",
@@ -2256,6 +2451,38 @@
           "hint_string": "0.0,120.0,0.5",
           "default": 6.0,
           "doc": "Seconds before the first wave and between waves."
+        },
+        {
+          "name": "spread_x",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,1000.0,1.0",
+          "default": 0.0,
+          "doc": "Random offset (px, total range) added to where each enemy appears: side-scrolling shooters spread them along the edge."
+        },
+        {
+          "name": "spread_y",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,1000.0,1.0",
+          "default": 0.0,
+          "doc": "Same, vertically (shooters send enemies in at random heights)."
+        },
+        {
+          "name": "autostart",
+          "type": "bool",
+          "hint": "",
+          "hint_string": "",
+          "default": true,
+          "doc": "Start sending waves right away. Off: waits for [method start] (a boss gate)."
+        },
+        {
+          "name": "endless",
+          "type": "bool",
+          "hint": "",
+          "hint_string": "",
+          "default": false,
+          "doc": "After the last wave start again, with bigger and faster waves, and never report [signal cleared]."
         }
       ],
       "state": [
@@ -2281,7 +2508,15 @@
           "doc": "Emitted when every wave is done and the field is clear."
         }
       ],
-      "methods": [],
+      "methods": [
+        {
+          "name": "start",
+          "args": [],
+          "default_count": 0,
+          "returns": "Nil",
+          "doc": "Begins the waves (for a spawner created with autostart off)."
+        }
+      ],
       "doc": "Sends waves of enemies from its entity (tower defense). [member waves] is a \";\"-separated list of \"count x Entity every seconds\", e.g. \"8 x Goblin every 1.2; 5 x Orc every 2\". Emits [signal cleared] once every wave has been sent and no spawned enemy is left."
     },
     {

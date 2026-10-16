@@ -338,6 +338,7 @@ headless smoke test (spawn, scripted input, crash detection) and report `E_RUNTI
 | World | `Collectible`, `TriggerZone`, `Spawner` (ramping waves, spawns around the player), `Gate` |
 | Progression | `Experience` (XP and levels), `XpOrb` (gems that fly to the player), `LevelUpMenu` (pause and pick one of three upgrades) |
 | Game modes | `BubbleBoard` (a complete bubble shooter: bank shots, colour pops, falling clusters, a descending ceiling) |
+| Shooters | `FlightPath` (straight, wave, dive and hover patterns across the screen), `ShmupShip` (auto-fire, power-ups that add shots and spread), `HealthBar` (boss bars), and `WaveSpawner` gates (`autostart`, `endless`, random spread) |
 | Tower defense | `PathFollower` (walks the road to the base), `Base` (loses a life per invader that gets in), `WaveSpawner` ("8 x Goblin every 1.2; ..."), `TowerSlot`, `TowerBuilder` (click a pad, pay in gold), `TowerBrain` (targets the invader furthest along), `GroundPatch` (roads and paths) |
 | Farming | `FarmPlot` (soil that grows a crop only while watered), `Farmer` (plant / water / harvest, a basket, crop choice), `Market` (sell the basket), `CropPest` (crows that eat crops) |
 | Feel | `Juice` — attached to every entity unless `"juice": "none"` |

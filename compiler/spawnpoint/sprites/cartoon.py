@@ -421,11 +421,32 @@ def draw_slash(P: Painter, p: Pose) -> None:
             for a in [-1.0 + 2.0 * k / 16 for k in range(17)]], 1.4, (255, 255, 255))
 
 
+def draw_ship(P: Painter, p: Pose) -> None:
+    c = P.p
+    P.poly([(12, 13), (40, 12), (22, 1.5)], c.shadow)  # wings
+    P.poly([(12, 27), (40, 28), (22, 38.5)], c.shadow)
+    P.poly([(10, 14), (46, 9), (62, 20), (46, 31), (10, 26)], c.base)
+    P.line([(16, 20), (50, 20)], 1.4, c.light)
+    P.ellipse(40, 17, 7, 5, (190, 228, 252), shine=True)
+    tip = 4 - 3 * (p.i % 2)  # the flame flickers
+    P.poly([(10, 16), (tip, 20), (10, 24)], (255, 176, 60), shade=False, top=True)
+    P.poly([(10, 18), (tip + 4, 20), (10, 22)], (255, 236, 150), shade=False, top=True)
+
+
+def draw_ufo(P: Painter, p: Pose) -> None:
+    c = P.p
+    P.ellipse(28, 26, 26, 9, c.base)
+    P.ellipse(28, 32, 13, 3, c.shadow)
+    P.ellipse(28, 16, 12, 11, (190, 228, 252), shine=True)
+    for k, x in enumerate((9, 19, 37, 47)):
+        P.ellipse(x, 27, 2.3, 2.3, (255, 236, 120) if (k + p.i) % 2 == 0 else c.shadow, shade=False, top=True)
+
+
 PAINTERS = {"hero": draw_hero, "slime": draw_blob, "hopper": draw_blob, "bug": draw_blob, "flyer": draw_flyer,
             "robot": draw_robot, "turret": draw_turret, "coin": draw_coin, "star": draw_star, "gem": draw_gem,
             "heart": draw_heart, "orb": draw_orb, "door": draw_door, "exit": draw_exit, "portal": draw_portal,
             "spikes": draw_spikes, "bullet": draw_bullet,
-            "slash": draw_slash}
+            "slash": draw_slash, "ship": draw_ship, "ufo": draw_ufo}
 OUTLINE = {"bullet": 0.8, "slash": 0.8, "coin": 1.0, "gem": 1.0, "star": 1.1, "heart": 1.1, "spikes": 1.0, "orb": 1.0}
 
 

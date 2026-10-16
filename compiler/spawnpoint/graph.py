@@ -42,6 +42,7 @@ class SpriteGenerate(_Model):
     color: str | None = None
     features: list[str] | None = None
     seed: int = 0
+    size: int = Field(default=1, ge=1, le=6, description="draw it this many times bigger (bosses)")
 
     _color = field_validator("color")(_check_color)
 
@@ -113,7 +114,7 @@ class Settings(_Model):
     pixel_palette: Literal["none", "pico8", "sweetie16", "endesga32"] = "none"  # pixel art: limit all colours to a classic palette
     # Pixel-art scenery (sky, parallax layers, top-down floor): "auto" picks a theme that fits the background
     # colour, a theme name forces one, "flat" keeps the plain hills and checkered floor.
-    scenery: Literal["auto", "flat", "night", "forest", "desert", "neon", "candy", "ocean", "lava", "snow"] = "auto"
+    scenery: Literal["auto", "flat", "night", "forest", "desert", "neon", "candy", "ocean", "lava", "snow", "space"] = "auto"
     zoom: float = Field(default=1.0, ge=0.5, le=4.0)
 
     _bg = field_validator("background")(_check_color)

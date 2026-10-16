@@ -122,3 +122,83 @@ def test_recorded_targets_use_the_wire_shape(v5, tmp_path, manifest):
     brief_rec = next(r for r in records if r["task"] == "brief")
     assert brief_rec["target"]["genre"] == "bubble" and "item" in brief_rec["target"] and "player" not in brief_rec["target"]
     assert brief_rec["corrected"] is False
+
+
+# --- the shmup genre ---------------------------------------------------------------------------
+
+def _shmup(**over):
+    d = dict(BRIEFS["shmup"], **over)
+    brief, notes = normalize(GameBrief(**d))
+    return brief, notes
+
+
+def test_shmup_normalization():
+    b, notes = _shmup(goal="collect_all", player={"character": "Falcon", "abilities": ["dash", "shoot"]}, hazards=["spikes"])
+    assert b.goal == "defeat_boss" and b.player.abilities == [] and not b.hazards and b.collectible.count == 0
+    assert b.boss == "Warship" or b.boss  # a shooter that is won by a boss has one
+    none, notes = normalize(GameBrief(title="s", genre="shmup"))
+    assert [e.name for e in none.enemies] == ["Drone", "Saucer"] and none.boss == "Warship"
+    assert any("added" in n for n in notes)
+    legacy, _ = normalize(GameBrief(title="s", genre="shmup", enemies=[{"name": "Bat", "archetype": "chaser"},
+                                                                         {"name": "Gun", "archetype": "turret"}]))
+    assert [e.archetype for e in legacy.enemies] == ["diver", "gunship"]
+    other, notes = normalize(GameBrief(title="p", genre="platformer", goal="defeat_boss", boss="Big"))
+    assert other.goal == "reach_exit" and other.boss == ""
+    score, _ = _shmup(goal="score_target", boss="Big")
+    assert score.boss == "Big"  # a name is kept, but it is only used with defeat_boss
+    clash, _ = _shmup(boss="Drone")
+    assert clash.boss != "Drone", "the boss must not share a name with an enemy"
+
+
+@pytest.mark.parametrize("goal", ["defeat_boss", "score_target", "survive"])
+@pytest.mark.parametrize("style", ["pixel", "cartoon"])
+def test_shmup_assembles_clean(manifest, goal, style):
+    from spawnpoint.analyze import analyze
+
+    brief, _ = _shmup(goal=goal, art_style=style)
+    for layer in (0, 1, 2):
+        graph = assemble(brief, layer, seed=3)
+        a = analyze(graph, manifest)
+        warnings = [d for d in a.diagnostics.warnings if not (layer == 0 and d.code == "W_NO_WIN")]
+        assert a.ok and not warnings, (goal, layer, [str(d) for d in a.diagnostics])
+    ents, rules = graph["entities"], json.dumps(graph["rules"])
+    player = ents["Player"]["components"]
+    assert {"ShmupShip", "Weapon", "PlayerInput"} <= set(player) and ents["Player"]["sprite"]["generate"]["kind"] == "ship"
+    assert {"Drone", "Saucer"} <= set(ents) and "FlightPath" in ents["Saucer"]["components"]
+    assert ents["Saucer"]["components"]["FlightPath"]["pattern"] == "wave"
+    assert "Player.power_up()" in rules and "spawn('PowerUp')" in rules
+    assert graph["settings"]["scenery"] == "space" and "#" not in "".join(graph["level"]["map"])
+    spawner = ents["Lair"]["components"]["WaveSpawner"]
+    assert spawner["endless"] == (goal != "defeat_boss")
+    if goal == "defeat_boss":
+        assert "BossGate" in ents and ents["BossGate"]["components"]["WaveSpawner"]["autostart"] is False
+        assert "BossGate.start()" in rules and "Warship.died" in rules and ents["Warship"]["sprite"]["generate"]["size"] == 3
+    else:
+        assert "BossGate" not in ents and "G" not in "".join(graph["level"]["map"])
+
+
+def test_shmup_waves_introduce_every_type_and_scale_with_difficulty():
+    easy, _ = _shmup(difficulty=1, enemies=[{"name": "Drone", "archetype": "drifter"}, {"name": "Saucer", "archetype": "weaver"},
+                                            {"name": "Hunter", "archetype": "diver"}, {"name": "Cruiser", "archetype": "gunship"}])
+    hard, _ = _shmup(difficulty=5, enemies=[e.model_dump() for e in easy.enemies])
+    from spawnpoint.studio.assemble import _Assembler
+
+    def waves(b):
+        text = _Assembler(b, 2, 0)._shmup_waves()
+        return [(int(p.split(" x ")[0]), p.split(" x ")[1].split(" every")[0]) for p in text.split("; ")]
+    e, h = waves(easy), waves(hard)
+    assert {name for _, name in e} == {"Drone", "Saucer", "Hunter", "Cruiser"}, e
+    assert [n for _, n in e][0] == "Drone", "the easiest type opens"
+    assert sum(c for c, _ in h) > sum(c for c, _ in e)
+
+
+def test_shmup_wire_round_trip_through_a_session(v5, tmp_path, manifest):
+    wire = genres.to_wire(_shmup()[0])
+    out = tmp_path / "shmup"
+    assert create("space shooter", out, ScriptedModel([wire]), web_export=False, manifest=manifest).ok
+    session = load_session(out)
+    assert session["brief"]["genre"] == "shmup" and session["brief"]["boss"] == "Warship"
+    llm = ScriptedModel([{"brief": dict(wire, boss="Dreadnought", difficulty=4), "new_level": False}])
+    assert tweak(out, "harder, bigger boss", llm, web_export=False, manifest=manifest).ok
+    s2 = load_session(out)["brief"]
+    assert s2["boss"] == "Dreadnought" and s2["difficulty"] == 4

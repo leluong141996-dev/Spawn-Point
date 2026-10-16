@@ -360,6 +360,61 @@ def build(theme: str, background: str, palette: str | None, seed: int) -> tuple[
     return sky_img, layers
 
 
+# --- space (side-scrolling shooters) ------------------------------------------------------------
+
+SPACE_H = 272  # art pixels: the height of the shooter field (17 tiles)
+STAR_LAYERS = (("far", 14.0), ("mid", 34.0), ("near", 80.0))  # name, world px/s the layer scrolls left
+
+
+def space(background: str, palette: str | None, seed: int) -> tuple[np.ndarray, list[tuple[str, np.ndarray, float]]]:
+    """A dark gradient sky and three layers of stars that scroll past at different speeds (plus a distant planet)."""
+    rng = random.Random(f"space:{seed}")
+    bg = _rgb(background)
+    pal = palettes.get(palette)
+    top = shade(bg, 0.5)
+    bottom = mix(bg, (60, 30, 110), 0.28) if luminance(bg) < 0.3 else mix(shade(bg, 0.3), (60, 30, 110), 0.3)
+    # Space is one flat dark colour: a gradient reads as a horizon, and a small palette turns it into stripes.
+    sky_img = canvas(SKY_W, SKY_H)
+    sky_img[:, :] = (*top, 255)
+    bands = [top, top]
+    layers = []
+    tints = [(255, 255, 255), (255, 244, 200), (190, 215, 255)]
+    for li, (name, speed) in enumerate(STAR_LAYERS):
+        img = canvas(WIDTH, SPACE_H)
+        n = (170, 80, 26)[li]
+        for _ in range(n):
+            x, y = rng.randrange(WIDTH), rng.randrange(SPACE_H)
+            c = mix(bands[min(y * 2 // SPACE_H, 1)], rng.choice(tints), (0.4, 0.7, 1.0)[li] * rng.choice((0.6, 1.0)))
+            _put(img, x, y, c)
+            if li == 2:  # the near stars are little streaks: they move fast
+                _put(img, x + 1, y, c)
+                _put(img, x + 2, y, mix(c, bands[0], 0.5))
+            elif li == 1 and rng.random() < 0.25:
+                _put(img, x + 1, y, c)
+        if li == 0:  # a planet on the slowest layer, with a shaded edge and a ring
+            cx, cy, r = rng.randrange(120, WIDTH - 120), rng.randrange(60, SPACE_H - 60), 26
+            sky_colors = [tuple(int(v) for v in sky_img[y, 0, :3]) for y in range(0, SKY_H, 8)]
+
+            def pick(c: RGB, *avoid: RGB) -> RGB:  # a palette colour apart from the sky and the other parts
+                if pal is None:
+                    return c
+                gone = {i for i in (pal.index_of(a) for a in (*avoid, *sky_colors)) if i is not None}
+                return pal.nearest(c, exclude=gone)
+            planet = pick(mix(bg, (210, 120, 80), 0.7))
+            dark = pick(shade(planet, 0.6), planet)
+            light = pick(shade(planet, 1.3), planet, dark)
+            _disc(img, cx, cy, r, dark)
+            _disc(img, cx - 3, cy - 3, r - 4, planet)
+            _disc(img, cx - 8, cy - 8, r - 14, light)
+            for t in range(-r - 10, r + 11):  # a thin ring across it
+                _put(img, cx + t, cy + t // 5 + 4, light)
+        layers.append((name, img, speed))
+    if pal:
+        sky_img = pal.snap(sky_img)
+        layers = [(n, pal.snap(i), sp) for n, i, sp in layers]
+    return sky_img, layers
+
+
 FLOOR = 32  # art pixels per side of the repeating top-down floor tile (64 world px)
 
 

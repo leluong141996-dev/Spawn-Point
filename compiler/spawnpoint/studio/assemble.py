@@ -124,6 +124,19 @@ INVADER_HP = {"slow": 18, "normal": 6, "fast": 4}
 INVADER_GOLD = {"slow": 14, "normal": 5, "fast": 4}
 
 
+def _space_bg(bg: str) -> str:
+    """Space is dark whatever the theme: light backgrounds are darkened (the theme still tints it)."""
+    r, g, b = (int(bg[i:i + 2], 16) for i in (1, 3, 5))
+    if (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 < 0.3:
+        return bg
+    return "#%02x%02x%02x" % tuple(round(c * 0.22) for c in (r, g, b))
+
+
+def _default_goal_intro(b: GameBrief) -> str:
+    from .brief import _default_intro
+    return _default_intro(b)
+
+
 def tower_profile(name: str, index: int) -> str:
     words = _words(name)
     for prof, keys in TOWER_WORDS.items():
@@ -229,6 +242,8 @@ class _Assembler:
             return self._styled(self._farm_graph())
         if b.genre == "tower_defense":
             return self._styled(self._td_graph())
+        if b.genre == "shmup":
+            return self._styled(self._shmup_graph())
         lay = self._layout()
         grid: dict[tuple[int, int], str] = {}
         self._player(grid, lay)
@@ -270,6 +285,8 @@ class _Assembler:
             else:  # pixel art gets the classic palette that suits the theme
                 g["settings"]["pixel_palette"] = palettes.THEME_PALETTE[self.b.palette]
                 g["settings"]["scenery"] = self.b.palette
+            if self.b.genre == "shmup":
+                g["settings"]["scenery"] = "space"  # scrolling stars, whatever the art style
         return g
 
     # -- farm --------------------------------------------------------------------------------
@@ -388,6 +405,122 @@ class _Assembler:
                                   "shape": {"type": "circle", "size": [30, 40], "color": "#e8f1ff"},
                                   "components": {"Projectile": {"speed": 140.0, "lifetime": 0.16, "pierce": 99},
                                                  "Hitbox": {"damage": 2, "knockback": 340.0}}}
+
+    # -- shmup: a side-scrolling shooter -----------------------------------------------------
+    def _shmup_graph(self) -> dict:
+        b, pal = self.b, self.pal
+        d = b.difficulty
+        w, h = 24, 14  # a small field, zoomed in: the ships stay big on screen
+        k = SPEED[b.player.speed]
+        # No wall tiles: the level's invisible bounds keep everything inside, and space has no brick borders.
+        cells = {(2, h // 2): "P", (w - 2, h // 2): "L"}
+        if b.goal == "defeat_boss":
+            cells[(w - 3, h // 2)] = "G"  # where the boss comes in
+        rows = ["".join(cells.get((x, y), ".") for x in range(w)) for y in range(h)]
+        self.entities["Player"] = {
+            "shape": {"type": "circle", "size": [22, 22], "color": pal["player"]},
+            "components": {"TopDownMovement": {"max_speed": round(270 * k), "acceleration": 3200.0, "friction": 3600.0},
+                           "PlayerInput": {}, "Health": {"max_health": b.player.health, "invincibility_time": 1.3},
+                           "Hurtbox": {},
+                           "Weapon": {"projectile": "Laser", "fire_rate": 6.0, "spread_deg": 2.0, "muzzle_distance": 20.0},
+                           "ShmupShip": {}}}
+        self.entities["Laser"] = {"body": "area", "team": "player", "juice": "none",
+                                  "shape": {"type": "circle", "size": [8, 8], "color": pal["bullet"]},
+                                  "components": {"Projectile": {"speed": 640.0, "lifetime": 1.2},
+                                                 "Hitbox": {"damage": 1, "knockback": 0.0}}}
+        self._enemy_bullet()
+        legend = {"P": "Player", "L": "Lair"}
+        rules: list[dict] = []
+        for i, e in enumerate(b.enemies[:4]):
+            self._shmup_enemy(e, i)
+            drop = {"drifter": 0.1, "weaver": 0.14, "diver": 0.16, "gunship": 0.3}[e.archetype]
+            rules.append({"on": f"{e.name}.died", "do": [f"add_score({ENEMY_POINTS[e.archetype]})"]})
+            rules.append({"on": f"{e.name}.died", "if": f"randf() < {drop}", "do": ["spawn('PowerUp')"]})
+        self.entities["PowerUp"] = {"body": "area", "juice": "none",
+                                    "shape": {"type": "circle", "size": [18, 18], "color": pal["pickup"]},
+                                    "components": {"Collectible": {"kind": "power", "score": 0},
+                                                   "FlightPath": {"pattern": "straight", "speed": 70.0}}}
+        rules.append({"on": "PowerUp.collected", "do": ["Player.power_up()", "sound('powerup')"]})
+        endless = b.goal != "defeat_boss"
+        self.entities["Lair"] = {"body": "area", "juice": "none", "shape": {"type": "none", "size": [4, 4]},
+                                 "components": {"WaveSpawner": {"waves": self._shmup_waves(), "pause": 3.0,
+                                                                "spread_y": float((h - 4) * TILE), "endless": endless}}}
+        intro = b.intro or _default_goal_intro(b)
+        rules.insert(0, {"on": "Game.ready", "do": [f"message({_q(intro)})"]})
+        if b.goal == "defeat_boss":
+            self._shmup_boss()
+            legend["G"] = "BossGate"
+            rules.append({"on": "Lair.WaveSpawner.cleared",
+                          "do": [f"message({_q('WARNING! The ' + b.boss + ' is coming!')})", "shake(0.5)", "BossGate.start()"]})
+            rules.append({"on": f"{b.boss}.died", "do": ["add_score(250)", f"message({_q('The ' + b.boss + ' is destroyed!')})", "win()"]})
+        elif b.goal == "score_target":
+            rules.append({"on": "GameState.score_changed", "if": f"score >= {self._score_target()}", "do": ["win()"]})
+        else:  # survive
+            n = b.survive_seconds
+            rules.append({"on": "Game.ready", "do": [f"set_var('time_limit', {n})"]})
+            rules.append({"on": "GameState.second_passed", "if": f"event.seconds >= {n}", "do": ["win()"]})
+        self.rules = rules
+        if self.layer >= 2:
+            self._polish()
+        bg = _space_bg(pal["bg"])
+        return {"spawnpoint": 1, "name": b.title or "Untitled", "genre": "topdown",
+                "settings": {"tile_size": TILE, "lives": 2, "seed": self.seed,
+                             "zoom": round(min(960 / (w * TILE), 540 / (h * TILE)), 2), "background": bg,
+                             "tiles": {"solid": {"color": pal["solid"], "top": pal["top"]}}},
+                "entities": self.entities, "level": {"map": rows, "legend": legend}, "rules": self.rules}
+
+    def _shmup_enemy(self, e: EnemyBrief, index: int) -> None:
+        k, d = SPEED[e.speed], self.b.difficulty
+        color = self.pal["enemies"][index % len(self.pal["enemies"])]
+        comps: dict[str, dict] = {}
+        speed = {"drifter": 90, "weaver": 100, "diver": 125, "gunship": 75}[e.archetype] * k
+        comps["TopDownMovement"] = {"max_speed": round(speed), "acceleration": 4000.0, "friction": 2000.0}
+        path = {"drifter": {"pattern": "straight"},
+                "weaver": {"pattern": "wave", "amplitude": 70.0, "frequency": round(0.8 + 0.1 * index, 2)},
+                "diver": {"pattern": "dive"},
+                "gunship": {"pattern": "hover", "hover_at": 0.74, "amplitude": 90.0, "frequency": 0.4,
+                            "aim_at_player": True}}[e.archetype]
+        comps["FlightPath"] = path
+        if e.archetype == "gunship":
+            comps["Weapon"] = {"projectile": "EnemyBullet", "fire_rate": round(0.6 + 0.2 * d * k, 2), "spread_deg": 4.0,
+                               "muzzle_distance": 22.0, "auto_fire": True}
+        comps.update({"Health": {"max_health": e.health, "invincibility_time": 0.05}, "Hurtbox": {"size_scale": 1.0},
+                      "Hitbox": {"damage": 1, "knockback": 160.0}})
+        self.entities[e.name] = {"team": "enemy", "shape": {"type": "rect", "size": [28, 20], "color": color},
+                                 "components": comps}
+
+    def _shmup_boss(self) -> None:
+        b, d = self.b, self.b.difficulty
+        self.entities[b.boss] = {
+            "team": "enemy", "shape": {"type": "rect", "size": [90, 56], "color": self.pal["enemies"][-1]},
+            "components": {"TopDownMovement": {"max_speed": 80, "acceleration": 1500.0, "friction": 1500.0},
+                           "FlightPath": {"pattern": "hover", "hover_at": 0.78, "amplitude": 150.0, "frequency": 0.3,
+                                          "aim_at_player": True},
+                           "Weapon": {"projectile": "EnemyBullet", "fire_rate": round(1.0 + 0.2 * d, 2), "projectile_count": 3,
+                                      "spread_deg": 34.0, "muzzle_distance": 50.0, "auto_fire": True},
+                           "Health": {"max_health": 40 + 14 * d, "invincibility_time": 0.03}, "Hurtbox": {"size_scale": 1.0},
+                           "Hitbox": {"damage": 1, "knockback": 200.0}, "HealthBar": {"always": True, "width": 90.0}}}
+        self.entities["BossGate"] = {"body": "area", "juice": "none", "shape": {"type": "none", "size": [4, 4]},
+                                     "components": {"WaveSpawner": {"waves": f"1 x {b.boss} every 1", "pause": 3.0,
+                                                                    "autostart": False}}}
+
+    def _shmup_waves(self) -> str:
+        """Easy enemies first, new types joining as the waves go on; gunships come in ones and twos."""
+        b = self.b
+        n = {"short": 5, "medium": 7, "long": 9}[b.length]
+        k = 0.75 + 0.15 * b.difficulty
+        order = sorted(b.enemies[:4], key=lambda e: ("drifter", "weaver", "diver", "gunship").index(e.archetype))
+        out = []
+        for i in range(n):
+            pool = order[: min(len(order), 1 + i // 2)]
+            # even waves bring in the newest type, odd ones go back to older ones
+            e = pool[-1] if i % 2 == 0 else pool[(i // 2 - 1) % len(pool)]
+            size = (4 + 1.0 * i) * k * max(0.5, e.count / 3)
+            if e.archetype == "gunship":
+                size = (2 + i // 2) * max(0.7, e.count / 3)
+            every = {"drifter": 0.85, "weaver": 0.75, "diver": 1.0, "gunship": 2.2}[e.archetype] * max(0.6, 1 - 0.05 * i)
+            out.append(f"{max(2, round(size))} x {e.name} every {round(every, 2)}")
+        return "; ".join(out)
 
     # -- tower defense -----------------------------------------------------------------------
     def _td_graph(self) -> dict:
@@ -888,6 +1021,8 @@ class _Assembler:
                                         "kind": kind, "color": color, "seed": self.seed}}
             else:
                 gen: dict[str, Any] = {"kind": kind, "color": color, "seed": self.seed}
+                if self.b.genre == "shmup" and name == self.b.boss:
+                    gen["size"] = 3  # the same art, three times bigger
                 if name == "Player":
                     gen["features"] = features_for(self.b.player.character) + (
                         ["sword"] if "sword" in self.b.player.abilities else [])
@@ -903,6 +1038,9 @@ FLYER_WORDS = {"bat", "bird", "crow", "ghost", "spirit", "wasp", "bee", "fly", "
 ROBOT_WORDS = {"robot", "bot", "droid", "mech", "drone", "android", "cyborg", "machine"}
 BUG_WORDS = {"bug", "beetle", "ant", "spider", "scorpion", "roach", "crab", "insect"}
 HOPPER_WORDS = {"frog", "toad", "bunny", "rabbit", "kangaroo"}
+SHIP_WORDS = {"ship", "fighter", "jet", "plane", "bomber", "gunship", "warship", "cruiser", "destroyer", "battleship",
+              "raider", "falcon", "viper", "interceptor", "starfighter", "rocket", "dreadnought", "carrier"}
+UFO_WORDS = {"ufo", "saucer", "alien", "drone", "probe", "pod", "orb", "mine", "scout", "invader"}
 PICKUP_KINDS = (({"coin", "gold", "money", "cash", "token"}, "coin"), ({"star", "starlight"}, "star"),
                 ({"gem", "crystal", "diamond", "jewel", "ruby", "emerald", "shard", "sapphire"}, "gem"),
                 ({"heart", "life", "health"}, "heart"))
@@ -919,6 +1057,11 @@ def _words(name: str) -> set[str]:
 def sprite_kind(name: str, ent: dict, archetype: str | None, brief: GameBrief, platformer: bool) -> str:
     words = _words(name)
     comps = ent.get("components", {})
+    if brief.genre == "shmup":
+        if name == "Player" or name == brief.boss or archetype == "gunship" or words & SHIP_WORDS:
+            return "ship" if not words & UFO_WORDS else "ufo"
+        if words & UFO_WORDS or archetype in ("drifter", "weaver", "diver"):
+            return "ufo"
     if name == "Player":
         return "hero"
     if name in ("Bullet", "EnemyBullet", "Gust"):

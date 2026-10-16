@@ -57,6 +57,9 @@ func _drive(frame: int) -> void:
 	if farmer:
 		_farm(p, farmer, frame)
 		return
+	if SP.component(p, &"ShmupShip"):
+		_shmup(p)
+		return
 	var board := SP.component(p, &"BubbleBoard") as BubbleBoardComponent
 	if board:
 		if frame % 42 == 0:
@@ -193,3 +196,38 @@ func _topdown(p: CharacterBody2D, frame: int) -> void:
 		Input.action_press(&"dash")
 	elif frame % 120 == 64:
 		Input.action_release(&"dash")
+
+
+## Shooter autopilot: line up with the nearest enemy ahead (or a power-up, which comes first), slip out of the
+## way of shots that are close, and stay in the left part of the field.
+func _shmup(p: CharacterBody2D) -> void:
+	var pos := p.global_position
+	var target_y := pos.y
+	var nearest := 1e9
+	var dodge := 0.0
+	for e in p.get_tree().get_nodes_in_group(&"team_enemy"):
+		var d := (e as Node2D).global_position - pos
+		if SP.component(e, &"Projectile"):
+			if d.x > -10.0 and d.x < 130.0 and absf(d.y) < 34.0:
+				dodge += signf(-d.y) if absf(d.y) > 2.0 else 1.0
+		elif d.x > 0.0 and d.x < nearest:
+			nearest = d.x
+			target_y = (e as Node2D).global_position.y
+	for e in p.get_tree().get_nodes_in_group(&"team_neutral"):
+		var d := (e as Node2D).global_position - pos
+		if SP.component(e, &"Collectible") and d.x > 0.0 and d.x < 420.0:
+			target_y = (e as Node2D).global_position.y
+			nearest = 0.0
+	var dy := target_y - pos.y
+	if dodge != 0.0:
+		dy = dodge * 100.0
+	for a in [&"move_left", &"move_right", &"move_up", &"move_down"]:
+		Input.action_release(a)
+	if dy < -10.0:
+		Input.action_press(&"move_up")
+	elif dy > 10.0:
+		Input.action_press(&"move_down")
+	if pos.x < 110.0:
+		Input.action_press(&"move_right")
+	elif pos.x > 240.0:
+		Input.action_press(&"move_left")

@@ -128,9 +128,19 @@ class _Analyzer:
     def _scenery(self, background: str) -> dict | None:
         """Pixel-art backdrop images (written next to the sprites) and how the level should lay them out."""
         s = self.g.settings
+        from .sprites import scenery as sc
+
+        if s.scenery == "space":  # scrolling stars for shooters, in any art style
+            sky, stars = sc.space(background, s.pixel_palette if s.art_style == "pixel" else None, s.seed)
+            self.scenery_images["scenery_sky"] = sc.to_image(sky)
+            layers = []
+            for name, image, speed in stars:
+                self.scenery_images[f"scenery_stars_{name}"] = sc.to_image(image)
+                layers.append({"name": name, "texture": f"res://sprites/scenery_stars_{name}.png", "speed": speed,
+                               "height": int(image.shape[0])})
+            return {"sky": "res://sprites/scenery_sky.png", "stars": layers, "pixel": 2, "width": sc.WIDTH}
         if s.art_style != "pixel" or s.scenery == "flat" or s.tile_style != "pixel":
             return None
-        from .sprites import scenery as sc
 
         theme = s.scenery if s.scenery in sc.THEMES else "auto"
         if self.g.genre == "topdown":

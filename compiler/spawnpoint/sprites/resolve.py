@@ -44,7 +44,9 @@ def resolve(name: str, ent: Entity, base_dir: Path | None, default_color: str,
     gen = ref.generate
     if gen.kind not in KINDS:
         raise SpriteError(f"unknown sprite kind '{gen.kind}'")
-    return _generate(style, name, gen.kind, gen.color or default_color, gen.features, gen.seed, palette, fine)
+    sprite = _generate(style, name, gen.kind, gen.color or default_color, gen.features, gen.seed, palette, fine)
+    sprite.scale *= gen.size  # a boss is the same art, drawn bigger
+    return sprite
 
 
 def _generate(style: str, name: str, kind: str, color: str, features, seed: int, palette: str | None = None,

@@ -614,8 +614,26 @@ func _build_pixel_scenery(root: Node2D, holder: Node2D, plan: Dictionary, bounds
 	sky.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	sky.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_own(sky_layer, sky, root)
-	var ground := bounds.end.y
 	var width := float(sc.width) * pix
+	if sc.has("stars"):  # a shooter: the stars scroll left by themselves while the camera stays put
+		for layer: Dictionary in sc.stars:
+			var star_px := Parallax2D.new()
+			star_px.name = "Stars" + String(layer.name).capitalize()
+			star_px.scroll_scale = Vector2.ZERO
+			star_px.autoscroll = Vector2(-float(layer.speed), 0)
+			star_px.repeat_size = Vector2(width, 0)
+			star_px.repeat_times = 3
+			_own(holder, star_px, root)
+			var stars := Sprite2D.new()
+			stars.name = "Image"
+			stars.texture = load(String(layer.texture)) as Texture2D
+			stars.centered = false
+			stars.scale = Vector2(pix, pix)
+			stars.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			stars.position = Vector2(0, bounds.position.y)
+			_own(star_px, stars, root)
+		return
+	var ground := bounds.end.y
 	for layer: Dictionary in sc.layers:
 		var px := Parallax2D.new()
 		px.name = String(layer.name).capitalize()

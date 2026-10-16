@@ -139,7 +139,7 @@ def normalize(brief: GameBrief) -> tuple[GameBrief, list[str]]:
     def unique(name: str, fallback: str, what: str) -> str:
         fixed = pascal_singular(name, fallback)
         if fixed in taken:
-            fixed = fixed + ("Foe" if what == "enemy" else "Item")
+            fixed = fixed + {"enemy": "Foe", "boss": "Boss"}.get(what, "Item")
         base, i = fixed, 2
         while fixed in taken:
             fixed, i = f"{base}{i}", i + 1
@@ -174,9 +174,7 @@ def normalize(brief: GameBrief) -> tuple[GameBrief, list[str]]:
             b.enemies = [EnemyBrief(name="Drone", archetype="drifter", count=6), EnemyBrief(name="Saucer", archetype="weaver", count=4)]
             notes.append("a shooter needs enemies; added Drones and Saucers")
         if b.goal == "defeat_boss":
-            b.boss = unique(b.boss or "Warship", "Warship", "boss")
-        elif b.boss:
-            b.boss = unique(b.boss, "Warship", "boss")
+            b.boss = b.boss or "Warship"
     elif b.genre == "farm":
         if b.goal != "score_target":
             notes.append(f"farms are won by earning money before sunset; goal '{b.goal}' -> 'score_target'")
@@ -251,6 +249,8 @@ def normalize(brief: GameBrief) -> tuple[GameBrief, list[str]]:
         e.name = unique(e.name, "Enemy", "enemy")
         enemies.append(e)
     b.enemies = enemies
+    if b.genre == "shmup" and b.boss:
+        b.boss = unique(b.boss, "Warship", "boss")  # after the enemies, so a clash renames the boss
     if b.genre == "tower_defense":
         b.towers = [unique(t, "ArcherTower", "tower") for t in b.towers]
 
@@ -305,5 +305,5 @@ def _default_intro(b: GameBrief) -> str:
         "rescue": f"Find the key and save {b.rescue_target}!",
         "clear_board": f"Pop every {c}!",
         "defend": "Build towers and hold the castle!",
-        "defeat_boss": f"Fight through the waves and destroy the {b.boss or 'boss'}!",
+        "defeat_boss": f"Destroy the {b.boss or 'boss'}!",
     }[b.goal]
