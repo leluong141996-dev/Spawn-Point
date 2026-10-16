@@ -166,6 +166,8 @@ anything that fights or can be hurt; heroes breathe and blink while they stand.
 | `scenery` | `auto`, `flat`, or a theme (`night`, `forest`, `desert`, `neon`, `candy`, `ocean`, `lava`, `snow`) | A banded sky with sun or moon and stars, parallax clouds, mountains, hills and themed trees, cacti, skylines or kelp (a themed floor for top-down games). `auto` picks one that fits the background colour, `flat` keeps the plain hills. |
 | `pixel_size` | `2` (default), `1` | `2` is chunky (NES-like); `1` draws the same art at twice the resolution (SNES-like) at the same on-screen size. |
 
+<p align="center"><img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/pixel-size.png" width="92%" alt="The same game with pixel_size 2 (chunky) and pixel_size 1 (fine)"><br><sub>The same game, same moment: <code>pixel_size: 2</code> (left) and <code>pixel_size: 1</code> (right).</sub></p>
+
 Ground tiles are drawn for their neighbours (grass on top, outlined exposed edges, rounded and notched corners,
 varied interiors, capped one-way planks), and pixel-art levels get pixel effects: skidding dust, hit sparks and a
 screen shake in whole pixels.
