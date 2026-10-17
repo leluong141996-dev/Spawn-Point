@@ -15,14 +15,15 @@
   <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/dino-eggs.gif" width="48%" alt="Dino Eggs: a bubble shooter with dinosaur eggs">
   <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/night-survivor.gif" width="48%" alt="Night Survivor: auto-fire, gems, level-ups">
   <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/pixel-hopper.gif" width="48%" alt="Pixel Hopper: a Mario-style platformer">
+  <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/star-run.gif" width="48%" alt="Star Run: a side-scrolling shooter with power-ups and a boss">
 </p>
-<p align="center"><sub>Six of the demo games, each one a small JSON graph in <code>examples/</code> built from the
+<p align="center"><sub>Seven of the demo games, each one a small JSON graph in <code>examples/</code> built from the
 same component library: generated cartoon or pixel art, collision traced from the sprites, juice on by default.
 Recorded with <code>spawnpoint gif</code> (autopilot).</sub></p>
 
 <p align="center"><b><a href="https://leluong141996-dev.github.io/Spawn-Point/">▶ Play the demos in your browser</a></b>: a Mario-style platformer, a cartoon
 knight with a sword, tower defense, a ninja rescue, a dinosaur-egg bubble shooter, a survivor with level-ups, a farming
-game and an arena shooter. No install needed, and
+game, an arena shooter and a side-scrolling space shooter. No install needed, and
 they work on phones too (touch controls).</p>
 
 Spawn Point is an open-source, autonomous game studio that runs on your own machine. Instead of asking an LLM to type
@@ -131,11 +132,7 @@ Only what you asked for changes, and the level layout is kept. Prompts can be in
 **The model.** [SpawnPoint-Coder-7B](https://huggingface.co/smoky1496/SpawnPoint-Coder-7B-AWQ) is a 7B model
 fine-tuned to generate Godot 4 games through this pipeline: it writes the game design, tweaks and entity
 edits as strict JSON, and the compiler turns that into Godot scenes and GDScript. It runs on a single 12 GB
-GPU (AWQ 4-bit). v4 also designs **farming games, tower defense and sword fighting**, and picks a **cartoon
-(non-pixel) art style** when you ask for one; v3 added bubble shooters, rescue missions and survivor games with
-level-ups. The downloadable AWQ build gets 75% of a sealed set of 12 human-written prompts for the new kinds fully
-right (v3: 33%) and 90% of 30 human-written game ideas in English and Vietnamese (same as v3); the GGUF Q4_K_M build
-scores 87% on those 30. It is tuned for the 2D game kinds Spawn Point builds; other genres are no better than a general 7B coder. `spawnpoint llm up` downloads and serves it: the AWQ build on vLLM when
+GPU (AWQ 4-bit). v5 adds **side-scrolling shooters** (flight patterns, power-ups, a boss), reads **Vietnamese prompts directly** and writes a small per-genre format instead of one big form. The downloadable AWQ build gets 75% of a sealed set of 16 human-written prompts for shooters and the v4 fixes fully right, and 77% of 30 human-written game ideas in English and Vietnamese (v4 scored a bit higher on its older sets; the model card lists every number and where v5 is behind). The GGUF Q4_K_M build scores 73% on those 30. Older models still work with `SPAWNPOINT_BRIEF_FORMAT=v4`. It is tuned for the 2D game kinds Spawn Point builds; other genres are no better than a general 7B coder. `spawnpoint llm up` downloads and serves it: the AWQ build on vLLM when
 Docker and an NVIDIA GPU are present, otherwise the [GGUF build](https://huggingface.co/smoky1496/SpawnPoint-Coder-7B-GGUF)
 (Q4_K_M, ~4.7 GB) in Ollama. Force one with `--backend vllm|ollama`.
 

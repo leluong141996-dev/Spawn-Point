@@ -163,6 +163,6 @@ def tweak_messages_v5(brief: dict, request: str) -> list[dict]:
 
 
 def brief_format() -> str:
-    """"v4": one GameBrief form (what the released model was trained on); "v5": a schema per genre.
-    SPAWNPOINT_BRIEF_FORMAT=v5 switches; the default changes when the v5 model is released."""
-    return "v5" if os.environ.get("SPAWNPOINT_BRIEF_FORMAT", "v4").lower() == "v5" else "v4"
+    """"v5": the model writes one small schema per genre (the SpawnPoint-Coder v5 models and later);
+    "v4": one big GameBrief form, for the v1-v4 models. SPAWNPOINT_BRIEF_FORMAT=v4 switches back."""
+    return "v4" if os.environ.get("SPAWNPOINT_BRIEF_FORMAT", "v5").lower() == "v4" else "v5"

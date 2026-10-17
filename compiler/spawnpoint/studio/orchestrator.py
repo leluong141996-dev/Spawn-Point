@@ -66,10 +66,10 @@ LayerCallback = Callable[[LayerReport], None]
 def design_brief(prompt: str, llm: ChatModel) -> tuple[GameBrief, list[str], str]:
     """Returns (normalized brief, notes, the English prompt actually used)."""
     english = prompt
-    if needs_translation(prompt):
+    v5 = brief_format() == "v5"
+    if needs_translation(prompt) and not v5:  # the v5 model reads Vietnamese itself
         english = llm.chat_json(translate_messages(prompt), TRANSLATE_SCHEMA, "Translation",
                                 temperature=0.1, max_tokens=300).get("english") or prompt
-    v5 = brief_format() == "v5"
     raw = llm.chat_json(brief_messages_v5(english) if v5 else brief_messages(english),
                         genres.wire_schema() if v5 else json_schema(), "GameBrief", temperature=0.4)
     try:
@@ -278,7 +278,7 @@ def _tweak(out_dir, request, llm, web_export, on_layer, manifest, recorder: Reco
     old = GameBrief.model_validate(session["brief"])
     t0 = time.perf_counter()
     english = request
-    if needs_translation(request):
+    if needs_translation(request) and brief_format() != "v5":  # the v5 model reads Vietnamese itself
         english = llm.chat_json(translate_messages(request), TRANSLATE_SCHEMA, "Translation",
                                 temperature=0.1, max_tokens=300).get("english") or request
     messages = tweak_messages_v5(genres.to_wire(old), english) if brief_format() == "v5" else tweak_messages(old.model_dump(), english)

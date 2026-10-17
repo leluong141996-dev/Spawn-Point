@@ -9,6 +9,13 @@ from spawnpoint import manifest as manifest_mod
 EXAMPLES = Path(__file__).resolve().parents[2] / "examples"
 
 
+@pytest.fixture(autouse=True)
+def legacy_brief_format(monkeypatch):
+    """Most studio tests script the v4 conversation (one GameBrief form, a translation call first); the v5 format
+    has its own tests (test_genres.py) and the live-model tests, which switch it back on."""
+    monkeypatch.setenv("SPAWNPOINT_BRIEF_FORMAT", "v4")
+
+
 @pytest.fixture(scope="session")
 def manifest():
     return manifest_mod.load()

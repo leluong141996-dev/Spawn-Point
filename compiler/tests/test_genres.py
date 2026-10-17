@@ -83,20 +83,23 @@ def test_v5_prompts_are_much_shorter():
     assert len(BRIEF_SYSTEM_V5) < len(BRIEF_SYSTEM)
 
 
-def test_the_format_defaults_to_v4_until_the_v5_model_ships(monkeypatch):
+def test_the_format_defaults_to_v5_and_v4_stays_available(monkeypatch):
     monkeypatch.delenv("SPAWNPOINT_BRIEF_FORMAT", raising=False)
+    assert brief_format() == "v5"
+    monkeypatch.setenv("SPAWNPOINT_BRIEF_FORMAT", "v4")
     assert brief_format() == "v4"
-    monkeypatch.setenv("SPAWNPOINT_BRIEF_FORMAT", "v5")
+    monkeypatch.setenv("SPAWNPOINT_BRIEF_FORMAT", "V5")
     assert brief_format() == "v5"
 
 
 def test_design_brief_in_v5(v5):
     wire = genres.to_wire(normalize(GameBrief(**BRIEFS["farm"]))[0])
-    llm = ScriptedModel([{"english": "a bunny farm"}, wire])
-    brief, notes, english = design_brief("trang trại thỏ", llm)
+    llm = ScriptedModel([wire])
+    brief, notes, english = design_brief("trang trại thỏ", llm)  # Vietnamese goes straight to the designer
+    assert english == "trang trại thỏ" and len(llm.seen) == 1
     assert brief.genre == "farm" and brief.crops == ["Carrot", "Corn"] and brief.score_target == 300
-    system = llm.seen[1][0]["content"]
-    assert system == BRIEF_SYSTEM_V5 and len(llm.seen[1]) == 2  # a system line and the idea: no example turns
+    system = llm.seen[0][0]["content"]
+    assert system == BRIEF_SYSTEM_V5 and len(llm.seen[0]) == 2  # a system line and the idea: no example turns
 
 
 def test_create_and_tweak_in_v5(v5, tmp_path, manifest):

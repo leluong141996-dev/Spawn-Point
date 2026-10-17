@@ -20,6 +20,11 @@ def _llm_up() -> bool:
 pytestmark = [pytest.mark.llm, pytest.mark.skipif(not _llm_up(), reason="LLM server not running")]
 
 
+@pytest.fixture(autouse=True)
+def current_brief_format(monkeypatch):
+    monkeypatch.delenv("SPAWNPOINT_BRIEF_FORMAT", raising=False)  # the released model's own format
+
+
 def test_create_then_tweak_vietnamese(tmp_path, manifest):
     out = tmp_path / "game"
     llm = OpenAICompatible()

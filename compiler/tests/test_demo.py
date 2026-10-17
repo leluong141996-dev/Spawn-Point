@@ -18,8 +18,8 @@ SHELL = ('<script src="index.js"></script><script>const GODOT_CONFIG = {"executa
 
 def test_discover_lists_the_showcase_in_order():
     games = demo.discover()
-    assert [g.slug for g in games] == ["pixel-hopper", "ninja-rescue", "knight-quest", "castle-defense", "dino-eggs",
-                                         "night-survivor", "sunny-farm", "pixel-arena"]
+    assert [g.slug for g in games] == ["pixel-hopper", "ninja-rescue", "knight-quest", "castle-defense", "star-run",
+                                         "dino-eggs", "night-survivor", "sunny-farm", "pixel-arena"]
     assert all(g.title and g.blurb and g.controls.isascii() for g in games)
 
 

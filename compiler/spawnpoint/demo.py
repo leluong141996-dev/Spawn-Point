@@ -42,6 +42,10 @@ SHOWCASE = [
      "Goblins, orcs and wolves march on the castle: build archer and cannon towers beside the road and hold all seven waves.",
      "Build: click a pad | Tower: 1 archer / 2 cannon | Restart: R",
      {"pad": None, "buttons": [["2", "Digit2"], ["1", "Digit1"]], "tap": "Tap a pad to build; 1 / 2 picks the tower"}),
+    ("star_run.json", "side-scrolling shooter",
+     "Fly the Falcon through drones, saucers and hunters, grab power-ups for more guns, and bring down the Warship.",
+     "Move: arrows / WASD | Fire: automatic | Restart: R",
+     {"pad": "dpad", "buttons": [], "tap": "Move with the stick - the ship fires on its own"}),
     ("dino_eggs.json", "bubble shooter",
      "The classic egg shooter: bank shots off the walls, pop three dinosaur eggs of a colour, drop whole clusters.",
      "Aim: mouse or Left / Right | Shoot: click / Space / X | Restart: R",
@@ -201,7 +205,7 @@ def index_html(games: list[Game]) -> str:
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Spawn Point demos</title>
-<meta name="description" content="Eight Godot 4 games built with Spawn Point: platformers, a sword fighter, tower defense, a bubble shooter, a survivor, a farm. Play in your browser.">
+<meta name="description" content="Nine Godot 4 games built with Spawn Point: platformers, a sword fighter, tower defense, a space shooter, a bubble shooter, a survivor, a farm. Play in your browser.">
 <meta property="og:title" content="Spawn Point demos: play Godot games in your browser">
 <meta property="og:description" content="A Mario-style platformer, a ninja rescue, a dinosaur-egg shooter, a survivor and an arena, all built from Spawn Point components.">
 <style>
@@ -240,7 +244,7 @@ footer {{ color:var(--muted); font-size:13px; padding-bottom:40px }}
 <body>
 <header>
   <h1>Spawn<span>Point</span> demos</h1>
-  <p class="lede">Eight games, eight ways to play, all built by Spawn Point from small JSON game graphs and a
+  <p class="lede">Nine games, nine ways to play, all built by Spawn Point from small JSON game graphs and a
   library of tested Godot 4 components: game feel, cartoon or pixel art and collisions come for free. Click a card to play in
   your browser, no install needed.</p>
   <div class="links">

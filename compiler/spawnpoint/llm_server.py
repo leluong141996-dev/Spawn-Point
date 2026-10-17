@@ -16,7 +16,10 @@ from pathlib import Path
 
 NAME = os.environ.get("SPAWNPOINT_LLM_CONTAINER", "spawnpoint-llm")
 IMAGE = os.environ.get("VLLM_IMAGE", "vllm/vllm-openai:v0.10.2")  # CUDA 12.8: NVIDIA driver >= 570
-MODEL = os.environ.get("SPAWNPOINT_MODEL", "smoky1496/SpawnPoint-Coder-7B-AWQ")
+DEFAULT_MODEL = "smoky1496/SpawnPoint-Coder-7B-AWQ"
+MODEL = os.environ.get("SPAWNPOINT_MODEL", DEFAULT_MODEL)
+# This Spawn Point version speaks the v5 per-genre format: pin the weights that do, whatever the repo's main becomes.
+REVISION = os.environ.get("SPAWNPOINT_MODEL_REVISION") or ("v5-release" if MODEL == DEFAULT_MODEL else "")
 SERVED = "SpawnPoint-Coder-7B"
 OLLAMA_MODEL = os.environ.get("SPAWNPOINT_OLLAMA_MODEL", "hf.co/smoky1496/SpawnPoint-Coder-7B-GGUF:Q4_K_M")
 OLLAMA_PORT = 11434
@@ -86,7 +89,7 @@ def up(port: int = 8000, max_len: int = 16384, say=print, backend: str = "auto")
         _docker("run", "-d", "--name", NAME, "--gpus", "all", "-p", f"{port}:8000", "--ipc=host",
                 "-u", f"{os.getuid()}:{os.getgid()}", "-e", f"USER={user}", "-e", f"LOGNAME={user}",
                 "-e", "HOME=/tmp", "-e", "HF_HOME=/hf", "-v", f"{hf}:/hf", IMAGE, "--model", MODEL,
-                "--served-model-name", SERVED, "--max-model-len", str(max_len), "--gpu-memory-utilization", "0.85")
+                *(["--revision", REVISION] if REVISION else []), "--served-model-name", SERVED, "--max-model-len", str(max_len), "--gpu-memory-utilization", "0.85")
     say(f"Starting {SERVED} on :{port} (first start downloads ~5.6 GB) ...")
     while not ready(port):
         if not _running():

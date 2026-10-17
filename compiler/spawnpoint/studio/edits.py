@@ -74,7 +74,35 @@ def current_graph(project: Path) -> dict:
     return json.loads((project / "spawnpoint.json").read_text())
 
 
+def _param_compact(p, value) -> str:
+    """name=value [min..max]: the current value and the allowed range in one go."""
+    rng = f" [{p.min:g}..{p.max:g}]" if p.min is not None else (" (" + "|".join(p.choices) + ")" if p.choices else "")
+    return f"{p.name}={json.dumps(value)}{rng}"
+
+
+def _entity_view_compact(graph: dict, entity: str, manifest: Manifest) -> str:
+    """The v5 view: about half the length of the v4 one (each parameter once, no types, no component docs)."""
+    ent = graph["entities"][entity]
+    lines = [f"Entity {entity}: body {ent.get('body', 'character')}, team {ent.get('team', 'auto')}"]
+    for cname, params in ent.get("components", {}).items():
+        comp = manifest.get(cname)
+        if comp is None:
+            continue
+        lines.append(f"- {cname}: " + ", ".join(_param_compact(p, params.get(p.name, p.default)) for p in comp.params.values()))
+    addable = [c for c in ADDABLE if c not in ent.get("components", {}) and manifest.get(c)]
+    lines.append("Addable (defaults):")
+    for cname in addable:
+        comp = manifest.get(cname)
+        lines.append(f"- {cname}: " + ", ".join(_param_compact(p, p.default) for p in comp.params.values()))
+    lines.append("Other entities: " + ", ".join(n for n in graph["entities"] if n != entity))
+    return "\n".join(lines)
+
+
 def _entity_view(graph: dict, entity: str, manifest: Manifest) -> str:
+    from .prompts import brief_format
+
+    if brief_format() == "v5":
+        return _entity_view_compact(graph, entity, manifest)
     ent = graph["entities"][entity]
     lines = [f"Entity {entity}: body {ent.get('body', 'character')}, team {ent.get('team', 'auto')}"]
     for cname, params in ent.get("components", {}).items():
