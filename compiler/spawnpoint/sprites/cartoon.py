@@ -128,6 +128,13 @@ class Painter:
         d = ImageDraw.Draw(self.detail if top else self.img)
         d.line([(x * SS, y * SS) for x, y in pts], fill=(*color, 255), width=max(1, round(width * SS)), joint="curve")
 
+    def hole(self, cx, cy, rx, ry) -> None:
+        """Cut a see-through ellipse out of everything drawn so far (the outline then rings it)."""
+        box = self._box(cx - rx, cy - ry, cx + rx, cy + ry)
+        m = self._mask(lambda d: d.ellipse(box, fill=255))
+        for layer in (self.img, self.detail):
+            layer.putalpha(ImageChops.subtract(layer.getchannel("A"), m))
+
     def shine(self, cx, cy, rx, ry, alpha=150) -> None:
         layer = Image.new("RGBA", self.img.size, (0, 0, 0, 0))
         ImageDraw.Draw(layer).ellipse(self._box(cx - rx, cy - ry, cx + rx, cy + ry), fill=(255, 255, 255, alpha))
@@ -425,11 +432,33 @@ def draw_orb(P: Painter, p: Pose) -> None:
 
 
 def draw_door(P: Painter, p: Pose) -> None:
+    """Twin of items.paint_door: an arched door with iron bands and a lock, or a barred cage."""
+    c = P.p
     w, h = P.w, P.h
-    P.rrect(2, 2, w - 2, h - 1, 6, (150, 96, 58))
-    for y in range(12, h - 8, 26):
-        P.rrect(6, y, w - 6, y + 18, 3, (176, 118, 72), top=True)
-    P.ellipse(w - 9, h / 2, 2.2, 2.2, (255, 214, 90), shade=False, top=True)
+    iron, gold = _hexrgb(items.IRON), _hexrgb(items.GOLD)
+    barred = "bars" in p.feats
+    frame = iron if barred else c.base
+    P.ellipse(w / 2, w / 2 + 1, w / 2 - 1.5, w / 2 - 1, frame)
+    P.rrect(1.5, w / 2, w - 1.5, h - 1, 2, frame)
+    if barred:
+        P.rrect(5, w / 2, w - 5, h - 6, 2, EYE, shade=False, top=True)
+        for x in range(6, w - 4, 7):
+            P.rrect(x, 6, x + 3, h - 3, 1.5, c.base, top=True)
+        for y in (28, h / 2 + 10, h - 24):
+            P.rrect(1.5, y, w - 1.5, y + 4, 1.5, _shade(c.base, 0.8), top=True)
+    else:
+        for x in (w * 0.3, w * 0.5, w * 0.7):
+            P.line([(x, 6), (x, h - 4)], 0.9, _shade(c.base, 0.7))
+        for y in (36, h - 44):
+            P.rrect(1.5, y, w - 1.5, y + 6, 1.5, iron, top=True)
+            for x in (6, w - 6):
+                P.ellipse(x, y + 3, 1.3, 1.3, _hexrgb(items.STEEL), shade=False, top=True)
+    ly = h / 2 - 12
+    P.rrect(w - 17, ly, w - 5, ly + 20, 2, gold, top=True)
+    P.ellipse(w - 11, ly + 7, 2.2, 2.2, EYE, shade=False, top=True)
+    P.poly([(w - 12.2, ly + 8), (w - 9.8, ly + 8), (w - 9.4, ly + 14), (w - 12.6, ly + 14)], EYE, shade=False, top=True)
+    if barred:
+        P.line([(w - 15, ly), (w - 15, ly - 5), (w - 7, ly - 5), (w - 7, ly)], 1.6, _hexrgb(items.STEEL))
 
 
 def draw_exit(P: Painter, p: Pose) -> None:
@@ -519,7 +548,7 @@ def draw_key(P: Painter, p: Pose) -> None:
     c = P.p
     y = (0, 0, 2, 2)[p.i % 4]
     P.ellipse(10, 12 + y, 9, 9, c.base, shine=True)
-    P.ellipse(10, 12 + y, 3.4, 3.4, (0, 0, 0), shade=False, top=True)
+    P.hole(10, 12 + y, 4.2, 4.2)
     P.rrect(17, 11 + y, 31, 15 + y, 1.5, c.base)
     P.rrect(24, 15 + y, 27, 21 + y, 1, c.base)
     P.rrect(29, 15 + y, 31, 19 + y, 1, c.base)

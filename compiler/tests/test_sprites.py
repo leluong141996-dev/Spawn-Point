@@ -800,6 +800,8 @@ GOLDEN_CHIBI = {
     ("tree", "PineTree", True): "945b135084085ba9",
     ("bush", "BerryBush", False): "437766a715c27d3e",
     ("rock", "MossyRock", True): "875970aa5edddefe",
+    ("door", "Door", True): "3024a9e55a7817f3",
+    ("door", "Cage", False): "bbf622b00ab915a9",
 }
 
 
@@ -819,3 +821,17 @@ def test_gallery_shows_every_kind(style):
     assert {kind for _, kind, _ in CAST} == set(KINDS)
     img = gallery(style, columns=4, cast=[c for c in CAST if c[1] in ("hero", "dragon", "key", "tree")])
     assert img.size[0] > 0 and img.getbbox()
+
+
+def test_cartoon_keyhole_is_see_through():
+    from spawnpoint.sprites.cartoon import generate_cartoon
+    s = generate_cartoon("GoldKey", "key", "#ffcc40", None, 1)
+    f = s.frame(*s.animations["idle"].frames[0])
+    assert f[12, 10, 3] < 60  # the middle of the ring's hole is see-through
+    assert f[12, 3, 3] == 255  # the ring itself
+
+
+def test_cages_are_barred_doors():
+    assert features_for("Cage") == ["bars"] and features_for("Door") == []
+    door, cage = (generate(n, "door", "#8a8f98", None, 1, fine=True).sheet.tobytes() for n in ("Door", "Cage"))
+    assert door != cage

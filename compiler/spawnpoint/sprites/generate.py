@@ -163,7 +163,7 @@ FEATURE_WORDS: dict[str, tuple[str, ...]] = {
     "ghost": ("ghost",), "spirit": ("ghost",),
     "dino": ("tail", "crest"), "dinosaur": ("tail", "crest"), "rex": ("tail", "crest"), "lizard": ("tail",),
     "pine": ("pine",), "fir": ("pine",), "spruce": ("pine",), "berry": ("berries",), "berries": ("berries",),
-    "mossy": ("moss",),
+    "mossy": ("moss",), "cage": ("bars",), "gate": ("bars",), "portcullis": ("bars",), "jail": ("bars",),
     "mom": ("hair",), "mother": ("hair",), "mama": ("hair",), "mum": ("hair",), "princess": ("hair", "crown", "dress"),
     "lady": ("hair",), "girl": ("hair",), "farmer": ("hat",), "farmhand": ("hat",), "gardener": ("hat",),
 }
@@ -638,19 +638,6 @@ def paint_orb(c: Ctx) -> None:
     cv.outline(r.outline)
 
 
-def paint_door(c: Ctx) -> None:
-    cv, r = c.cv, c.r
-    w, h = cv.w, cv.h
-    cv.rect(0, 0, w - 1, h - 1, r.base)
-    for x in range(2, w - 1, 3):
-        cv.rect(x, 0, x, h - 1, r.shadow)
-    for y in range(4, h, 14):
-        cv.rect(0, y, w - 1, y + 1, (120, 120, 132, 255))
-        cv.set(1, y, (200, 200, 210, 255))
-    cv.rect(w - 3, h // 2, w - 2, h // 2 + 1, (240, 200, 80, 255))
-    cv.outline(r.outline)
-
-
 def paint_exit(c: Ctx) -> None:
     cv, r = c.cv, c.r
     w, h = cv.w, cv.h
@@ -761,7 +748,7 @@ KINDS: dict[str, Kind] = {
     "gem": Kind((7, 9), {"idle": (4, 4, True)}, paint_gem),
     "heart": Kind((8, 7), {"idle": (2, 3, True)}, paint_heart),
     "orb": Kind((8, 8), {"idle": (2, 3, True)}, paint_orb),
-    "door": Kind((9, 63), {"idle": (1, 1, False)}, paint_door, "bottom"),
+    "door": Kind((9, 63), {"idle": (1, 1, False)}, None, "bottom"),  # painted by items.py
     "exit": Kind((14, 24), {"idle": (3, 6, True)}, paint_exit, "bottom"),
     "portal": Kind((20, 20), {"idle": (4, 8, True)}, paint_portal),
     "spikes": Kind((15, 7), {"idle": (1, 1, False)}, paint_spikes, "bottom"),

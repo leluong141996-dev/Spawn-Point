@@ -27,7 +27,7 @@ CAST: list[tuple[str, str, str]] = [
     ("HealthPotion", "potion", "#e04858"), ("MagicScroll", "scroll", "#c03040"), ("Bomb", "bomb", "#333344"),
     ("TreasureChest", "chest", "#96603a"), ("Arrow", "arrow", "#e04858"), ("Bullet", "bullet", "#ffec27"),
     ("Slash", "slash", "#fff1e8"),
-    ("Door", "door", "#ab5236"), ("Exit", "exit", "#00e436"), ("Portal", "portal", "#83769c"),
+    ("Door", "door", "#ab5236"), ("Cage", "door", "#8a8f98"), ("Exit", "exit", "#00e436"), ("Portal", "portal", "#83769c"),
     ("Spikes", "spikes", "#c2c3c7"), ("Tree", "tree", "#4aa050"), ("PineTree", "tree", "#2f7a50"),
     ("BerryBush", "bush", "#5ab050"), ("MossyRock", "rock", "#8a8a9a"),
     ("Fighter", "ship", "#29adff"), ("Saucer", "ufo", "#00e436"),

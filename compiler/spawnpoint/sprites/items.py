@@ -1,6 +1,6 @@
 """Chibi items and props in the creatures.py language (flat colour blocks, one shadow tone, a touch of light,
-a dark outline), painted natively at the fine size: key, potion, scroll, bomb, chest, arrow, and the
-decorative tree, bush and rock. The entity colour is the item's "own" colour (key metal, potion liquid,
+a dark outline), painted natively at the fine size: key, potion, scroll, bomb, chest, arrow, the gate
+(a door, or a barred cage) and the decorative tree, bush and rock. The entity colour is the item's "own" colour (key metal, potion liquid,
 scroll seal, arrow fletching, foliage, stone); fixed materials (wood, glass, parchment, iron) stay fixed.
 """
 
@@ -115,6 +115,44 @@ def paint_arrow(g: Fig, L: Look, anim: str, i: int) -> None:
     g.poly([(0, 7.5), (5, 5), (0, 4.5)], fl.shadow)
 
 
+def paint_door(g: Fig, L: Look, anim: str, i: int) -> None:
+    """A tall gate filling its 18x126 column (collision follows the pixels): an arched wooden door with
+    iron bands and a lock, or an iron portcullis when the name says cage/gate."""
+    b, iron, gold = L.body, tone(IRON, None), tone(GOLD, None)
+    w, h = g.w, g.h
+    barred = "bars" in L.f
+    g.ellipse(w / 2, 9, w / 2 - 1, 8, iron.base if barred else b.base)   # arched top
+    g.rect(1, 9, w - 2, h - 1, iron.base if barred else b.base)
+    if barred:
+        g.ellipse(w / 2, 10, w / 2 - 3, 6, EYE)                          # the dark inside
+        g.rect(3, 10, w - 4, h - 4, EYE)
+        for x in range(4, w - 3, 4):                     # bars, lit on the left (on even pixels: the coarse 2:1 keeps them)
+            g.rect(x, 4, x + 1, h - 2, b.base)
+            g.rect(x, 4, x, h - 2, b.light)
+        for y in (14, h // 2 + 6, h - 14):                                 # crossbars
+            g.rect(1, y, w - 2, y + 3, b.shadow)
+            g.rect(1, y, w - 2, y, b.light)
+    else:
+        for x in (6, 10):                                                  # plank seams
+            g.rect(x, 3, x, h - 2, b.shadow)
+        g.rect(2, 4, 2, h - 3, b.light)
+        for y in (18, h - 22):                                             # iron bands with rivets
+            g.rect(1, y, w - 2, y + 3, iron.base)
+            g.rect(1, y, w - 2, y, iron.light)
+            for x in (3, w - 4):
+                g.set(x, y + 2, tone(STEEL, None).base)
+        g.rect(1, h - 3, w - 2, h - 1, b.shadow)                           # threshold
+    ly = h // 2 - 7                                                        # the lock and its keyhole
+    g.rect(w - 10, ly, w - 3, ly + 11, gold.base)
+    g.rect(w - 10, ly, w - 3, ly + 1, gold.light)
+    g.rect(w - 4, ly + 1, w - 3, ly + 10, gold.shadow)
+    g.rect(w - 7, ly + 4, w - 6, ly + 8, EYE)
+    if barred:                                                             # a padlock shackle
+        g.rect(w - 9, ly - 4, w - 4, ly - 3, iron.light)
+        g.rect(w - 9, ly - 4, w - 8, ly - 1, iron.light)
+        g.rect(w - 5, ly - 4, w - 4, ly - 1, iron.light)
+
+
 def paint_tree(g: Fig, L: Look, anim: str, i: int) -> None:
     leaf, wd = L.body, tone(WOOD, None)
     sway = (0, 1, 0, -1)[i % 4]
@@ -163,5 +201,5 @@ def paint_rock(g: Fig, L: Look, anim: str, i: int) -> None:
         g.ellipse(9, 4.5, 5, 1.8, tone("#5aa040", None).base)
 
 
-PAINTERS = {"key": paint_key, "potion": paint_potion, "scroll": paint_scroll, "bomb": paint_bomb,
+PAINTERS = {"door": paint_door, "key": paint_key, "potion": paint_potion, "scroll": paint_scroll, "bomb": paint_bomb,
             "chest": paint_chest, "arrow": paint_arrow, "tree": paint_tree, "bush": paint_bush, "rock": paint_rock}
