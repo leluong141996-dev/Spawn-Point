@@ -285,6 +285,7 @@ class _Assembler:
             else:  # pixel art gets the classic palette that suits the theme
                 g["settings"]["pixel_palette"] = palettes.THEME_PALETTE[self.b.palette]
                 g["settings"]["scenery"] = self.b.palette
+                g["settings"]["pixel_size"] = 1  # the fine style: detailed chibi people, fine tiles
             if self.b.genre == "shmup":
                 g["settings"]["scenery"] = "space"  # scrolling stars, whatever the art style
         return g
@@ -1033,10 +1034,20 @@ class _Assembler:
 
 
 HUMANOID_WORDS = {"goblin", "zombie", "knight", "skeleton", "orc", "ninja", "soldier", "pirate", "bandit",
-                  "wizard", "witch", "mage", "guard", "thief", "samurai", "elf", "troll", "vampire", "mummy"}
-FLYER_WORDS = {"bat", "bird", "crow", "ghost", "spirit", "wasp", "bee", "fly", "dragon", "owl", "eagle"}
+                  "wizard", "witch", "mage", "guard", "thief", "samurai", "elf", "troll", "vampire", "mummy",
+                  "archer", "hunter", "ranger", "ogre", "giant", "brute", "paladin", "templar", "spearman", "sorcerer",
+                  "warlock", "necromancer", "druid", "shaman", "priest", "cleric", "healer", "monk", "rogue",
+                  "assassin", "viking", "barbarian", "berserker", "dwarf", "king", "queen", "prince", "princess",
+                  "lord", "dracula", "lich", "ghoul", "skelly", "warrior", "fighter", "villager", "peasant"}
+FLYER_WORDS = {"bat", "bird", "crow", "wasp", "bee", "fly", "owl", "eagle"}
+DRAGON_WORDS = {"dragon", "drake", "wyvern", "wyrm"}
+GHOST_WORDS = {"ghost", "spirit", "phantom", "specter", "spectre", "wraith", "spook", "banshee", "poltergeist"}
+SPIDER_WORDS = {"spider", "tarantula", "arachnid", "widow"}
+SNAKE_WORDS = {"snake", "serpent", "cobra", "python", "viper", "worm", "eel", "naga"}
+BEAST_WORDS = {"wolf", "fox", "dog", "puppy", "hound", "cat", "kitty", "tiger", "lion", "bear", "boar", "pig", "hog",
+               "panther", "jackal", "hyena", "werewolf", "coyote", "leopard", "cougar"}
 ROBOT_WORDS = {"robot", "bot", "droid", "mech", "drone", "android", "cyborg", "machine"}
-BUG_WORDS = {"bug", "beetle", "ant", "spider", "scorpion", "roach", "crab", "insect"}
+BUG_WORDS = {"bug", "beetle", "ant", "scorpion", "roach", "crab", "insect"}
 HOPPER_WORDS = {"frog", "toad", "bunny", "rabbit", "kangaroo"}
 SHIP_WORDS = {"ship", "fighter", "jet", "plane", "bomber", "gunship", "warship", "cruiser", "destroyer", "battleship",
               "raider", "falcon", "viper", "interceptor", "starfighter", "rocket", "dreadnought", "carrier"}
@@ -1097,7 +1108,8 @@ def sprite_kind(name: str, ent: dict, archetype: str | None, brief: GameBrief, p
         return "orb"
     if archetype == "turret":
         return "turret"
-    for keys, kind in ((ROBOT_WORDS, "robot"), (FLYER_WORDS, "flyer"), (HUMANOID_WORDS, "hero"),
+    for keys, kind in ((ROBOT_WORDS, "robot"), (DRAGON_WORDS, "dragon"), (GHOST_WORDS, "ghost"), (SPIDER_WORDS, "spider"),
+                       (SNAKE_WORDS, "snake"), (BEAST_WORDS, "beast"), (FLYER_WORDS, "flyer"), (HUMANOID_WORDS, "hero"),
                        (HOPPER_WORDS, "hopper"), (BUG_WORDS, "bug" if not platformer else "slime")):
         if words & keys:
             return kind

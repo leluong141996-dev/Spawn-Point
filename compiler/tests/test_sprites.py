@@ -67,7 +67,7 @@ def test_every_kind_renders(kind):
 
 
 def test_features_from_names():
-    assert features_for("NinjaFox") == ["mask", "ears", "tail"]
+    assert features_for("NinjaFox") == ["mask", "ears", "tail", "bushy_tail"]
     assert features_for("fire bat") == ["wings"]
     assert features_for("Player") == []
 
@@ -193,7 +193,7 @@ def test_explicit_shape_wins(manifest):
 
 
 @pytest.mark.parametrize("sprite, fragment", [
-    ({"generate": {"kind": "dragon"}}, "unknown sprite kind"),
+    ({"generate": {"kind": "kraken"}}, "unknown sprite kind"),
     ("art/hero.sprite.json", "needs the graph's folder"),
 ])
 def test_sprite_errors(manifest, sprite, fragment):
@@ -233,6 +233,15 @@ def test_pixel_example_is_clean(manifest):
     ("Acorn", {"Collectible": {}}, None, True, "orb"),
     ("Crystal", {"Collectible": {}}, None, True, "gem"),
     ("Exit", {}, None, False, "portal"),
+    ("Archer", {}, "shooter", False, "hero"),
+    ("Ogre", {}, "walker", True, "hero"),
+    ("SkeletonKing", {}, "chaser", False, "hero"),
+    ("Wolf", {}, "chaser", True, "beast"),
+    ("CaveSpider", {}, "walker", True, "spider"),
+    ("FireDragon", {}, "chaser", False, "dragon"),
+    ("Ghost", {}, "chaser", False, "ghost"),
+    ("Snake", {}, "walker", True, "snake"),
+    ("Beetle", {}, "walker", True, "slime"),
 ])
 def test_sprite_kind(name, comps, archetype, platformer, kind):
     b = GameBrief(title="t", genre="platformer" if platformer else "topdown")
@@ -517,7 +526,9 @@ def test_fine_sprites_are_twice_the_detail_at_the_same_size(kind):
     assert fine.sheet.tobytes() == generate("Thing", kind, "#29adff", None, 1, fine=True).sheet.tobytes()
     bx, by, bw, bh = fine.bounds
     cx, cy, cw, ch = chunky.bounds
-    assert abs(bw * fine.scale - cw * chunky.scale) <= 4 and abs(bh * fine.scale - ch * chunky.scale) <= 4
+    # people are a different drawing in the fine style (the front-facing chibi): a little slimmer
+    tol = 8 if kind == "hero" else 4
+    assert abs(bw * fine.scale - cw * chunky.scale) <= tol and abs(bh * fine.scale - ch * chunky.scale) <= 4
     pal = palettes.get("endesga32")
     allowed = {tuple(c) for c in pal.rgb.tolist()}
     used = {tuple(p[:3]) for p in np.asarray(generate("Thing", kind, "#29adff", None, 1, palette="endesga32", fine=True)
@@ -535,3 +546,152 @@ def test_pixel_size_one_in_a_graph(manifest):
     assert a.tiles_image.height == 32 and a.tiles_image.width == 32 * len(a.plan["tiles"]["variants"])
     default = analyze(minimal(), manifest)
     assert default.plan["tiles"]["variants"], "the default stays chunky"
+
+
+# --- hero accessories (shields, weapons, crowns, skeletons...) --------------------------------
+
+NEW_HERO_FEATURES = ["bow", "staff", "spear", "axe", "shield", "cape", "crown", "hood", "beard", "tusks", "skull",
+                     "zombie", "bulky"]
+
+
+@pytest.mark.parametrize("feature", NEW_HERO_FEATURES)
+def test_hero_accessories_render_in_every_style(feature):
+    from spawnpoint.sprites.cartoon import generate_cartoon
+    for make in (lambda f: generate("Hero", "hero", "#29adff", f, 1),
+                 lambda f: generate("Hero", "hero", "#29adff", f, 1, fine=True),
+                 lambda f: generate("Hero", "hero", "#29adff", f, 1, palette="pico8"),
+                 lambda f: generate_cartoon("Hero", "hero", "#29adff", f, 1)):
+        plain, dressed = make([]), make([feature])
+        assert set(dressed.animations) == set(plain.animations)
+        assert dressed.sheet.tobytes() != plain.sheet.tobytes(), feature
+
+
+def test_hero_holds_one_weapon():
+    from spawnpoint.sprites.generate import held_weapon
+    assert held_weapon(["bow", "sword", "staff"]) == "sword"
+    assert held_weapon(["staff", "spear"]) == "spear"
+    assert held_weapon(["shield", "cape"]) is None
+    both = generate("Hero", "hero", "#29adff", ["sword", "bow"], 1).sheet.tobytes()
+    assert both == generate("Hero", "hero", "#29adff", ["sword"], 1).sheet.tobytes()
+
+
+def test_skeletons_and_zombies_have_their_own_skin():
+    red, blue = (generate("Skeleton", "hero", c, ["skull"], 1).sheet.tobytes() for c in ("#ff004d", "#29adff"))
+    assert red == blue
+    red, blue = (generate("Zombie", "hero", c, ["zombie"], 1).sheet.tobytes() for c in ("#ff004d", "#29adff"))
+    assert red == blue
+
+
+def test_names_pick_accessories():
+    assert features_for("SkeletonArcher") == ["skull", "bow"]
+    assert features_for("OrcBrute") == ["tusks", "bulky"]
+    assert features_for("DarkKnight") == ["helmet", "shield", "armor"]
+    assert features_for("King") == ["crown", "cape", "beard"]
+    assert features_for("VikingRaider") == ["helmet", "horns", "beard", "axe"]
+    assert features_for("Wizard") == ["hat", "staff", "robe", "beard", "old"]
+
+
+# Pixel-exact fingerprints of sprites that existed before the accessories were added: new kinds and
+# features must never change them by accident. (Cartoon art is anti-aliased, so it is not pinned here.)
+GOLDEN = {
+    ("hero", "Hero", None, None, False): "af63917791d7af74",
+    ("hero", "Fox", ("ears", "tail", "sword"), None, True): "3d46e8c9913a7865",  # creatures keep the generic painter
+    ("hero", "Ninja", None, None, False): "c67e6bf0b5f4dbb8",
+    ("slime", "Hero", None, None, False): "fabad4c1ad5daca8",
+    ("flyer", "Hero", None, "pico8", False): "9e6d05469a67e369",
+    ("coin", "Hero", None, "endesga32", False): "2f5e97ae3b47d84b",
+    ("ship", "Hero", None, None, True): "fea8002c6221948c",
+    ("bug", "Fox", None, None, True): "4f3ffaa4982862b8",
+}
+
+
+@pytest.mark.parametrize("key", list(GOLDEN))
+def test_existing_sprites_are_unchanged(key):
+    import hashlib
+    kind, name, feats, palette, fine = key
+    s = generate(name, kind, "#3fa7d6", list(feats) if feats else None, 3, palette=palette, fine=fine)
+    digest = hashlib.sha256(s.sheet.tobytes() + json.dumps(s.to_dict("x"), sort_keys=True).encode()).hexdigest()[:16]
+    assert digest == GOLDEN[key]
+
+
+# --- the fine-style chibi people --------------------------------------------------------------
+
+def test_people_get_the_chibi_and_creatures_keep_the_generic_hero():
+    from spawnpoint.sprites import chibi
+    assert chibi.is_human(features_for("Knight")) and chibi.is_human(features_for("SkeletonArcher"))
+    assert not chibi.is_human(features_for("NinjaFox")) and not chibi.is_human(features_for("Puppy"))
+    knight = generate("Knight", "hero", "#3a6fd0", None, 1, fine=True)
+    assert knight.frame_size == (24, 32) and knight.scale == 1 and knight.anchor == "bottom"
+    assert {"idle", "run", "jump", "fall", "hurt", "attack", "die"} <= set(knight.animations)
+    colours = {tuple(p) for p in np.asarray(knight.sheet).reshape(-1, 4).tolist() if p[3] > 0}
+    assert len(colours) >= 12  # skin, hair, clothes, steel... not a one-colour blob
+    assert knight.sheet.tobytes() == generate("Knight", "hero", "#3a6fd0", None, 1, fine=True).sheet.tobytes()
+
+
+def test_chibi_people_vary_by_name_but_not_by_frame_call():
+    from spawnpoint.sprites import chibi
+    looks = {(c.skin, c.hair, c.hair_style) for c in (chibi.choose(n, "#d04040", [], 0)
+                                                      for n in ("Ana", "Bo", "Cid", "Dee", "Eve", "Fay", "Gus", "Hal"))}
+    assert len(looks) >= 4
+    goblin = chibi.choose("Goblin", "#ff77a8", features_for("Goblin"), 0)
+    assert goblin.skin in chibi.MONSTER_GREENS and goblin.shirt == "#ff77a8"  # green whatever the entity colour
+    assert chibi.choose("Imp", "#29adff", features_for("Imp"), 0).skin == chibi.DEVIL_SKIN
+    assert chibi.choose("Zombie", "#d04040", ["zombie"], 0).skin == chibi.ZOMBIE_SKIN
+
+
+@pytest.mark.parametrize("name", ["Hero", "Knight", "Wizard", "Archer", "Princess", "VikingRaider", "Ninja",
+                                  "Skeleton", "Farmer", "Orc", "Zombie", "King", "Priest"])
+def test_chibi_people_in_both_styles(name):
+    from spawnpoint.sprites.cartoon import generate_cartoon
+    fine = generate(name, "hero", "#3a6fd0", None, 1, fine=True)
+    pal = generate(name, "hero", "#3a6fd0", None, 1, fine=True, palette="sweetie16")
+    toon = generate_cartoon(name, "hero", "#3a6fd0", None, 1)
+    assert fine.frame_size == pal.frame_size == (24, 32)
+    assert set(toon.animations) >= {"idle", "run", "jump", "fall", "hurt", "die"}
+    bx, by, bw, bh = fine.bounds
+    assert 10 <= bw <= 24 and 24 <= bh <= 32  # about the old hero's size on screen
+
+
+def test_assembler_draws_pixel_games_in_the_fine_style():
+    from spawnpoint.studio.assemble import assemble
+    from spawnpoint.studio.brief import GameBrief, normalize
+
+    b, _ = normalize(GameBrief(title="t", genre="platformer"))
+    assert assemble(b, 2, seed=1)["settings"]["pixel_size"] == 1
+    b, _ = normalize(GameBrief(title="t", genre="platformer", art_style="cartoon"))
+    assert "pixel_size" not in assemble(b, 2, seed=1)["settings"]
+
+
+# --- chibi creatures (beast, spider, dragon, ghost, snake) -------------------------------------
+
+CREATURE_KINDS = ["beast", "spider", "dragon", "ghost", "snake"]
+
+
+@pytest.mark.parametrize("kind", CREATURE_KINDS)
+def test_creatures_are_painted_at_the_fine_size_and_shrunk_for_coarse(kind):
+    fine, coarse = generate("Thing", kind, "#c04040", None, 1, fine=True), generate("Thing", kind, "#c04040", None, 1)
+    w, h = KINDS[kind].size
+    assert fine.frame_size == (w * 2, h * 2) and fine.scale == 1
+    assert coarse.frame_size == (w, h) and coarse.scale == 2
+    assert "attack" in fine.animations and "die" in fine.animations
+    # the eyes survive the 2:1 shrink
+    from spawnpoint.sprites.chibi import EYE
+    idle = coarse.frame(*coarse.animations["idle"].frames[0])
+    inner = idle[1:-1, 1:-1]
+    assert ((inner[..., :3] == EYE[:3]).all(-1) & (inner[..., 3] > 0)).sum() > 0
+
+
+def test_beast_variants_come_from_names():
+    plain = generate("Wolf", "beast", "#8a8aa0", None, 1, fine=True).sheet.tobytes()
+    for name in ("Fox", "Bear", "Boar", "Lion", "Tiger", "Puppy"):
+        assert generate(name, "beast", "#8a8aa0", None, 1, fine=True).sheet.tobytes() != plain, name
+
+
+@pytest.mark.parametrize("kind", CREATURE_KINDS)
+def test_creatures_follow_the_theme_palette(kind):
+    from spawnpoint.sprites import palettes
+    pal = palettes.get("sweetie16")
+    allowed = {tuple(c) for c in pal.rgb.tolist()}
+    sheet = np.asarray(generate("Thing", kind, "#c04040", None, 1, palette="sweetie16", fine=True).sheet.convert("RGBA"))
+    used = {tuple(p[:3]) for p in sheet.reshape(-1, 4).tolist() if p[3] > 0}
+    assert used <= allowed

@@ -16,7 +16,7 @@ from typing import Callable
 
 import numpy as np
 
-from . import motion, palettes
+from . import chibi, creatures, motion, palettes
 from .spriteset import SpriteSet, build_sheet, finalize
 
 RGBA = tuple[int, int, int, int]
@@ -129,16 +129,40 @@ def _inside(x: float, y: float, pts: list[tuple[float, float]]) -> bool:
 
 FEATURE_WORDS: dict[str, tuple[str, ...]] = {
     "ninja": ("mask",), "samurai": ("mask",), "thief": ("mask",),
-    "fox": ("ears", "tail"), "cat": ("ears", "tail"), "kitty": ("ears", "tail"), "wolf": ("ears", "tail"),
-    "dog": ("ears",), "bunny": ("long_ears",), "rabbit": ("long_ears",),
+    "fox": ("ears", "tail", "bushy_tail"), "cat": ("ears", "tail", "thin_tail"), "kitty": ("ears", "tail", "thin_tail"),
+    "wolf": ("ears", "tail"), "lion": ("ears", "tail", "mane", "thin_tail"), "tiger": ("ears", "tail", "stripes", "thin_tail"),
+    "boar": ("ears", "tail", "tusks", "snout"), "pig": ("ears", "tail", "snout"), "hog": ("ears", "tail", "tusks", "snout"),
+    "dog": ("ears", "tail", "floppy_ears"), "puppy": ("ears", "tail", "floppy_ears"), "bear": ("ears", "tail", "round_ears"), "mouse": ("ears", "tail"),
+    "monkey": ("ears", "tail"), "panda": ("ears", "tail"), "duck": ("wings", "beak"), "penguin": ("wings", "beak"), "bunny": ("long_ears",), "rabbit": ("long_ears",),
     "spider": ("legs",), "ant": ("legs", "antenna"), "beetle": ("legs",), "bug": ("legs", "antenna"),
     "bat": ("wings",), "bird": ("wings", "beak"), "crow": ("wings", "beak"), "dragon": ("wings", "horns"),
     "robot": ("antenna",), "bot": ("antenna",), "droid": ("antenna",), "mech": ("antenna",),
-    "devil": ("horns",), "demon": ("horns",), "imp": ("horns",), "goblin": ("ears",), "orc": ("horns",),
-    "knight": ("helmet",), "soldier": ("helmet",), "wizard": ("hat",), "witch": ("hat",), "mage": ("hat",),
+    "devil": ("horns", "monster"), "demon": ("horns", "monster"), "imp": ("horns", "monster"), "goblin": ("ears", "monster"),
+    "elf": ("ears",),
+    "orc": ("tusks", "bulky"), "ogre": ("tusks", "bulky"), "troll": ("tusks", "bulky"), "giant": ("bulky",),
+    "brute": ("bulky",), "golem": ("bulky",),
+    "knight": ("helmet", "shield", "armor"), "paladin": ("helmet", "shield", "sword", "armor"),
+    "templar": ("helmet", "shield", "sword", "armor"),
+    "soldier": ("helmet", "spear", "armor"), "guard": ("helmet", "spear", "armor"), "spearman": ("helmet", "spear"),
+    "wizard": ("hat", "staff", "robe", "beard", "old"), "witch": ("hat", "staff", "robe", "hair"),
+    "mage": ("hat", "staff", "robe"), "sorcerer": ("hat", "staff", "robe"),
+    "warlock": ("hood", "staff", "robe"), "necromancer": ("hood", "staff", "robe"), "druid": ("hood", "staff", "robe"),
+    "shaman": ("hood", "staff"),
+    "priest": ("hood", "staff", "robe"), "cleric": ("hood", "staff", "robe"), "healer": ("hood", "staff", "robe"),
+    "monk": ("hood", "robe"),
+    "rogue": ("hood",), "assassin": ("hood",), "bandit": ("hood",),
+    "archer": ("bow",), "hunter": ("bow",), "ranger": ("bow", "hood"), "bowman": ("bow",),
+    "viking": ("helmet", "horns", "beard", "axe"), "barbarian": ("axe",), "berserker": ("axe",), "dwarf": ("beard", "helmet", "axe"),
+    "lumberjack": ("beard", "axe"), "woodcutter": ("beard", "axe"),
+    "king": ("crown", "cape", "beard"), "queen": ("crown", "cape", "hair", "dress"), "emperor": ("crown", "cape"), "prince": ("crown",),
+    "lord": ("cape",), "vampire": ("cape",), "dracula": ("cape",),
+    "old": ("beard", "old"), "elder": ("beard", "old"), "sage": ("beard", "old"), "hermit": ("beard", "old"),
+    "grandpa": ("beard", "old"), "grandma": ("hair", "old"),
+    "skeleton": ("skull",), "skelly": ("skull",), "bones": ("skull",), "lich": ("skull", "hood", "staff"),
+    "zombie": ("zombie",), "ghoul": ("zombie",),
     "ghost": ("ghost",), "spirit": ("ghost",),
     "dino": ("tail", "crest"), "dinosaur": ("tail", "crest"), "rex": ("tail", "crest"), "lizard": ("tail",),
-    "mom": ("hair",), "mother": ("hair",), "mama": ("hair",), "mum": ("hair",), "princess": ("hair",),
+    "mom": ("hair",), "mother": ("hair",), "mama": ("hair",), "mum": ("hair",), "princess": ("hair", "crown", "dress"),
     "lady": ("hair",), "girl": ("hair",), "farmer": ("hat",), "farmhand": ("hat",), "gardener": ("hat",),
 }
 
@@ -159,7 +183,7 @@ def features_for(name: str) -> list[str]:
 class Kind:
     size: tuple[int, int]
     anims: dict[str, tuple[int, float, bool]]  # name -> (frames, fps, loop)
-    paint: Callable[["Ctx"], None]
+    paint: Callable[["Ctx"], None] | None  # None: painted by creatures.py at the fine size
     anchor: str = "center"
 
 
@@ -196,8 +220,10 @@ def _eyes(c: Ctx, positions: list[tuple[int, int]], big: bool = False) -> None:
 def paint_hero(c: Ctx) -> None:
     cv, r, f = c.cv, c.r, c.feats
     atk = c.anim == "attack"
-    sword = "sword" in f
-    c.extra["blinks"] = True
+    weapon = held_weapon(f)
+    sword = weapon == "sword"
+    bulky = "bulky" in f
+    c.extra["blinks"] = "skull" not in f  # empty sockets do not blink
     # A slow breath: the upper body sinks one pixel for half of the six idle frames.
     bob = {"idle": (0, 0, 0, 1, 1, 1)[c.i % 6], "run": (0, 1, 0, 1)[c.i % 4]}.get(c.anim, 0)
     # Legs (in shadow tone), positions per animation.
@@ -211,20 +237,36 @@ def paint_hero(c: Ctx) -> None:
         wag = (0, -1)[c.i % 2] if c.anim in ("idle", "run") else 0
         cv.rect(1, 10 + bob + wag, 2, 11 + bob + wag, r.base)
         cv.set(0, 9 + bob + wag, r.light)
-    # Body and arms.
-    cv.rect(3, 8 + bob, 8, 12 + bob, r.base)
-    cv.rect(3, 11 + bob, 8, 12 + bob, r.shadow)
+    if "cape" in f:  # hangs from the shoulders behind the back; flutters when running
+        _cape(c, bob)
+    # Body and arms (ogres and trolls are a pixel wider on each side).
+    bx0, bx1 = (2, 9) if bulky else (3, 8)
+    cv.rect(bx0, 8 + bob, bx1, 12 + bob, r.base)
+    cv.rect(bx0, 11 + bob, bx1, 12 + bob, r.shadow)
     arm_y = 7 + bob if c.anim in ("jump", "fall") else 9 + bob
-    cv.rect(2, arm_y, 2, arm_y + 2, r.shadow)
-    if atk and sword:  # the sword arm winds up, chops, follows through
+    cv.rect(bx0 - 1, arm_y, bx0 - 1, arm_y + 2, r.shadow)
+    if atk and weapon in ("sword", "axe"):  # the weapon arm winds up, chops, follows through
         ax, ay = ((9, 6), (9, 8), (9, 10))[c.i % 3]
         cv.rect(ax, ay, ax, ay + 2, r.shadow)
-    elif atk:  # reach out to shoot
-        cv.rect(9, arm_y + 1, 11, arm_y + 1, r.shadow)
-        cv.set(11, arm_y + 1, r.white if c.i == 1 else r.light)
+    elif atk:  # reach out to shoot, thrust or cast
+        cv.rect(bx1 + 1, arm_y + 1, 11, arm_y + 1, r.shadow)
+        if weapon in (None, "staff"):
+            cv.set(11, arm_y + 1, r.white if c.i == 1 else r.light)
+    elif "zombie" in f and c.anim in ("idle", "run"):  # arms reach forward
+        cv.rect(bx1 + 1, arm_y, 11, arm_y, r.shadow)
     else:
-        cv.rect(9, arm_y, 9, arm_y + 2, r.shadow)
-    hair = (92, 52, 34, 255)
+        cv.rect(bx1 + 1, arm_y, bx1 + 1, arm_y + 2, r.shadow)
+    if "skull" in f:  # ribs and a spine show through
+        for y in (9, 11):
+            cv.rect(bx0 + 1, y + bob, bx1 - 1, y + bob, r.shadow)
+        cv.rect(5, 8 + bob, 6, 12 + bob, r.base)
+    if "zombie" in f:  # torn hem and a patch
+        cv.set(bx0, 12 + bob, r.outline)
+        cv.set(bx1 - 1, 12 + bob, r.outline)
+        cv.set(bx0 + 2, 9 + bob, r.shadow)
+    if "shield" in f:  # carried on the back arm, in front of the body
+        _shield(c, bob)
+    hair = HAIR
     if "hair" in f:  # long hair falls behind the head (the sprite faces right)
         cv.rect(1, 3 + bob, 3, 10 + bob, hair)
     # Head.
@@ -248,7 +290,22 @@ def paint_hero(c: Ctx) -> None:
         cv.rect(2, 1 + bob, 9, 3 + bob, (190, 196, 206, 255))
     if "hat" in f:
         cv.poly([(1.5, 3.5 + bob), (6, -4 + bob), (10.5, 3.5 + bob)], r.shadow)
-    if "mask" in f:
+    if "hood" in f:  # cloth over the crown and down the back of the head, face left open
+        cv.rect(2, 1 + bob, 9, 2 + bob, r.shadow)
+        cv.rect(2, 3 + bob, 4, 8 + bob, r.shadow)
+        cv.set(9, 3 + bob, r.shadow)
+    if "crown" in f:
+        cv.rect(3, 1 + bob, 8, 2 + bob, CROWN)
+        for x in (3, 5, 8):
+            cv.set(x, 0 + bob, CROWN)
+        cv.set(6, 2 + bob, JEWEL)
+    if "skull" in f:  # empty sockets, a nose hole and teeth instead of eyes
+        cv.rect(6, 4 + bob, 7, 5 + bob, r.eye)
+        cv.rect(9, 4 + bob, 9, 5 + bob, r.eye)
+        cv.set(8, 6 + bob, r.eye)
+        for x in (6, 8):
+            cv.set(x, 8 + bob, r.shadow)
+    elif "mask" in f:
         cv.rect(2, 4 + bob, 10, 6 + bob, r.outline)
         ribbon = (0, 1)[c.i % 2] if c.anim == "run" else 0
         cv.set(1, 5 + bob, r.outline)
@@ -260,8 +317,17 @@ def paint_hero(c: Ctx) -> None:
             cv.set(9, 5 + bob, r.white)
     else:
         _eyes(c, [(7, 5 + bob), (9, 5 + bob)])
-    if sword:
+    if "beard" in f:  # from the cheek down over the chest, so it never reads as an open mouth
+        cv.rect(6, 7 + bob, 9, 9 + bob, HAIR)
+        cv.rect(7, 10 + bob, 9, 10 + bob, HAIR)
+        cv.set(8, 11 + bob, HAIR)
+    if "tusks" in f:
+        cv.set(7, 8 + bob, r.white)
+        cv.set(9, 8 + bob, r.white)
+    if weapon == "sword":
         _sword(c, bob, arm_y)
+    elif weapon is not None:
+        WEAPONS[weapon](c, bob, arm_y)
     cv.outline(r.outline)
 
 
@@ -288,6 +354,98 @@ def _sword(c: Ctx, bob: int, arm_y: int) -> None:
     cv.set(11, 2 + bob, c.r.white)
     cv.rect(10, 9 + bob, 11, 9 + bob, GRIP)
     cv.set(10, 10 + bob, GRIP)
+
+
+# Fixed accent colours (snapped to the theme palette like everything else).
+HAIR = (92, 52, 34, 255)
+CROWN = (255, 204, 64, 255)
+JEWEL = (222, 58, 84, 255)
+CAPE = (176, 38, 56, 255)
+WOOD = (150, 96, 52, 255)
+STEEL = (176, 184, 198, 255)
+MAGIC = (110, 214, 255, 255)
+STRING = (232, 228, 214, 255)
+BONE = "#e6dfc8"  # skeletons are bone-coloured whatever their entity colour
+ZOMBIE = "#8fb070"  # pallid green skin
+
+WEAPON_PRIORITY = ("sword", "axe", "spear", "bow", "staff")  # a hero holds one weapon
+
+
+def held_weapon(feats: list[str]) -> str | None:
+    return next((w for w in WEAPON_PRIORITY if w in feats), None)
+
+
+def body_color(color: str, feats: list[str]) -> str:
+    """Skeletons and zombies get their own skin; everyone else is drawn in the entity colour."""
+    if "skull" in feats:
+        return BONE
+    if "zombie" in feats:
+        return ZOMBIE
+    return color
+
+
+def _cape(c: Ctx, bob: int) -> None:
+    cv = c.cv
+    flutter = (0, 1, 0, 1)[c.i % 4] if c.anim == "run" else (1 if c.anim == "fall" else 0)
+    cv.rect(1, 7 + bob, 3, 13, CAPE)
+    cv.rect(1 - flutter, 11, 1, 14, CAPE)
+    cv.set(3, 7 + bob, CAPE)
+
+
+def _shield(c: Ctx, bob: int) -> None:
+    cv = c.cv
+    cv.rect(0, 8 + bob, 3, 12 + bob, WOOD)
+    cv.rect(0, 8 + bob, 3, 8 + bob, STEEL)
+    cv.rect(0, 12 + bob, 3, 12 + bob, STEEL)
+    cv.rect(1, 10 + bob, 2, 10 + bob, STEEL)
+
+
+def _bow(c: Ctx, bob: int, arm_y: int) -> None:
+    """A tall bow in the front hand; during `attack` an arrow is nocked and loosed."""
+    cv = c.cv
+    for x, y in ((10, 4), (11, 5), (11, 6), (11, 7), (11, 8), (11, 9), (10, 10)):
+        cv.set(x, y + bob, WOOD)
+    cv.rect(10, 5 + bob, 10, 9 + bob, STRING)
+    if c.anim == "attack" and c.i < 2:
+        cv.rect(5 + 2 * c.i, arm_y + 1, 11, arm_y + 1, STEEL if c.i else STRING)
+
+
+def _staff(c: Ctx, bob: int, arm_y: int) -> None:
+    """A staff planted beside the hero, a glowing orb on top that flares when casting."""
+    cv = c.cv
+    cv.rect(11, 2 + bob, 11, 15, WOOD)
+    glow = c.r.white if c.anim == "attack" and c.i == 1 else MAGIC
+    cv.rect(10, 0 + bob, 11, 1 + bob, glow)
+
+
+def _spear(c: Ctx, bob: int, arm_y: int) -> None:
+    """Upright spear; during `attack` it is levelled and thrust forward."""
+    cv = c.cv
+    if c.anim == "attack":
+        x0 = (4, 6, 5)[c.i % 3]
+        cv.rect(x0, arm_y + 1, 10, arm_y + 1, WOOD)
+        cv.rect(10, arm_y, 11, arm_y + 2, STEEL)
+        cv.set(11, arm_y + 1, c.r.white)
+        return
+    cv.rect(11, 2 + bob, 11, 14, WOOD)
+    cv.rect(11, 0 + bob, 11, 1 + bob, STEEL)
+    cv.set(10, 1 + bob, STEEL)
+
+
+def _axe(c: Ctx, bob: int, arm_y: int) -> None:
+    """Short-handled axe; chopped like the sword during `attack`."""
+    cv = c.cv
+    if c.anim == "attack":
+        hx, hy, tx, ty = ((10, 6, 8, 1), (10, 8, 11, 12), (10, 10, 11, 15))[c.i % 3]
+        _line(cv, hx, hy, tx, ty, WOOD)
+        cv.rect(tx - 1, ty - 1, tx, ty, STEEL)
+        return
+    cv.rect(10, 4 + bob, 10, 10 + bob, WOOD)
+    cv.rect(11, 3 + bob, 11, 6 + bob, STEEL)
+    cv.set(9, 4 + bob, STEEL)
+
+
+WEAPONS = {"bow": _bow, "staff": _staff, "spear": _spear, "axe": _axe}
 
 
 def paint_slime(c: Ctx) -> None:
@@ -609,6 +767,15 @@ KINDS: dict[str, Kind] = {
     "slash": Kind((10, 16), {"idle": (3, 20, False)}, paint_slash),
     "ship": Kind((16, 10), {"idle": (2, 10, True), "hurt": (1, 1, False)}, paint_ship),
     "ufo": Kind((14, 10), {"idle": (3, 8, True), "hurt": (1, 1, False)}, paint_ufo),
+    # chibi creatures, painted natively at the fine size by creatures.py
+    "beast": Kind((16, 12), {"idle": (2, 3, True), "run": (4, 10, True), "jump": (1, 1, False), "fall": (1, 1, False),
+                             "hurt": (1, 1, False)}, None, "bottom"),
+    "spider": Kind((16, 11), {"idle": (2, 3, True), "run": (4, 12, True), "jump": (1, 1, False), "fall": (1, 1, False),
+                              "hurt": (1, 1, False)}, None, "bottom"),
+    "dragon": Kind((18, 14), {"idle": (4, 8, True), "run": (4, 12, True), "hurt": (1, 1, False)}, None),
+    "ghost": Kind((12, 14), {"idle": (4, 6, True), "run": (4, 8, True), "hurt": (1, 1, False)}, None),
+    "snake": Kind((16, 8), {"idle": (2, 3, True), "run": (4, 8, True), "jump": (1, 1, False), "fall": (1, 1, False),
+                            "hurt": (1, 1, False)}, None, "bottom"),
 }
 
 
@@ -648,7 +815,7 @@ def refine(f: np.ndarray, outline: RGBA) -> np.ndarray:
 
 # Animations a painter draws itself (on top of the kind's own), and the kinds that get a derived attack pulse.
 DRAWN_EXTRA: dict[str, dict[str, tuple[int, float, bool]]] = {"hero": {"attack": (3, 14, False)}}
-ATTACKERS = {"hero", "slime", "hopper", "flyer", "robot", "bug"}
+ATTACKERS = {"hero", "slime", "hopper", "flyer", "robot", "bug", "beast", "spider", "dragon", "ghost", "snake"}
 DERIVED = {"attack": (3, 14.0, False), "die": (5, 10.0, False)}
 
 
@@ -678,9 +845,29 @@ def generate(name: str, kind: str, color: str, features: list[str] | None = None
     if kind == "slime" and random.Random(rng_seed + 1).random() < 0.5 and "spots" not in feats:
         feats.append("spots")
     pal = palettes.get(palette)
-    r = ramp(color, pal)
-    frames: dict[str, list[np.ndarray]] = {}
+    r = ramp(body_color(color, feats) if kind == "hero" else color, pal)
     anims = {**spec.anims, **DRAWN_EXTRA.get(kind, {})}
+    if kind in creatures.PAINTERS:
+        frames = creatures.frames(kind, name, color, feats, seed, pal, spec.size, anims, fine)
+        flash_color = tuple(int(x) for x in pal.rgb[pal.light]) if pal else motion.FLASH
+        fps, loop = add_derived(kind, frames, anims, True, spec.anchor, flash_color, rng_seed)
+        if pal:
+            for name_ in ("attack", "die"):
+                if name_ in frames:
+                    frames[name_] = [pal.snap(f) for f in frames[name_]]
+        sheet, anim_set = build_sheet(frames, fps, loop)
+        size = (spec.size[0] * 2, spec.size[1] * 2) if fine else spec.size
+        return finalize(name, sheet, size, anim_set, 1 if fine else scale, spec.anchor)
+    if kind == "hero" and fine and chibi.is_human(feats):
+        # People get the detailed front-facing chibi, drawn natively at the fine size.
+        frames = chibi.frames(name, color, feats, seed, pal, held_weapon(feats))
+        flash_color = tuple(int(x) for x in pal.rgb[pal.light]) if pal else motion.FLASH
+        fps, loop = add_derived(kind, frames, anims, True, spec.anchor, flash_color, rng_seed)
+        if pal and "die" in frames:
+            frames["die"] = [pal.snap(f) for f in frames["die"]]
+        sheet, anim_set = build_sheet(frames, fps, loop)
+        return finalize(name, sheet, (chibi.W, chibi.H), anim_set, 1, spec.anchor)
+    frames: dict[str, list[np.ndarray]] = {}
     for anim, (n, _fps, _loop) in anims.items():
         frames[anim] = []
         for i in range(n):
