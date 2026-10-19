@@ -695,3 +695,127 @@ def test_creatures_follow_the_theme_palette(kind):
     sheet = np.asarray(generate("Thing", kind, "#c04040", None, 1, palette="sweetie16", fine=True).sheet.convert("RGBA"))
     used = {tuple(p[:3]) for p in sheet.reshape(-1, 4).tolist() if p[3] > 0}
     assert used <= allowed
+
+
+# --- items and decorative props -----------------------------------------------------------------
+
+ITEM_KINDS = ["key", "potion", "scroll", "bomb", "chest", "arrow", "tree", "bush", "rock"]
+
+
+@pytest.mark.parametrize("kind", ITEM_KINDS)
+def test_items_render_in_every_style(kind):
+    from spawnpoint.sprites import palettes
+    from spawnpoint.sprites.cartoon import generate_cartoon
+    w, h = KINDS[kind].size
+    fine, coarse = generate("Thing", kind, "#c04040", None, 1, fine=True), generate("Thing", kind, "#c04040", None, 1)
+    assert fine.frame_size == (w * 2, h * 2) and coarse.frame_size == (w, h)
+    assert generate_cartoon("Thing", kind, "#c04040", None, 1).animations
+    pal = palettes.get("endesga32")
+    allowed = {tuple(c) for c in pal.rgb.tolist()}
+    sheet = np.asarray(generate("Thing", kind, "#c04040", None, 1, palette="endesga32", fine=True).sheet.convert("RGBA"))
+    assert {tuple(p[:3]) for p in sheet.reshape(-1, 4).tolist() if p[3] > 0} <= allowed
+
+
+@pytest.mark.parametrize("name, comps, kind", [
+    ("CageKey", {}, "key"),
+    ("XpGem", {}, "gem"),
+    ("GoldKey", {"Collectible": {}}, "key"),
+    ("HealthPotion", {"Collectible": {}}, "potion"),
+    ("MagicScroll", {"Collectible": {}}, "scroll"),
+    ("TreasureChest", {"Collectible": {}}, "chest"),
+    ("Arrow", {"Projectile": {}}, "arrow"),
+])
+def test_items_route_by_name(name, comps, kind):
+    b = GameBrief(title="t", genre="platformer")
+    assert sprite_kind(name, {"components": comps}, None, b, True) == kind
+
+
+def test_archers_shoot_arrows():
+    from spawnpoint.studio.brief import EnemyBrief, PlayerBrief
+    b = GameBrief(title="t", genre="platformer", player=PlayerBrief(character="Ranger"),
+                  enemies=[EnemyBrief(name="SkeletonArcher", archetype="shooter")])
+    assert sprite_kind("Bullet", {}, None, b, True) == "arrow"
+    assert sprite_kind("EnemyBullet", {}, None, b, True) == "arrow"
+    b = GameBrief(title="t", genre="platformer", enemies=[EnemyBrief(name="SkeletonArcher", archetype="shooter"),
+                                                           EnemyBrief(name="LaserBot", archetype="shooter")])
+    assert sprite_kind("Bullet", {}, None, b, True) == "bullet"
+    assert sprite_kind("EnemyBullet", {}, None, b, True) == "bullet"  # shared by a robot: keep the bolt
+
+
+def test_layer_two_scatters_decor_behind_everything(manifest):
+    from spawnpoint.studio.assemble import assemble
+    from spawnpoint.studio.brief import normalize
+
+    b, _ = normalize(GameBrief(title="t", genre="platformer", palette="forest"))
+    g = assemble(b, 2, seed=3)
+    decor = {n for n, e in g["entities"].items() if e.get("decor")}
+    assert decor and decor <= {"Tree", "PineTree", "BerryBush", "MossyRock"}
+    symbols = {s for s, n in g["level"]["legend"].items() if n in decor}
+    assert any(ch in symbols for row in g["level"]["map"] for ch in row)
+    assert not any(e.get("decor") for e in assemble(b, 1, seed=3)["entities"].values())  # layer 2 only
+    neon, _ = normalize(GameBrief(title="t", genre="platformer", palette="neon"))
+    assert not any(e.get("decor") for e in assemble(neon, 2, seed=3)["entities"].values())
+    a = analyze(g, manifest)
+    assert a.ok, [str(d) for d in a.diagnostics]
+    for e in a.plan["entities"]:
+        if e["name"] in decor:
+            assert e["z"] == -1 and e["layer"] == 0 and e["mask"] == 0 and e["sprite"]
+        else:
+            assert e["z"] == 0
+
+
+def test_prompt_art_words_draw_something_specific():
+    """Every noun the prompts suggest for its art must actually pick a kind or features (not the fallbacks)."""
+    from spawnpoint.studio.prompts import ART_HEROES, ART_MONSTERS, ART_PICKUPS, BRIEF_SYSTEM, BRIEF_SYSTEM_V5, ART_LINE
+    from spawnpoint.studio.brief import EnemyBrief
+
+    assert ART_LINE in BRIEF_SYSTEM and ART_LINE in BRIEF_SYSTEM_V5
+    b = GameBrief(title="t", genre="platformer")
+    for name in ART_HEROES:
+        assert features_for(name), name
+    for name in ART_MONSTERS:
+        mb = GameBrief(title="t", genre="platformer", enemies=[EnemyBrief(name=name, archetype="walker")])
+        assert sprite_kind(name, {}, "walker", mb, True) != "slime" or features_for(name), name
+    for name in ART_PICKUPS:
+        assert sprite_kind(name, {"components": {"Collectible": {}}}, None, b, True) != "orb", name
+    assert features_for("SkeletonArcher") == ["skull", "bow"]
+
+
+# --- snapshots of the chibi people, creatures and items (reviewed by eye in `spawnpoint sprites gallery`) ----
+
+GOLDEN_CHIBI = {
+    ("hero", "Knight", True): "2b749cacf3e38c76",
+    ("hero", "Wizard", True): "67aeb17bc5009bcd",
+    ("hero", "SkeletonArcher", True): "30f2b68b5b9ee619",
+    ("hero", "Princess", False): "3eea5a1547b11521",
+    ("beast", "Wolf", True): "8a40d3d5c05d2462",
+    ("spider", "Spider", False): "86575329a057e41c",
+    ("dragon", "Dragon", True): "b19425466e7079e4",
+    ("ghost", "Ghost", True): "f9d3307b0196929e",
+    ("snake", "Snake", False): "708871bd66a9151e",
+    ("key", "GoldKey", True): "565b40551f28dd87",
+    ("potion", "HealthPotion", False): "a6310c661d227ff3",
+    ("chest", "TreasureChest", True): "d5c37d44ce5cec11",
+    ("arrow", "Arrow", True): "d1b6109270cad18c",
+    ("tree", "PineTree", True): "945b135084085ba9",
+    ("bush", "BerryBush", False): "437766a715c27d3e",
+    ("rock", "MossyRock", True): "875970aa5edddefe",
+}
+
+
+@pytest.mark.parametrize("key", list(GOLDEN_CHIBI))
+def test_reviewed_sprites_are_unchanged(key):
+    """A failure here means the art changed: look at the gallery, and if it is better, update the digest."""
+    import hashlib
+    kind, name, fine = key
+    s = generate(name, kind, "#3fa7d6", features_for(name), 3, fine=fine)
+    digest = hashlib.sha256(s.sheet.tobytes() + json.dumps(s.to_dict("x"), sort_keys=True).encode()).hexdigest()[:16]
+    assert digest == GOLDEN_CHIBI[key]
+
+
+@pytest.mark.parametrize("style", ["pixel", "cartoon"])
+def test_gallery_shows_every_kind(style):
+    from spawnpoint.sprites.gallery import CAST, gallery
+    assert {kind for _, kind, _ in CAST} == set(KINDS)
+    img = gallery(style, columns=4, cast=[c for c in CAST if c[1] in ("hero", "dragon", "key", "tree")])
+    assert img.size[0] > 0 and img.getbbox()

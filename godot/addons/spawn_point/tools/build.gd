@@ -64,6 +64,7 @@ func _build_entity(e: Dictionary) -> Node2D:
 	body.name = e.name
 	body.collision_layer = int(e.layer)
 	body.collision_mask = int(e.mask)
+	body.z_index = int(e.get("z", 0))  # decor (trees, rocks) sits behind the players and enemies
 
 	var core: Node = load(ENTITY_CORE).new()
 	core.name = "Entity"

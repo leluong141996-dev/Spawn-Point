@@ -121,6 +121,9 @@ def main(argv: list[str] | None = None) -> int:
     sv2.add_argument("sprite", type=Path)
     sv2.add_argument("-o", "--out", type=Path)
     sps.add_parser("kinds", help="list the procedural sprite kinds")
+    sga = sps.add_parser("gallery", help="render one contact sheet of every procedural kind, for review")
+    sga.add_argument("--style", choices=["pixel", "fine", "cartoon"], default="fine")
+    sga.add_argument("-o", "--out", type=Path, default=Path("sprite-gallery.png"))
 
     ds = sub.add_parser("dataset", help="recorded fine-tuning data")
     ds.add_argument("action", choices=["stats", "path"])
@@ -271,6 +274,11 @@ def _sprites(args) -> int:
         if args.sprites_cmd == "kinds":
             for k, spec in gen.KINDS.items():
                 print(f"{k:<8} {spec.size[0]}x{spec.size[1]} px  animations: {', '.join(spec.anims)}")
+            return 0
+        if args.sprites_cmd == "gallery":
+            from .sprites.gallery import gallery
+            gallery(args.style).save(args.out)
+            print(f"Wrote {args.out}")
             return 0
         if args.sprites_cmd == "preview":
             s = load(args.sprite)

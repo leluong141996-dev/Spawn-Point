@@ -50,6 +50,14 @@ func test_projectile_hits_and_expires() -> void:
 	assert_false(is_instance_valid(bullet), "bullet should be gone")
 
 
+func test_projectile_visual_points_where_it_flies() -> void:
+	var down := make_entity("Arrow", "area", SP.TEAM_PLAYER, Vector2(8, 8), {"Projectile": {"speed": 10.0, "direction": Vector2(0, 1)}}, Vector2(0, 0))
+	var right := make_entity("Arrow", "area", SP.TEAM_PLAYER, Vector2(8, 8), {"Projectile": {"speed": 10.0}}, Vector2(0, 40))
+	await frames(1)
+	assert_near((down.get_node(^"Visual/Shape") as Node2D).rotation, PI / 2, 0.01, "an arrow shot down points down")
+	assert_near((right.get_node(^"Visual/Shape") as Node2D).rotation, 0.0, 0.01, "an arrow shot right is not turned")
+
+
 func test_projectile_stops_at_wall() -> void:
 	var wall := add_floor(90, 130, -50)  # 40px wide block straddling the path
 	wall.position.y = 0

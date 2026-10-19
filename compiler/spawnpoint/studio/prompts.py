@@ -5,6 +5,15 @@ from __future__ import annotations
 import json
 import os
 
+# Names choose the art (sprites/generate.py FEATURE_WORDS, studio/assemble.py sprite_kind), so the prompts show
+# the model nouns that draw something specific. tests/test_sprites.py checks each one still does.
+ART_HEROES = ("Knight", "Wizard", "Ranger", "Viking", "King", "Ninja", "Princess")
+ART_MONSTERS = ("Skeleton", "Zombie", "Ghost", "Dragon", "Spider", "Snake", "Wolf", "Orc", "Goblin", "Bat")
+ART_PICKUPS = ("Coin", "Gem", "Star", "Key", "Potion", "Scroll", "Chest")
+ART_LINE = (f"Names choose the art, so use concrete nouns: heroes like {', '.join(ART_HEROES)} (a Ranger or Archer has a bow"
+            f" and shoots arrows); monsters like {', '.join(ART_MONSTERS)}; pickups like {', '.join(ART_PICKUPS)}."
+            " Words combine: SkeletonArcher is a skeleton with a bow, GoldKey a key, HealthPotion a potion.")
+
 BRIEF_SYSTEM = """You are the lead designer of a tiny 2D game studio. Turn the user's game idea into a GameBrief JSON.
 
 Fields:
@@ -45,7 +54,9 @@ Common mistakes to avoid:
 - The player is never an enemy or a collectible.
 - Platforms, walls, floors and the level itself are NOT enemies or collectibles; the level is generated automatically.
 - Names are singular ("Star", not "Stars").
-- Only use the archetypes listed above."""
+- Only use the archetypes listed above.
+
+""" + ART_LINE
 
 BRIEF_EXAMPLE_USER = "a space game where I blast alien bugs in an arena"
 BRIEF_EXAMPLE = {
@@ -119,7 +130,12 @@ TRANSLATE_SYSTEM = """Translate the user's game idea into clear English for a ga
 Keep every detail: characters, enemies, items, goals, numbers. Output JSON.
 Vietnamese game terms: "sao"/"ngôi sao" = star, "ăn"/"nhặt" an item = collect it, "qua màn" = finish the level,
 "quái"/"quái vật" = enemies/monsters, "né" = avoid/dodge, "bắn" = shoot, "nhảy" = jump, "bục" = platform,
-"sống sót" = survive, "tiêu diệt hết" = defeat all, "cửa" = door/exit, "gai" = spikes, "hố" = pits."""
+"sống sót" = survive, "tiêu diệt hết" = defeat all, "cửa" = door/exit, "gai" = spikes, "hố" = pits,
+"hiệp sĩ" = knight, "phù thủy" = wizard (female: witch), "cung thủ"/"xạ thủ" = archer, "thợ săn" = hunter, "vua" = king,
+"công chúa" = princess, "bộ xương" = skeleton, "xác sống" = zombie, "ma" = ghost, "rồng" = dragon, "nhện" = spider,
+"rắn" = snake, "sói" = wolf, "yêu tinh" = goblin, "dơi" = bat, "chìa khóa" = key, "bình máu"/"bình thuốc" = potion,
+"cuộn giấy"/"bí kíp" = scroll, "rương"/"kho báu" = treasure chest, "đồng xu"/"tiền" = coin, "đá quý" = gem,
+"cung tên" = bow and arrows, "mũi tên" = arrow, "khiên" = shield, "kiếm" = sword."""
 
 TRANSLATE_SCHEMA = {
     "type": "object",
@@ -146,7 +162,8 @@ platformer (side view, jumping), topdown (seen from above, moving and shooting; 
 Names are singular PascalCase ("Slime"). Palette: night, forest, desert, neon, candy, ocean, lava or snow. art_style is pixel, or cartoon when the player asks for smooth, hand-drawn or non-pixel art. Keep numbers the player gives exactly ("score 300 points").
 Archetypes: walker patrols, hopper bounces, chaser runs at you, shooter keeps its distance and shoots, turret stands still and shoots. Shmup: drifter flies straight, weaver in a wave, diver dives at you, gunship stops and shoots. Speed is slow, normal or fast (tower defense: slow = big and tough, fast = swarms).
 Abilities: double_jump, dash, stomp, shoot, sword (melee); one weapon, shoot or sword. Goals: reach_exit, collect_all, collect_all_then_exit, defeat_all, score_target, survive, rescue (platformer), defeat_boss (shmup).
-The level, platforms and the player are never enemies or pickups."""
+The level, platforms and the player are never enemies or pickups.
+""" + ART_LINE
 
 
 def brief_messages_v5(prompt: str) -> list[dict]:

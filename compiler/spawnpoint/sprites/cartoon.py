@@ -16,7 +16,7 @@ from dataclasses import dataclass
 import numpy as np
 from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
-from . import chibi, creatures, motion
+from . import chibi, creatures, items, motion
 from .generate import KINDS, _hex, add_derived, body_color, features_for, held_weapon
 from .spriteset import SpriteSet, build_sheet, finalize
 
@@ -506,6 +506,118 @@ def _hexrgb(h: str) -> RGB:
     return round(r * 255), round(g * 255), round(b * 255)
 
 
+# --- items and props (twins of items.py; frame coordinates are twice the fine pixel art's) ------
+
+def _twinkle(P: Painter, x: float, y: float, i: int) -> None:
+    r = (0, 2, 3.5, 2)[i % 4]
+    if r:
+        P.poly([(x, y - r), (x + r * 0.3, y - r * 0.3), (x + r, y), (x + r * 0.3, y + r * 0.3), (x, y + r),
+                (x - r * 0.3, y + r * 0.3), (x - r, y), (x - r * 0.3, y - r * 0.3)], WHITE, shade=False, top=True)
+
+
+def draw_key(P: Painter, p: Pose) -> None:
+    c = P.p
+    y = (0, 0, 2, 2)[p.i % 4]
+    P.ellipse(10, 12 + y, 9, 9, c.base, shine=True)
+    P.ellipse(10, 12 + y, 3.4, 3.4, (0, 0, 0), shade=False, top=True)
+    P.rrect(17, 11 + y, 31, 15 + y, 1.5, c.base)
+    P.rrect(24, 15 + y, 27, 21 + y, 1, c.base)
+    P.rrect(29, 15 + y, 31, 19 + y, 1, c.base)
+    _twinkle(P, 4, 4 + y, p.i)
+
+
+def draw_potion(P: Painter, p: Pose) -> None:
+    c = P.p
+    glass, cork = _hexrgb(items.GLASS), _hexrgb(items.CORK)
+    P.ellipse(16, 26, 13, 12, glass, shine=False)
+    P.rrect(11, 6, 20, 17, 2, glass)
+    P.rrect(9, 2, 22, 8, 2, cork)
+    P.ellipse(16, 29, 10.5, 8.5, c.base, top=True)
+    P.shine(9, 21, 2.5, 4, alpha=200)
+    for k, (bx, by) in enumerate(((12, 32), (19, 30), (15, 26))):
+        if (p.i + k) % 4 < 2:
+            P.ellipse(bx, by - (p.i + k) % 2 * 2, 1.4, 1.4, _shade(c.base, 1.5), shade=False, top=True)
+
+
+def draw_scroll(P: Painter, p: Pose) -> None:
+    c = P.p
+    pa = _hexrgb(items.PARCHMENT)
+    y = (0, 2)[p.i % 2]
+    P.rrect(6, 8 + y, 30, 24 + y, 2, pa)
+    for x0 in (1, 28):
+        P.rrect(x0, 6 + y, x0 + 7, 26 + y, 3, _shade(pa, 0.85))
+    for row in (13, 17):
+        P.line([(10, row + y), (26, row + y)], 1.0, (138, 106, 72))
+    P.ellipse(18, 23 + y, 4.4, 4.4, c.base, shine=True)
+
+
+def draw_bomb(P: Painter, p: Pose) -> None:
+    iron = _hexrgb(items.IRON)
+    P.ellipse(16, 22, 13, 13, iron, shine=True)
+    P.rrect(13, 5, 20, 11, 1.5, _hexrgb(items.STEEL))
+    P.line([(20, 6), (24, 2), (27, 2)], 1.6, _hexrgb(items.CORK), top=False)
+    spark = _hexrgb(items.SPARK[p.i % 3])
+    P.ellipse(28, 2, 3.2, 3.2, spark, shade=False, top=True)
+    if p.i % 2 == 0:
+        _twinkle(P, 31, 1, 1)
+
+
+def draw_chest(P: Painter, p: Pose) -> None:
+    wood, gold = _hexrgb(items.WOOD), _hexrgb(items.GOLD)
+    P.rrect(3, 18, 45, 38, 3, wood)
+    P.rrect(4, 6, 44, 20, 8, wood)
+    for x in (10, 36):
+        P.rrect(x - 1.5, 6, x + 1.5, 38, 0.8, gold, top=True)
+    P.rrect(20, 15, 28, 25, 2, gold, top=True)
+    P.ellipse(24, 20, 1.6, 2, EYE, shade=False, top=True)
+    _twinkle(P, 40, 4, p.i)
+
+
+def draw_arrow(P: Painter, p: Pose) -> None:
+    c = P.p
+    P.rrect(6, 6.5, 33, 9.5, 1, _hexrgb(items.WOOD))
+    P.poly([(31, 1), (40, 8), (31, 15)], _hexrgb(items.STEEL))
+    P.poly([(0, 1), (10, 6), (0, 7)], c.base)
+    P.poly([(0, 15), (10, 10), (0, 9)], c.shadow)
+
+
+def draw_tree(P: Painter, p: Pose) -> None:
+    c = P.p
+    wood = _hexrgb(items.WOOD)
+    sway = (0, 2, 0, -2)[p.i % 4]
+    P.rrect(26, 58, 37, 95, 3, wood)
+    P.ellipse(31.5, 93, 11, 3, _shade(wood, 0.8))
+    if "pine" in p.feats:
+        for n, (top, half) in enumerate(((4, 13), (20, 18), (38, 24))):
+            dx = sway if n == 0 else (sway / 2 if n == 1 else 0)
+            P.poly([(32 + dx - half, top + 24), (32 + dx, top), (32 + dx + half, top + 24)], c.base)
+        return
+    P.ellipse(32, 48, 24, 16, c.base)
+    P.ellipse(32 + sway, 30, 22, 16, c.base, shine=True)
+    P.ellipse(32 + sway, 14, 14, 12, c.base)
+
+
+def draw_bush(P: Painter, p: Pose) -> None:
+    c = P.p
+    sway = (0, 2)[p.i % 2]
+    P.ellipse(16, 20, 14, 12, c.base)
+    P.ellipse(44, 20, 12, 11, c.shadow)
+    P.ellipse(30 + sway, 16, 16, 14, c.base, shine=True)
+    P.rrect(4, 24, 52, 31, 4, c.shadow)
+    if "berries" in p.feats:
+        for bx, by in ((18, 18), (34, 22), (42, 14)):
+            P.ellipse(bx, by, 2.4, 2.4, (224, 72, 88), shade=False, top=True)
+
+
+def draw_rock(P: Painter, p: Pose) -> None:
+    c = P.p
+    P.ellipse(22, 20, 20, 13, c.base, shine=True)
+    P.ellipse(38, 24, 10, 8, c.shadow)
+    P.line([(24, 18), (28, 24)], 1.2, _shade(c.base, 0.6))
+    if "moss" in p.feats:
+        P.ellipse(18, 9, 10, 3.6, (90, 160, 64), top=True)
+
+
 # --- chibi creatures (twins of creatures.py; frame coordinates are twice the fine pixel art's) --
 
 def draw_beast(P: Painter, p: Pose) -> None:
@@ -828,8 +940,11 @@ PAINTERS = {"hero": draw_hero, "slime": draw_blob, "hopper": draw_blob, "bug": d
             "heart": draw_heart, "orb": draw_orb, "door": draw_door, "exit": draw_exit, "portal": draw_portal,
             "spikes": draw_spikes, "bullet": draw_bullet,
             "slash": draw_slash, "ship": draw_ship, "ufo": draw_ufo,
-            "beast": draw_beast, "spider": draw_spider, "dragon": draw_dragon, "ghost": draw_ghost, "snake": draw_snake}
-OUTLINE = {"bullet": 0.8, "slash": 0.8, "coin": 1.0, "gem": 1.0, "star": 1.1, "heart": 1.1, "spikes": 1.0, "orb": 1.0}
+            "beast": draw_beast, "spider": draw_spider, "dragon": draw_dragon, "ghost": draw_ghost, "snake": draw_snake,
+            "key": draw_key, "potion": draw_potion, "scroll": draw_scroll, "bomb": draw_bomb, "chest": draw_chest,
+            "arrow": draw_arrow, "tree": draw_tree, "bush": draw_bush, "rock": draw_rock}
+OUTLINE = {"bullet": 0.8, "slash": 0.8, "coin": 1.0, "gem": 1.0, "star": 1.1, "heart": 1.1, "spikes": 1.0, "orb": 1.0,
+           "key": 1.0, "potion": 1.0, "scroll": 1.0, "bomb": 1.0, "arrow": 0.8}
 
 
 def generate_cartoon(name: str, kind: str, color: str, features: list[str] | None = None, seed: int = 0) -> SpriteSet:

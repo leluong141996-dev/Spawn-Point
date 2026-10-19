@@ -317,7 +317,10 @@ def shrink(px: np.ndarray) -> np.ndarray:
 
 
 def frames(kind: str, name: str, color: str, feats: list[str], seed: int, pal: palettes.Palette | None,
-           size: tuple[int, int], anims: dict[str, tuple[int, float, bool]], fine: bool) -> dict[str, list[np.ndarray]]:
+           size: tuple[int, int], anims: dict[str, tuple[int, float, bool]], fine: bool,
+           painter=None) -> dict[str, list[np.ndarray]]:
+    """Frames for a natively painted kind (`painter` defaults to this module's creature painters)."""
+    painter = painter or PAINTERS[kind]
     w, h = size[0] * 2, size[1] * 2
     if kind == "ghost":  # ghosts keep their hue but stay pale
         color = _mix(color, (240, 244, 255), 0.82)
@@ -327,7 +330,7 @@ def frames(kind: str, name: str, color: str, feats: list[str], seed: int, pal: p
         out[anim] = []
         for i in range(n):
             g = Fig(w, h)
-            PAINTERS[kind](g, L, anim, i)
+            painter(g, L, anim, i)
             px = g.px if fine else shrink(g.px)
             px = _outline(px)
             out[anim].append(pal.snap(px) if pal else px)

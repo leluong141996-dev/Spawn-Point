@@ -16,7 +16,7 @@ from typing import Callable
 
 import numpy as np
 
-from . import chibi, creatures, motion, palettes
+from . import chibi, creatures, items, motion, palettes
 from .spriteset import SpriteSet, build_sheet, finalize
 
 RGBA = tuple[int, int, int, int]
@@ -162,6 +162,8 @@ FEATURE_WORDS: dict[str, tuple[str, ...]] = {
     "zombie": ("zombie",), "ghoul": ("zombie",),
     "ghost": ("ghost",), "spirit": ("ghost",),
     "dino": ("tail", "crest"), "dinosaur": ("tail", "crest"), "rex": ("tail", "crest"), "lizard": ("tail",),
+    "pine": ("pine",), "fir": ("pine",), "spruce": ("pine",), "berry": ("berries",), "berries": ("berries",),
+    "mossy": ("moss",),
     "mom": ("hair",), "mother": ("hair",), "mama": ("hair",), "mum": ("hair",), "princess": ("hair", "crown", "dress"),
     "lady": ("hair",), "girl": ("hair",), "farmer": ("hat",), "farmhand": ("hat",), "gardener": ("hat",),
 }
@@ -776,6 +778,16 @@ KINDS: dict[str, Kind] = {
     "ghost": Kind((12, 14), {"idle": (4, 6, True), "run": (4, 8, True), "hurt": (1, 1, False)}, None),
     "snake": Kind((16, 8), {"idle": (2, 3, True), "run": (4, 8, True), "jump": (1, 1, False), "fall": (1, 1, False),
                             "hurt": (1, 1, False)}, None, "bottom"),
+    # chibi items and decorative props, painted natively by items.py
+    "key": Kind((8, 8), {"idle": (4, 6, True)}, None),
+    "potion": Kind((8, 10), {"idle": (4, 6, True)}, None),
+    "scroll": Kind((9, 8), {"idle": (2, 3, True)}, None),
+    "bomb": Kind((9, 9), {"idle": (4, 12, True)}, None),
+    "chest": Kind((12, 10), {"idle": (4, 4, True)}, None, "bottom"),
+    "arrow": Kind((10, 4), {"idle": (1, 1, True)}, None),
+    "tree": Kind((16, 24), {"idle": (4, 2, True)}, None, "bottom"),
+    "bush": Kind((14, 8), {"idle": (2, 2, True)}, None, "bottom"),
+    "rock": Kind((12, 8), {"idle": (1, 1, True)}, None, "bottom"),
 }
 
 
@@ -815,6 +827,7 @@ def refine(f: np.ndarray, outline: RGBA) -> np.ndarray:
 
 # Animations a painter draws itself (on top of the kind's own), and the kinds that get a derived attack pulse.
 DRAWN_EXTRA: dict[str, dict[str, tuple[int, float, bool]]] = {"hero": {"attack": (3, 14, False)}}
+NATIVE = {**creatures.PAINTERS, **items.PAINTERS}  # kinds painted at the fine size (coarse = 2:1 shrink)
 ATTACKERS = {"hero", "slime", "hopper", "flyer", "robot", "bug", "beast", "spider", "dragon", "ghost", "snake"}
 DERIVED = {"attack": (3, 14.0, False), "die": (5, 10.0, False)}
 
@@ -847,8 +860,8 @@ def generate(name: str, kind: str, color: str, features: list[str] | None = None
     pal = palettes.get(palette)
     r = ramp(body_color(color, feats) if kind == "hero" else color, pal)
     anims = {**spec.anims, **DRAWN_EXTRA.get(kind, {})}
-    if kind in creatures.PAINTERS:
-        frames = creatures.frames(kind, name, color, feats, seed, pal, spec.size, anims, fine)
+    if kind in NATIVE:
+        frames = creatures.frames(kind, name, color, feats, seed, pal, spec.size, anims, fine, NATIVE[kind])
         flash_color = tuple(int(x) for x in pal.rgb[pal.light]) if pal else motion.FLASH
         fps, loop = add_derived(kind, frames, anims, True, spec.anchor, flash_color, rng_seed)
         if pal:
