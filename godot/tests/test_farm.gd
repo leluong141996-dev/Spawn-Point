@@ -76,3 +76,76 @@ func test_pest_eats_the_nearest_crop() -> void:
 	assert_eq(eaten, [0], "the crow walked over and ate it")
 	assert_true(plot.is_empty())
 	crow.queue_free()
+
+
+func _animal(pos: Vector2, params := {}) -> FarmAnimalComponent:
+	var e := make_entity("Chicken", "character", SP.TEAM_NEUTRAL, Vector2(16, 16), {"FarmAnimal": params}, pos)
+	return SP.component(e, &"FarmAnimal") as FarmAnimalComponent
+
+
+func test_animals_give_their_product_on_a_timer_and_stay_near_home() -> void:
+	GameState.reset_run()
+	var hen := _animal(Vector2(300, 300), {"product": "Egg", "product_seconds": 1.0, "wander_radius": 40.0, "speed": 60.0})
+	await frames(2)
+	assert_eq(hen.collect(), "", "nothing yet: just a pat")
+	await frames(70)
+	assert_true(hen.is_ready())
+	assert_eq(hen.collect(), "Egg")
+	assert_false(hen.is_ready())
+	await frames(240)
+	var body := hen.get_parent() as Node2D
+	assert_true(body.global_position.distance_to(hen.home) < 40.0 + 8.0, "it strolls around home")
+
+
+func test_farmer_collects_goods_and_sells_them() -> void:
+	var f := _farmer()
+	f.goods = "Egg|6;Wood|3"
+	f.goods_list = FarmerComponent.parse_goods(f.goods)
+	var hen := _animal(Vector2(24, 0), {"product": "Egg", "product_seconds": 0.5, "wander_radius": 0.0})
+	await frames(40)
+	assert_true(hen.is_ready())
+	assert_eq(f.interact(), "collect")
+	assert_eq(f.goods_basket, {"Egg": 1})
+	assert_eq(f.add_goods("Wood", 2), 2)
+	assert_eq(f.basket_value(), 6 + 2 * 3)
+	assert_eq(f.sell(), 12)
+	assert_eq(f.goods_basket, {})
+
+
+func test_gatherables_break_after_their_hits() -> void:
+	var f := _farmer()
+	f.goods_list = FarmerComponent.parse_goods("Wood|3")
+	var tree := make_entity("Oak", "static", SP.TEAM_NEUTRAL, Vector2(20, 20),
+			{"Gatherable": {"item": "Wood", "hits": 3, "amount": 2}}, Vector2(30, 0))
+	var g := SP.component(tree, &"Gatherable") as GatherableComponent
+	await frames(2)
+	assert_eq(f.interact(), "chop")
+	assert_eq(f.interact(), "chop")
+	assert_eq(g.hits_left, 1)
+	assert_eq(f.interact(), "gather")
+	assert_eq(f.goods_basket, {"Wood": 2})
+	await frames(2)
+	assert_false(is_instance_valid(tree), "the tree is gone")
+
+
+func test_a_ready_animal_beats_a_closer_one_with_nothing() -> void:
+	var f := _farmer()
+	var chick := _animal(Vector2(14, 0), {"product": "", "product_seconds": 600.0, "wander_radius": 0.0})
+	var cow := _animal(Vector2(36, 0), {"product": "Milk", "product_seconds": 0.5, "wander_radius": 0.0})
+	await frames(40)
+	assert_true(cow.is_ready())
+	assert_eq(f.nearest_target(), cow)
+	chick.get_parent().queue_free()
+
+
+func test_plots_draw_their_crop_from_its_stages() -> void:
+	GameState.reset_run()
+	var plot := _plot(Vector2.ZERO, {"water_seconds": 10.0})
+	await frames(1)
+	plot.plant(0, 1.0, Color.ORANGE)
+	assert_eq(plot.stage(), 0)
+	plot.water()
+	await frames(30)
+	assert_eq(plot.stage(), 2)
+	await frames(40)
+	assert_eq(plot.stage(), 4)

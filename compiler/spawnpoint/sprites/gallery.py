@@ -33,6 +33,14 @@ CAST: list[tuple[str, str, str]] = [
     ("Spikes", "spikes", "#c2c3c7"), ("Tree", "tree", "#4aa050"), ("PineTree", "tree", "#2f7a50"),
     ("BerryBush", "bush", "#5ab050"), ("MossyRock", "rock", "#8a8a9a"),
     ("Fighter", "ship", "#29adff"), ("Saucer", "ufo", "#00e436"),
+    ("Farmhouse", "farmhouse", "#b4472e"), ("Coop", "coop", "#c0503a"), ("Oak", "tree_oak", "#5cb84a"),
+    ("AppleTree", "tree_fruit", "#5cb84a"), ("CherryTree", "tree_blossom", "#ffa8c8"), ("Pine", "tree_pine", "#2f8a5a"),
+    ("Well", "well", "#b4472e"), ("Scarecrow", "scarecrow", "#4a7ad0"), ("Stump", "stump", "#9a5e36"),
+    ("Boulder", "boulder", "#a8a8b8"), ("ShippingBin", "bin", "#9a5e36"), ("Hay", "hay", "#e8c25a"),
+    ("Barrel", "barrel", "#9a5e36"), ("Signpost", "signpost", "#9a5e36"), ("FlowerBush", "flower_bush", "#ff8fb4"),
+    ("FenceH", "fence_h", "#9a5e36"), ("FenceV", "fence_v", "#9a5e36"), ("FencePost", "fence_post", "#9a5e36"),
+    ("Chicken", "chicken", "#f4ece0"), ("Chick", "chick", "#ffd84a"), ("Cow", "cow", "#a0582e"),
+    ("Farmer", "farmer", "#e8503a"),
 ]
 
 CELL, PAD, LABEL, BG, TILE, TEXT = 96, 10, 14, (36, 40, 52, 255), (52, 58, 74, 255), (220, 224, 232, 255)

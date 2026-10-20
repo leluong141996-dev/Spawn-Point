@@ -48,7 +48,9 @@ func _process(delta: float) -> void:
 	_hurt_left -= delta
 	_attack_left -= delta
 	state = pick_state()
-	var anim := state if _sprite.sprite_frames.has_animation(state) else &"idle"
+	var anim := _directed(state)
+	if not _sprite.sprite_frames.has_animation(anim):
+		anim = state if _sprite.sprite_frames.has_animation(state) else &"idle"
 	if _sprite.animation != anim or not _sprite.is_playing():
 		_sprite.play(anim)
 	if state == "run":
@@ -57,6 +59,18 @@ func _process(delta: float) -> void:
 		_sprite.speed_scale = clampf(_speed() / maxf(top, 1.0) * 1.2, 0.5, 1.6)
 	else:
 		_sprite.speed_scale = 1.0
+
+
+## Four-direction sprites (top-down RPG style) have "run_up", "idle_side"...: [param s] with the facing appended,
+## or [param s] itself when facing down (the plain animations face down).
+func _directed(s: String) -> String:
+	var mv := SP.movement(_entity)
+	if not (mv is TopDownMovementComponent) or not _sprite.sprite_frames.has_animation(&"idle_up"):
+		return s
+	var d: Vector2 = (mv as TopDownMovementComponent).facing_dir
+	if absf(d.x) > absf(d.y) + 0.05:
+		return s + "_side"
+	return s + "_up" if d.y < 0.0 else s
 
 
 ## The state the entity is in right now.

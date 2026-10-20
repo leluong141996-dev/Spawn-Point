@@ -94,6 +94,8 @@ func _build_entity(e: Dictionary) -> Node2D:
 			var cs := CollisionShape2D.new()
 			cs.name = "CollisionShape2D"
 			cs.shape = _collision_shape(shape_type, size, 1.0)
+			if e.has("shape_offset"):  # things standing on their base collide at their feet
+				cs.position = Vector2(e.shape_offset[0], e.shape_offset[1])
 			_own(body, cs, body)
 		var visual: Node2D
 		if sprite != null:
@@ -475,6 +477,7 @@ func _build_level(plan: Dictionary, tileset: TileSet) -> Node2D:
 
 	var entities := Node2D.new()
 	entities.name = "Entities"
+	entities.y_sort_enabled = bool(plan.get("y_sort", false))  # lower on screen = in front (walk behind trees)
 	_own(root, entities, root)
 	var counts := {}
 	for p: Dictionary in plan.placements:
@@ -590,6 +593,16 @@ func _build_backdrop(root: Node2D, plan: Dictionary, bounds: Rect2) -> void:
 func _build_pixel_scenery(root: Node2D, holder: Node2D, plan: Dictionary, bounds: Rect2) -> void:
 	var sc: Dictionary = plan.scenery
 	var pix := float(sc.get("pixel", 2))
+	if sc.has("ground"):  # one drawn picture of the whole map's ground (farms)
+		var ground := Sprite2D.new()
+		ground.name = "Ground"
+		ground.texture = load(String(sc.ground)) as Texture2D
+		ground.centered = false
+		ground.position = bounds.position
+		ground.scale = Vector2(pix, pix)
+		ground.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		_own(holder, ground, root)
+		return
 	if sc.has("floor"):
 		var floor_rect := TextureRect.new()
 		floor_rect.name = "Floor"

@@ -6,6 +6,7 @@ from PIL import Image
 
 from spawnpoint.analyze import analyze
 from spawnpoint.sprites import contour, importer
+from spawnpoint.sprites import farm as farm_art
 from spawnpoint.sprites.generate import KINDS, features_for, generate
 from spawnpoint.sprites.resolve import convex_hull, plan_entry, safe_polygon
 from spawnpoint.sprites.spriteset import SpriteError, load
@@ -273,7 +274,7 @@ def test_plan_carries_tiles_and_zoom(manifest):
 
 # --- cartoon style ----------------------------------------------------------------------------
 
-@pytest.mark.parametrize("kind", sorted(KINDS))
+@pytest.mark.parametrize("kind", sorted(k for k in KINDS if k not in farm_art.SPRITES))  # the farm set is pixel only
 def test_every_kind_renders_in_cartoon(kind):
     from spawnpoint.sprites.cartoon import DETAIL, SCALE, generate_cartoon
     s = generate_cartoon("Thing", kind, "#29adff")

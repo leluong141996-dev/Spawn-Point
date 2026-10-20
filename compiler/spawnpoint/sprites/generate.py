@@ -16,7 +16,7 @@ from typing import Callable
 
 import numpy as np
 
-from . import chibi, creatures, items, monsters, motion, palettes
+from . import chibi, creatures, farm, items, monsters, motion, palettes
 from .spriteset import SpriteSet, build_sheet, finalize
 
 RGBA = tuple[int, int, int, int]
@@ -785,6 +785,8 @@ KINDS: dict[str, Kind] = {
     "tree": Kind((16, 24), {"idle": (4, 2, True)}, None, "bottom"),
     "bush": Kind((14, 8), {"idle": (2, 2, True)}, None, "bottom"),
     "rock": Kind((12, 8), {"idle": (1, 1, True)}, None, "bottom"),
+    # the cozy farm: buildings, trees, props, animals and the farmer, painted by farm.py at 16 px per tile
+    **{k: Kind(size, anims, None, "bottom") for k, (size, anims, _p, _c) in farm.SPRITES.items()},
 }
 
 
@@ -849,6 +851,18 @@ def generate(name: str, kind: str, color: str, features: list[str] | None = None
     if kind not in KINDS:
         raise ValueError(f"unknown sprite kind '{kind}'")
     spec = KINDS[kind]
+    if kind in farm.SPRITES:  # farm art is drawn at its own 16 px tile size; the fine style just doubles it
+        fr = farm.frames(kind, color, seed)
+        pal = palettes.get(palette)
+        flash_color = tuple(int(x) for x in pal.rgb[pal.light]) if pal else motion.FLASH
+        fps, loop = add_derived(kind, fr, spec.anims, True, spec.anchor, flash_color, zlib.crc32(f"{name}:{kind}:{seed}".encode()))
+        if pal:
+            fr = {a: [pal.snap(f) for f in fs] for a, fs in fr.items()}
+        if fine:
+            fr = {a: [np.kron(f, np.ones((2, 2, 1), dtype=np.uint8)) for f in fs] for a, fs in fr.items()}
+        sheet, anim_set = build_sheet(fr, fps, loop)
+        size = (spec.size[0] * 2, spec.size[1] * 2) if fine else spec.size
+        return finalize(name, sheet, size, anim_set, 1 if fine else scale, spec.anchor)
     feats = list(features) if features is not None else features_for(name)
     rng_seed = zlib.crc32(f"{name}:{kind}:{seed}".encode())
     extra = {"one_eye": random.Random(rng_seed).random() < 0.3}

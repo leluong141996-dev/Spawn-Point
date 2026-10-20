@@ -9,7 +9,7 @@ from typing import Any
 
 from . import level as lvl
 from .diagnostics import Diagnostics, did_you_mean, join_path
-from .graph import Entity, Graph, parse
+from .graph import Entity, Graph, Shape, parse
 from .manifest import BODY_CLASSES, Component, Manifest, Param
 from .rules import compile_rules
 from .sprites import resolve as sprite_resolve
@@ -121,7 +121,11 @@ class _Analyzer:
                              "Generator kinds: " + ", ".join(sorted(sprite_resolve.KINDS)) if "kind" in str(e) else None)
                 continue
             self.sprites[name] = sprite
-            if "shape" not in ent.model_fields_set:
+            if ent.base is not None and "shape" not in ent.model_fields_set:
+                # Standing on its base: only the footprint collides (walk behind the crown or the roof).
+                ent.shape = Shape(type="circle" if ent.body == "character" else "rect", size=tuple(ent.base),
+                                  color=ent.shape.color)
+            elif "shape" not in ent.model_fields_set:
                 # No explicit shape: the body collision comes from the drawing.
                 ent.shape = sprite_resolve.derived_shape(ent, sprite, self.g.genre)
 
@@ -130,6 +134,12 @@ class _Analyzer:
         s = self.g.settings
         from .sprites import scenery as sc
 
+        for name, req in s.art.items():
+            self.scenery_images[f"art_{name}"] = sc.to_image(_draw_art(req))
+        if s.terrain:  # a drawn ground for the whole map (farms)
+            from .sprites import farm
+            self.scenery_images["scenery_ground"] = sc.to_image(farm.terrain_image(s.terrain, s.seed))
+            return {"ground": "res://sprites/scenery_ground.png", "pixel": 2}
         if s.scenery == "space":  # scrolling stars for shooters, in any art style
             sky, stars = sc.space(background, s.pixel_palette if s.art_style == "pixel" else None, s.seed)
             self.scenery_images["scenery_sky"] = sc.to_image(sky)
@@ -346,9 +356,11 @@ class _Analyzer:
                           "color": ent.shape.color or self._color(ent, team)},
                 "eye": ent.body == "character" and sprite is None,
                 "pivot": "bottom" if g.genre == "platformer" and ent.body == "character" else "center",
-                "sprite": sprite_resolve.plan_entry(name, sprite) if sprite is not None else None,
+                "sprite": sprite_resolve.plan_entry(name, sprite, on_base=ent.base is not None) if sprite is not None else None,
                 "z": -1 if ent.decor else 0,
             })
+            if ent.base is not None:  # the collision box sits at the feet, the origin
+                entities[-1]["shape_offset"] = [0, round(-ent.shape.size[1] / 2, 2)]
             entities[-1]["components"] = comps
 
         placements = []
@@ -356,7 +368,9 @@ class _Analyzer:
             ent = g.entities[p.entity]
             x = (p.x + 0.5) * ts
             floating = any(c in ent.components for c in ("Collectible", "Projectile", "Spawner"))
-            if g.genre == "platformer" and not floating:
+            if ent.base is not None:  # standing on the bottom of its cell
+                y = (p.y + 1) * ts - 4
+            elif g.genre == "platformer" and not floating:
                 y = (p.y + 1) * ts - ent.shape.size[1] / 2
             else:
                 y = (p.y + 0.5) * ts
@@ -410,6 +424,7 @@ class _Analyzer:
             "walls": self.genre["walls"],
             "entities": entities,
             "placements": placements,
+            "y_sort": s.y_sort,
             "rules_script": RULES_SCRIPT,
         }
 
@@ -446,3 +461,15 @@ class _Analyzer:
         if team == "enemy":
             return COLORS["enemy"]
         return COLORS["other"]
+
+
+def _draw_art(req):
+    """The picture an ArtRequest asks for, as an RGBA array."""
+    from .sprites import farm
+    if req.kind == "crop":
+        return farm.crop_sheet(req.of, req.color or "#e83a4a")
+    if req.kind == "crop_icon":
+        return farm.crop_icon(req.of, req.color or "#e83a4a")
+    if req.kind == "item_icon":
+        return farm.item_icon(req.of)
+    return farm.soil_tile(req.kind == "soil_wet")

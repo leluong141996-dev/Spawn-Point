@@ -26,6 +26,10 @@ signal eaten(crop: int)
 @export_range(1.0, 120.0, 0.5) var water_seconds: float = 6.0
 ## Size of the soil patch in px.
 @export_range(16.0, 128.0, 1.0) var size: float = 30.0
+## Picture of dry tilled soil (res:// path); empty draws plain soil.
+@export var soil_texture: String = ""
+## Picture of watered soil (res:// path).
+@export var wet_texture: String = ""
 
 var state := State.EMPTY
 var crop := -1
@@ -34,9 +38,12 @@ var grow_seconds := 8.0
 var growth := 0.0  # seconds of wet growth so far
 var wet_left := 0.0
 
+var crop_texture: Texture2D  # five growth stages side by side (seeds, sprout, young, grown, ripe)
 var _entity: Area2D
 var _view: Node2D
 var _sway := 0.0
+var _soil: Texture2D
+var _wet: Texture2D
 
 
 func _ready() -> void:
@@ -47,6 +54,10 @@ func _ready() -> void:
 	_view.z_index = -1
 	_view.draw.connect(_on_draw)
 	_entity.add_child.call_deferred(_view)
+	if soil_texture != "" and ResourceLoader.exists(soil_texture):
+		_soil = load(soil_texture) as Texture2D
+	if wet_texture != "" and ResourceLoader.exists(wet_texture):
+		_wet = load(wet_texture) as Texture2D
 
 
 func is_empty() -> bool:
@@ -61,12 +72,14 @@ func has_crop() -> bool:
 	return state != State.EMPTY
 
 
-## Plants crop [param index] that ripens after [param seconds] of wet growth.
-func plant(index: int, seconds: float, color: Color) -> bool:
+## Plants crop [param index] that ripens after [param seconds] of wet growth. [param texture] holds the crop's
+## growth stages (optional; without it the crop is drawn as shapes in [param color]).
+func plant(index: int, seconds: float, color: Color, texture: Texture2D = null) -> bool:
 	if state != State.EMPTY:
 		return false
 	state = State.GROWING
 	crop = index
+	crop_texture = texture
 	grow_seconds = maxf(seconds, 0.5)
 	crop_color = color
 	growth = 0.0
@@ -126,7 +139,18 @@ func progress() -> float:
 	return 1.0 if state == State.RIPE else clampf(growth / grow_seconds, 0.0, 1.0)
 
 
+## Which picture of the crop to show: 0 seeds .. 4 ripe.
+func stage() -> int:
+	if state == State.RIPE:
+		return 4
+	var p := progress()
+	return 0 if p < 0.12 else 1 if p < 0.4 else 2 if p < 0.72 else 3
+
+
 func _on_draw() -> void:
+	if _soil:
+		_draw_textured()
+		return
 	var h := size / 2.0
 	var soil := Color("#6b4a2f") if wet_left <= 0.0 else Color("#3f2a1a")
 	_view.draw_rect(Rect2(-h, -h, size, size), soil)
@@ -157,3 +181,21 @@ func _on_draw() -> void:
 		_view.draw_circle(Vector2(-2, 0), 2.0, crop_color.lightened(0.4))
 	if wet_left > 0.0:  # water drops
 		_view.draw_circle(Vector2(h - 5, -h + 5), 2.5, Color("#29adff"))
+
+
+func _draw_textured() -> void:
+	var t := 32.0  # one 16 px art tile at 2x
+	var soil := _wet if wet_left > 0.0 and _wet else _soil
+	_view.draw_texture_rect(soil, Rect2(-t / 2, -t / 2, t, t), false)
+	if state == State.EMPTY:
+		return
+	if crop_texture == null:
+		_view.draw_circle(Vector2(0, -2), 4.0 + 6.0 * progress(), crop_color)
+		return
+	var st := stage()
+	var lift := 0.0
+	if st == 4:  # ripe: a little hop and a glint
+		lift = -absf(sin(_sway * 3.0)) * 2.0
+	_view.draw_texture_rect_region(crop_texture, Rect2(-t / 2, -t / 2 - 6 + lift, t, t), Rect2(st * 16, 0, 16, 16))
+	if st == 4 and fmod(_sway, 1.6) < 0.25:
+		_view.draw_rect(Rect2(8, -14 + lift, 2, 2), Color("#fffaf0"))
