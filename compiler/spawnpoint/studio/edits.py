@@ -55,7 +55,7 @@ ENTITY_SYSTEM = """You edit ONE entity of a 2D game built from components. Retur
 Common requests:
 - "more health" / "x2 health" -> Health.max_health. "faster" -> the movement component's max_speed.
 - "make it shoot" -> add Weapon with projectile "EnemyBullet" (it will be created) and auto_fire true,
-  or with ChaseAI so it aims at the player. "fire bullets" -> projectile "Fireball".
+  or with ChaseAI so it aims at the player. "fire bullets" -> projectile "Fireball"; "shoot arrows" -> projectile "Arrow".
 - "jump higher" -> PlatformerMovement.jump_velocity. "hits harder" -> Hitbox.damage.
 Keep it minimal: change only what is asked."""
 

@@ -42,6 +42,12 @@ KIND_HINT = {
     "heart": "a single heart pickup", "orb": "a single glowing orb", "door": "a tall wooden door",
     "exit": "a glowing exit doorway", "portal": "a swirling magic portal", "spikes": "a row of metal spikes",
     "bullet": "a small glowing projectile",
+    "beast": "a small four-legged animal, side view", "spider": "a small spider, side view",
+    "dragon": "a small winged dragon, side view", "ghost": "a small floating ghost", "snake": "a small snake, side view",
+    "key": "a single golden key", "potion": "a single potion bottle with a cork", "scroll": "a single rolled paper scroll",
+    "bomb": "a single round black bomb with a lit fuse", "chest": "a single wooden treasure chest",
+    "arrow": "a single arrow pointing right", "tree": "a single tree", "bush": "a single round bush",
+    "rock": "a single boulder",
 }
 
 

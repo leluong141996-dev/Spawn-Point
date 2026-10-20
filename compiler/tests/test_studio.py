@@ -107,7 +107,7 @@ def test_layers_add_content(manifest):
     assert "juice" not in l1["entities"]["Player"]
     assert l2["entities"]["Player"]["juice"]["shake_on_hurt"] > 0.35
     assert l2["entities"]["Player"]["components"]["PlatformerMovement"]["fall_gravity_multiplier"] == 2.2
-    tiles = lambda g: [r.translate(str.maketrans("PC1234^+DEO", "." * 11)).rstrip(".") for r in g["level"]["map"]]
+    tiles = lambda g: [r.translate(str.maketrans("PC1234^+DEOtpbr", "." * 15)).rstrip(".") for r in g["level"]["map"]]
     assert tiles(l0) == tiles(l2)  # same geometry across layers
 
 
@@ -115,7 +115,9 @@ def test_deterministic_and_cosmetic_tweaks_keep_the_map():
     b, _ = normalize(brief())
     assert assemble(b, 2, 7) == assemble(b, 2, 7)
     recolored, _ = normalize(b.model_copy(update={"palette": "lava", "juice": "wild"}))
-    assert assemble(b, 2, 7)["level"]["map"] == assemble(recolored, 2, 7)["level"]["map"]
+    decor = str.maketrans("tpbr", "****")  # props follow the theme but keep their cells
+    same = lambda g: [r.translate(decor) for r in g["level"]["map"]]
+    assert same(assemble(b, 2, 7)) == same(assemble(recolored, 2, 7))
 
 
 def test_arena_floor_is_connected():

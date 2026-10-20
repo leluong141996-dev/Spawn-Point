@@ -347,6 +347,7 @@ class _Analyzer:
                 "eye": ent.body == "character" and sprite is None,
                 "pivot": "bottom" if g.genre == "platformer" and ent.body == "character" else "center",
                 "sprite": sprite_resolve.plan_entry(name, sprite) if sprite is not None else None,
+                "z": -1 if ent.decor else 0,
             })
             entities[-1]["components"] = comps
 
@@ -413,6 +414,8 @@ class _Analyzer:
         }
 
     def _layer(self, ent: Entity, team: str) -> int:
+        if ent.decor:
+            return 0
         if ent.body == "character":
             return {"player": L_PLAYER, "enemy": L_ENEMY}.get(team, 0)
         if ent.body == "static":
@@ -420,6 +423,8 @@ class _Analyzer:
         return 0 if "Projectile" in ent.components else L_PICKUP
 
     def _mask(self, ent: Entity) -> int:
+        if ent.decor:
+            return 0
         if ent.body == "character":
             return L_WORLD
         if ent.body == "static":

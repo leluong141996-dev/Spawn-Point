@@ -16,8 +16,8 @@ from dataclasses import dataclass
 import numpy as np
 from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
-from . import motion
-from .generate import KINDS, _hex, add_derived, features_for
+from . import chibi, creatures, items, motion
+from .generate import KINDS, _hex, add_derived, body_color, features_for, held_weapon
 from .spriteset import SpriteSet, build_sheet, finalize
 
 DETAIL = 4  # frame pixels per pixel-art pixel
@@ -59,6 +59,14 @@ def palette(color: str) -> Palette:
 EYE = (36, 30, 52)
 WHITE = (255, 252, 246)
 CHEEK = (255, 140, 160)
+# accessory colours (the same hues as the pixel style's accents)
+CAPE = (176, 38, 56)
+CROWN = (255, 204, 64)
+JEWEL = (222, 58, 84)
+WOOD = (150, 96, 52)
+STEEL = (196, 204, 218)
+MAGIC = (110, 214, 255)
+STRING = (232, 228, 214)
 
 
 class Painter:
@@ -119,6 +127,13 @@ class Painter:
     def line(self, pts, width, color: RGB, top=True) -> None:
         d = ImageDraw.Draw(self.detail if top else self.img)
         d.line([(x * SS, y * SS) for x, y in pts], fill=(*color, 255), width=max(1, round(width * SS)), joint="curve")
+
+    def hole(self, cx, cy, rx, ry) -> None:
+        """Cut a see-through ellipse out of everything drawn so far (the outline then rings it)."""
+        box = self._box(cx - rx, cy - ry, cx + rx, cy + ry)
+        m = self._mask(lambda d: d.ellipse(box, fill=255))
+        for layer in (self.img, self.detail):
+            layer.putalpha(ImageChops.subtract(layer.getchannel("A"), m))
 
     def shine(self, cx, cy, rx, ry, alpha=150) -> None:
         layer = Image.new("RGBA", self.img.size, (0, 0, 0, 0))
@@ -200,12 +215,29 @@ def draw_hero(P: Painter, p: Pose) -> None:
         P.poly([(14, 34 + b), (0, 24 + b + flap), (6, 40 + b)], c.light)
     if "hair" in f:
         P.rrect(8, 14 + b, 22, 46 + b, 6, (112, 66, 42))
-    # body
-    P.rrect(13, 32 + b, 35, 54 + b, 8, c.base)
+    if "cape" in f:  # behind the back, flaring out when running
+        flare = (0, 4, 0, 4)[p.i % 4] if p.anim == "run" else 0
+        P.poly([(12, 33 + b), (24, 33 + b), (18, 62), (2 - flare, 60)], CAPE)
+    # body (ogres and trolls are wider)
+    bulky = "bulky" in f
+    bx0, bx1, ax0, ax1 = (9, 39, 7, 41) if bulky else (13, 35, 11, 37)
+    P.rrect(bx0, 32 + b, bx1, 54 + b, 8, c.base)
     P.ellipse(24, 46 + b, 7, 5, c.light, shade=False)  # tummy
     arm_y = 30 + b if p.anim in ("jump", "fall") else 38 + b
-    P.ellipse(11, arm_y, 3.6, 5.5, c.base)
-    P.ellipse(37, arm_y, 3.6, 5.5, c.base)
+    P.ellipse(ax0, arm_y, 3.6, 5.5, c.base)
+    if "zombie" in f and p.anim in ("idle", "run"):  # arms reach forward
+        P.ellipse(ax1 + 3, arm_y - 2, 7, 3.4, c.base)
+    else:
+        P.ellipse(ax1, arm_y, 3.6, 5.5, c.base)
+    if "skull" in f:  # ribs under bone-white skin
+        for k in range(3):
+            P.line([(19, 37 + k * 5 + b), (29, 37 + k * 5 + b)], 1.4, c.shadow)
+    if "zombie" in f:  # torn hem
+        P.poly([(bx0 + 2, 54 + b), (bx0 + 6, 49 + b), (bx0 + 9, 54 + b)], c.shadow, shade=False, top=True)
+    if "shield" in f:
+        P.rrect(1, 33 + b, 17, 53 + b, 5, STEEL)
+        P.rrect(3, 35 + b, 15, 51 + b, 4, WOOD)
+        P.ellipse(9, 43 + b, 2.6, 2.6, STEEL, shade=False, top=True)
     # head
     hy = 20 + b
     P.ellipse(24, hy, 15, 14, c.base, shine=True)
@@ -234,22 +266,56 @@ def draw_hero(P: Painter, p: Pose) -> None:
         P.poly([(12, hy - 10), (24, hy - 30), (36, hy - 10)], (196, 140, 70), top=True)
     if "hair" in f:
         P.ellipse(24, hy - 9, 15, 7, (112, 66, 42), top=True)
+    if "hood" in f:  # cloth over the head and down the back, the face peeking out
+        P.ellipse(22, hy - 5, 17, 12, c.shadow, top=True)
+        P.rrect(6, hy - 4, 18, hy + 14, 5, c.shadow, top=True)
+        P.ellipse(27, hy + 3, 10, 8.5, c.base, top=True)
+    if "crown" in f:
+        P.poly([(13, hy - 9), (13, hy - 20), (18.5, hy - 14), (24, hy - 23), (29.5, hy - 14), (35, hy - 20), (35, hy - 9)],
+               CROWN, top=True)
+        P.ellipse(24, hy - 12.5, 2.2, 2.2, JEWEL, shade=False, top=True)
     eyes = [(19, hy + 1), (30, hy + 1)]
-    if "mask" in f:
+    if "skull" in f:  # empty sockets, a nose hole and a row of teeth
+        for ex, ey in eyes:
+            P.ellipse(ex, ey, 3.8, 4.2, EYE, shade=False, top=True)
+        P.poly([(24, hy + 5), (22.5, hy + 8), (25.5, hy + 8)], EYE, shade=False, top=True)
+        P.line([(19, hy + 10.5), (30, hy + 10.5)], 1.0, c.shadow)
+        for x in (21.5, 24.5, 27.5):
+            P.line([(x, hy + 9.5), (x, hy + 11.5)], 0.8, c.shadow)
+    elif "mask" in f:
         P.rrect(8, hy - 4, 40, hy + 5, 3, c.outline, shade=False, top=True)
         P.eyes(eyes, r=2.6, hurt=hurt)
         P.line([(8, hy), (3, hy + 4), (5, hy + 9)], 1.5, c.outline)  # the knot's tail
     else:
         P.eyes(eyes, r=3.4, hurt=hurt, lashes="hair" in f)
-        P.cheeks([(15, hy + 6), (34, hy + 6)])
+        if "zombie" not in f:  # no rosy cheeks on the undead
+            P.cheeks([(15, hy + 6), (34, hy + 6)])
         if "beak" in f:
             P.poly([(26, hy + 4), (34, hy + 7), (26, hy + 10)], (255, 190, 60), top=True)
         else:
             P.line([(23, hy + 8), (25, hy + 9), (27, hy + 8)], 0.9, c.outline)
-    if "sword" in f:  # held upright beside the body
+    if "beard" in f:
+        P.poly([(18, hy + 5), (36, hy + 4), (34, hy + 15), (28, hy + 21), (21, hy + 15)], (112, 66, 42), top=True)
+    if "tusks" in f:
+        for x in (25, 32):
+            P.poly([(x - 1.6, hy + 9), (x, hy + 4.5), (x + 1.6, hy + 9)], WHITE, shade=False, top=True)
+    weapon = held_weapon(f)
+    if weapon == "sword":  # held upright beside the body
         P.rrect(41, 14 + b, 45, 40 + b, 1.5, (214, 220, 232), top=True)
         P.rrect(38, 39 + b, 48, 42 + b, 1.2, (160, 104, 56), shade=False, top=True)
         P.rrect(41, 41 + b, 45, 47 + b, 1.2, (120, 76, 44), shade=False, top=True)
+    elif weapon == "bow":
+        P.line([(42, 13 + b), (46, 22 + b), (46.5, 30 + b), (46, 38 + b), (42, 47 + b)], 2.2, WOOD)
+        P.line([(42, 13 + b), (42, 47 + b)], 0.7, STRING)
+    elif weapon == "staff":
+        P.rrect(41, 10 + b, 44, 62, 1.5, WOOD, top=True)
+        P.ellipse(42.5, 7 + b, 4.6, 4.6, MAGIC, shine=True, top=True)
+    elif weapon == "spear":
+        P.rrect(42, 9 + b, 44.5, 60, 1.0, WOOD, top=True)
+        P.poly([(40, 10 + b), (43.25, -1 + b), (46.5, 10 + b)], STEEL, top=True)
+    elif weapon == "axe":
+        P.rrect(41, 16 + b, 44, 49 + b, 1.5, WOOD, top=True)
+        P.poly([(43, 15 + b), (48, 11 + b), (48, 29 + b), (43, 25 + b)], STEEL, top=True)
 
 
 def draw_blob(P: Painter, p: Pose) -> None:
@@ -366,11 +432,33 @@ def draw_orb(P: Painter, p: Pose) -> None:
 
 
 def draw_door(P: Painter, p: Pose) -> None:
+    """Twin of items.paint_door: an arched door with iron bands and a lock, or a barred cage."""
+    c = P.p
     w, h = P.w, P.h
-    P.rrect(2, 2, w - 2, h - 1, 6, (150, 96, 58))
-    for y in range(12, h - 8, 26):
-        P.rrect(6, y, w - 6, y + 18, 3, (176, 118, 72), top=True)
-    P.ellipse(w - 9, h / 2, 2.2, 2.2, (255, 214, 90), shade=False, top=True)
+    iron, gold = _hexrgb(items.IRON), _hexrgb(items.GOLD)
+    barred = "bars" in p.feats
+    frame = iron if barred else c.base
+    P.ellipse(w / 2, w / 2 + 1, w / 2 - 1.5, w / 2 - 1, frame)
+    P.rrect(1.5, w / 2, w - 1.5, h - 1, 2, frame)
+    if barred:
+        P.rrect(5, w / 2, w - 5, h - 6, 2, EYE, shade=False, top=True)
+        for x in range(6, w - 4, 7):
+            P.rrect(x, 6, x + 3, h - 3, 1.5, c.base, top=True)
+        for y in (28, h / 2 + 10, h - 24):
+            P.rrect(1.5, y, w - 1.5, y + 4, 1.5, _shade(c.base, 0.8), top=True)
+    else:
+        for x in (w * 0.3, w * 0.5, w * 0.7):
+            P.line([(x, 6), (x, h - 4)], 0.9, _shade(c.base, 0.7))
+        for y in (36, h - 44):
+            P.rrect(1.5, y, w - 1.5, y + 6, 1.5, iron, top=True)
+            for x in (6, w - 6):
+                P.ellipse(x, y + 3, 1.3, 1.3, _hexrgb(items.STEEL), shade=False, top=True)
+    ly = h / 2 - 12
+    P.rrect(w - 17, ly, w - 5, ly + 20, 2, gold, top=True)
+    P.ellipse(w - 11, ly + 7, 2.2, 2.2, EYE, shade=False, top=True)
+    P.poly([(w - 12.2, ly + 8), (w - 9.8, ly + 8), (w - 9.4, ly + 14), (w - 12.6, ly + 14)], EYE, shade=False, top=True)
+    if barred:
+        P.line([(w - 15, ly), (w - 15, ly - 5), (w - 7, ly - 5), (w - 7, ly)], 1.6, _hexrgb(items.STEEL))
 
 
 def draw_exit(P: Painter, p: Pose) -> None:
@@ -442,12 +530,450 @@ def draw_ufo(P: Painter, p: Pose) -> None:
         P.ellipse(x, 27, 2.3, 2.3, (255, 236, 120) if (k + p.i) % 2 == 0 else c.shadow, shade=False, top=True)
 
 
+def _hexrgb(h: str) -> RGB:
+    r, g, b = _hex(h)
+    return round(r * 255), round(g * 255), round(b * 255)
+
+
+# --- items and props (twins of items.py; frame coordinates are twice the fine pixel art's) ------
+
+def _twinkle(P: Painter, x: float, y: float, i: int) -> None:
+    r = (0, 2, 3.5, 2)[i % 4]
+    if r:
+        P.poly([(x, y - r), (x + r * 0.3, y - r * 0.3), (x + r, y), (x + r * 0.3, y + r * 0.3), (x, y + r),
+                (x - r * 0.3, y + r * 0.3), (x - r, y), (x - r * 0.3, y - r * 0.3)], WHITE, shade=False, top=True)
+
+
+def draw_key(P: Painter, p: Pose) -> None:
+    c = P.p
+    y = (0, 0, 2, 2)[p.i % 4]
+    P.ellipse(10, 12 + y, 9, 9, c.base, shine=True)
+    P.hole(10, 12 + y, 4.2, 4.2)
+    P.rrect(17, 11 + y, 31, 15 + y, 1.5, c.base)
+    P.rrect(24, 15 + y, 27, 21 + y, 1, c.base)
+    P.rrect(29, 15 + y, 31, 19 + y, 1, c.base)
+    _twinkle(P, 4, 4 + y, p.i)
+
+
+def draw_potion(P: Painter, p: Pose) -> None:
+    c = P.p
+    glass, cork = _hexrgb(items.GLASS), _hexrgb(items.CORK)
+    P.ellipse(16, 26, 13, 12, glass, shine=False)
+    P.rrect(11, 6, 20, 17, 2, glass)
+    P.rrect(9, 2, 22, 8, 2, cork)
+    P.ellipse(16, 29, 10.5, 8.5, c.base, top=True)
+    P.shine(9, 21, 2.5, 4, alpha=200)
+    for k, (bx, by) in enumerate(((12, 32), (19, 30), (15, 26))):
+        if (p.i + k) % 4 < 2:
+            P.ellipse(bx, by - (p.i + k) % 2 * 2, 1.4, 1.4, _shade(c.base, 1.5), shade=False, top=True)
+
+
+def draw_scroll(P: Painter, p: Pose) -> None:
+    c = P.p
+    pa = _hexrgb(items.PARCHMENT)
+    y = (0, 2)[p.i % 2]
+    P.rrect(6, 8 + y, 30, 24 + y, 2, pa)
+    for x0 in (1, 28):
+        P.rrect(x0, 6 + y, x0 + 7, 26 + y, 3, _shade(pa, 0.85))
+    for row in (13, 17):
+        P.line([(10, row + y), (26, row + y)], 1.0, (138, 106, 72))
+    P.ellipse(18, 23 + y, 4.4, 4.4, c.base, shine=True)
+
+
+def draw_bomb(P: Painter, p: Pose) -> None:
+    iron = _hexrgb(items.IRON)
+    P.ellipse(16, 22, 13, 13, iron, shine=True)
+    P.rrect(13, 5, 20, 11, 1.5, _hexrgb(items.STEEL))
+    P.line([(20, 6), (24, 2), (27, 2)], 1.6, _hexrgb(items.CORK), top=False)
+    spark = _hexrgb(items.SPARK[p.i % 3])
+    P.ellipse(28, 2, 3.2, 3.2, spark, shade=False, top=True)
+    if p.i % 2 == 0:
+        _twinkle(P, 31, 1, 1)
+
+
+def draw_chest(P: Painter, p: Pose) -> None:
+    wood, gold = _hexrgb(items.WOOD), _hexrgb(items.GOLD)
+    P.rrect(3, 18, 45, 38, 3, wood)
+    P.rrect(4, 6, 44, 20, 8, wood)
+    for x in (10, 36):
+        P.rrect(x - 1.5, 6, x + 1.5, 38, 0.8, gold, top=True)
+    P.rrect(20, 15, 28, 25, 2, gold, top=True)
+    P.ellipse(24, 20, 1.6, 2, EYE, shade=False, top=True)
+    _twinkle(P, 40, 4, p.i)
+
+
+def draw_arrow(P: Painter, p: Pose) -> None:
+    c = P.p
+    P.rrect(6, 6.5, 33, 9.5, 1, _hexrgb(items.WOOD))
+    P.poly([(31, 1), (40, 8), (31, 15)], _hexrgb(items.STEEL))
+    P.poly([(0, 1), (10, 6), (0, 7)], c.base)
+    P.poly([(0, 15), (10, 10), (0, 9)], c.shadow)
+
+
+def draw_tree(P: Painter, p: Pose) -> None:
+    c = P.p
+    wood = _hexrgb(items.WOOD)
+    sway = (0, 2, 0, -2)[p.i % 4]
+    P.rrect(26, 58, 37, 95, 3, wood)
+    P.ellipse(31.5, 93, 11, 3, _shade(wood, 0.8))
+    if "pine" in p.feats:
+        for n, (top, half) in enumerate(((4, 13), (20, 18), (38, 24))):
+            dx = sway if n == 0 else (sway / 2 if n == 1 else 0)
+            P.poly([(32 + dx - half, top + 24), (32 + dx, top), (32 + dx + half, top + 24)], c.base)
+        return
+    P.ellipse(32, 48, 24, 16, c.base)
+    P.ellipse(32 + sway, 30, 22, 16, c.base, shine=True)
+    P.ellipse(32 + sway, 14, 14, 12, c.base)
+
+
+def draw_bush(P: Painter, p: Pose) -> None:
+    c = P.p
+    sway = (0, 2)[p.i % 2]
+    P.ellipse(16, 20, 14, 12, c.base)
+    P.ellipse(44, 20, 12, 11, c.shadow)
+    P.ellipse(30 + sway, 16, 16, 14, c.base, shine=True)
+    P.rrect(4, 24, 52, 31, 4, c.shadow)
+    if "berries" in p.feats:
+        for bx, by in ((18, 18), (34, 22), (42, 14)):
+            P.ellipse(bx, by, 2.4, 2.4, (224, 72, 88), shade=False, top=True)
+
+
+def draw_rock(P: Painter, p: Pose) -> None:
+    c = P.p
+    P.ellipse(22, 20, 20, 13, c.base, shine=True)
+    P.ellipse(38, 24, 10, 8, c.shadow)
+    P.line([(24, 18), (28, 24)], 1.2, _shade(c.base, 0.6))
+    if "moss" in p.feats:
+        P.ellipse(18, 9, 10, 3.6, (90, 160, 64), top=True)
+
+
+# --- chibi creatures (twins of creatures.py; frame coordinates are twice the fine pixel art's) --
+
+def draw_beast(P: Painter, p: Pose) -> None:
+    f, c = set(p.feats), P.p
+    belly, dark = _shade(c.base, 1.35), _shade(c.base, 0.6)
+    bear = "round_ears" in f
+    k = p.i % 4
+    b = {"idle": (0, 1.6)[p.i % 2], "run": (0, 2, 0, 2)[k]}.get(p.anim, 0)
+    if "bushy_tail" in f:
+        P.ellipse(10, 18 + b, 9, 7, c.base)
+        P.ellipse(5, 14 + b, 5, 4.4, belly, shade=False)
+    elif "thin_tail" in f:
+        P.line([(14, 22 + b), (6, 12 + b), (4, 6 + b)], 2.2, c.base, top=False)
+    elif not bear:
+        P.line([(14, 22 + b), (6, 16 + b)], 4, c.shadow, top=False)
+    swing = ((-4, 4), (0, 0), (4, -4), (0, 0))[k] if p.anim == "run" else {"jump": (-4, 4), "fall": (4, -4)}.get(p.anim, (0, 0))
+    for x, d, col in ((20, swing[1], c.shadow), (40, swing[0], c.shadow), (16, swing[0], c.base), (36, swing[1], c.base)):
+        P.rrect(x - 3 + d * 0.5, 30 + b, x + 3 + d * 0.5, 44, 3, col)
+        P.ellipse(x + d, 45, 5, 2.6, dark)
+    P.ellipse(28, 26 + b, 19, 13 if bear else 11, c.base)
+    P.ellipse(28, 32 + b, 13, 4.4, belly, shade=False)
+    if "stripes" in f:
+        for sx in (18, 26, 34):
+            P.line([(sx, 17 + b), (sx + 2, 27 + b)], 2, dark)
+    if "mane" in f:
+        P.ellipse(46, 18 + b, 14, 14, _hexrgb(creatures.MANE))
+    hx, hy = 48, 16 + b
+    P.ellipse(hx, hy, 12, 11, c.base, shine=True)
+    if bear:
+        for ex, col in ((hx - 8, c.base), (hx + 2, c.shadow)):
+            P.ellipse(ex, hy - 10, 4.4, 4.4, col)
+        P.ellipse(hx + 8, hy + 4, 5.2, 4.4, belly, shade=False, top=True)
+        P.ellipse(hx + 12, hy + 2, 1.8, 1.5, EYE, shade=False, top=True)
+    else:
+        if "floppy_ears" in f:
+            P.ellipse(hx - 8, hy - 2, 4, 7, dark)
+        else:
+            P.poly([(hx - 12, hy - 6), (hx - 9, hy - 18), (hx - 3, hy - 8)], c.base)
+            P.poly([(hx - 2, hy - 8), (hx + 2, hy - 19), (hx + 7, hy - 7)], c.shadow)
+        P.ellipse(hx + 10, hy + 4, 6.4, 4.8, belly, shade=False, top=True)
+        P.ellipse(hx + 15, hy + 1.5, 2.2, 1.7, EYE, shade=False, top=True)
+    if "tusks" in f:
+        for x in (hx + 10, hx + 14):
+            P.poly([(x - 1.4, hy + 8), (x, hy + 12), (x + 1.4, hy + 8)], WHITE, shade=False, top=True)
+    P.eyes([(hx + 3, hy - 1)], r=2.8, hurt=p.anim == "hurt")
+
+
+def draw_spider(P: Painter, p: Pose) -> None:
+    c = P.p
+    k = p.i % 4
+    b = {"idle": (0, 1.6)[p.i % 2], "run": (0, 2, 0, 2)[k]}.get(p.anim, 0)
+    legs = [((22, 16), (12, 4), (2, 38)), ((22, 20), (12, 12), (10, 42)), ((24, 26), (16, 20), (18, 42)),
+            ((26, 30), (22, 30), (24, 42))]
+    for n, (hip, knee, foot) in enumerate(legs):
+        for side in (-1, 1):
+            lift = 4 if p.anim == "run" and (n + (side > 0) + k) % 2 else (4 if p.anim == "jump" else 0)
+            mx = (lambda x: x) if side < 0 else (lambda x: 64 - x)  # noqa: E731
+            P.line([(mx(hip[0]), hip[1] + b), (mx(knee[0]), knee[1] + b - lift / 2), (mx(foot[0]), foot[1] - lift)],
+                   2.2, c.shadow if side < 0 else _shade(c.base, 0.55), top=False)
+    P.ellipse(32, 16 + b, 13, 11, c.base, shine=True)
+    P.ellipse(32, 27 + b, 10, 8, c.base)
+    for x in (27, 37):
+        P.ellipse(x, 16 + b, 2.2, 1.6, _shade(c.base, 1.4), shade=False, top=True)
+    P.eyes([(27.5, 25 + b), (36.5, 25 + b)], r=3.2, hurt=p.anim == "hurt")
+    for x in (30, 34):
+        P.poly([(x - 1.3, 33 + b), (x, 37 + b), (x + 1.3, 33 + b)], WHITE, shade=False, top=True)
+
+
+def draw_dragon(P: Painter, p: Pose) -> None:
+    c = P.p
+    belly = _shade(c.base, 1.35)
+    k = p.i % 4
+    flap = (0, 1, 2, 1)[k] if p.anim in ("idle", "run") else 1
+    b = (0, 2, 2, 0)[k] if p.anim in ("idle", "run") else 0
+    wy = (-8, 0, 6)[flap]
+    horn = _hexrgb(creatures.HORN)
+    P.poly([(30, 26 + b), (14, 4 + wy + b), (8, 20 + wy + b), (22, 30 + b)], _shade(c.base, 0.62))
+    P.line([(24, 40 + b), (10, 44 + b), (4, 36 + b)], 5, c.base, top=False)
+    P.poly([(0, 32 + b), (6, 28 + b), (6, 38 + b)], horn)
+    P.ellipse(32, 36 + b, 14, 12, c.base)
+    for y in (32, 36, 40):
+        P.rrect(28, y + b, 40, y + 2 + b, 1, belly, shade=False, top=True)
+    for x in (26, 38):
+        P.rrect(x - 3, 44 + b, x + 3, 52, 2.5, c.shadow)
+    P.poly([(34, 26 + b), (24, 2 + wy + b), (16, 18 + wy + b), (28, 30 + b)], c.base)
+    hx, hy = 50, 20 + b
+    P.ellipse(hx, hy, 14, 12, c.base, shine=True)
+    P.ellipse(hx + 12, hy + 4, 8, 6, c.base)
+    P.rrect(hx + 6, hy + 6, hx + 19, hy + 9, 1.5, belly, shade=False, top=True)
+    for x in (hx - 8, hx - 2):
+        P.poly([(x - 2, hy - 9), (x, hy - 19), (x + 2.5, hy - 10)], horn)
+    P.ellipse(hx + 16, hy + 2, 1.4, 1.2, EYE, shade=False, top=True)
+    P.eyes([(hx + 2, hy - 1)], r=3.2, hurt=p.anim == "hurt")
+
+
+def draw_ghost(P: Painter, p: Pose) -> None:
+    c = P.p
+    k = p.i % 4
+    b = (0, 2, 4, 2)[k] if p.anim in ("idle", "run") else 0
+    P.ellipse(24, 20 + b, 18, 18, c.base, shine=True)
+    P.rrect(6, 20 + b, 42, 44 + b, 4, c.base)
+    for n in range(4):
+        x = 10 + n * 9.5 + (2 if k % 2 else 0)
+        P.ellipse(x, 45 + b, 5.2, 4.6, c.base)
+    arm = (0, -2)[k % 2]
+    P.ellipse(4, 28 + b + arm, 4, 3.2, c.base)
+    P.ellipse(44, 26 + b - arm, 4, 3.2, c.shadow)
+    if p.anim == "hurt":
+        P.eyes([(17, 20 + b), (31, 20 + b)], r=3.4, hurt=True)
+    else:
+        for x in (17, 31):
+            P.ellipse(x, 20 + b, 3, 4.6, EYE, shade=False, top=True)
+            P.ellipse(x - 1, 18 + b, 1.1, 1.4, WHITE, shade=False, top=True)
+        P.ellipse(24, 29 + b, 2.2, 2.8, EYE, shade=False, top=True)
+
+
+def draw_snake(P: Painter, p: Pose) -> None:
+    c = P.p
+    belly = _shade(c.base, 1.35)
+    k = p.i % 4
+    wave = (0, 2, 0, -2)[k] if p.anim == "run" else 0
+    lift = {"jump": -4}.get(p.anim, 0)
+    pts = [(4, 24 + lift), (12, 20 + wave + lift), (22, 24 + lift), (32, 26 - wave + lift), (42, 24 + lift)]
+    P.line(pts, 8, c.base, top=False)
+    P.line([(x, y + 4) for x, y in pts], 2.2, belly)
+    P.line([(42, 24 + lift), (48, 12 + lift)], 8, c.base, top=False)
+    P.ellipse(52, 10 + lift, 10, 8, c.base, shine=True)
+    P.rrect(54, 13 + lift, 61, 15 + lift, 1, belly, shade=False, top=True)
+    P.eyes([(53, 7 + lift)], r=2.8, hurt=p.anim == "hurt")
+    if p.i % 2 == 0:
+        P.line([(61, 12 + lift), (64, 12 + lift), (66, 10 + lift)], 1.0, _hexrgb(creatures.TONGUE))
+
+
+def draw_human(P: Painter, p: Pose) -> None:
+    """The front-facing chibi person (the cartoon twin of chibi.py): big head, dot eyes, skin/hair/clothes."""
+    f = set(p.feats)
+    col: chibi.Colors = p.extra["colors"]
+    weapon = p.extra["weapon"]
+    q = chibi.pose_for(p.anim, p.i, weapon)
+    skin, hair, shirt, pants = (_hexrgb(c) for c in (col.skin, col.hair, col.shirt, col.pants))
+    shoes, leather, steel = _hexrgb(chibi.SHOES), _hexrgb(chibi.LEATHER), STEEL
+    b, lx = q.bob * 1.6, q.lean * 2
+    robe, bulky = bool(f & {"robe", "dress"}), "bulky" in f
+    covered = f & {"helmet", "hood", "mask"}
+    if "cape" in f:
+        flare = 3 if q.lift_l or q.lift_r else 0
+        P.poly([(10, 38 + b), (38, 38 + b), (42 + flare, 60), (6 - flare, 60)], CAPE)
+    if col.hair_style == "long" and not covered and "skull" not in f:
+        P.rrect(9 + lx, 18 + b, 39 + lx, 50 + b, 8, hair)
+    if "skull" in f:
+        bone = skin
+        for x, lift in ((19, q.lift_l), (29, q.lift_r)):
+            P.line([(x, 52), (x, 59 - lift * 3)], 2.6, bone, top=False)
+            P.ellipse(x, 61 - lift * 3, 4.5, 2.6, bone)
+        P.line([(24 + lx, 38 + b), (24 + lx, 52 + b)], 3.0, bone, top=False)
+        for k in range(3):
+            P.rrect(15 + lx, 39 + k * 4 + b, 33 + lx, 41 + k * 4 + b, 1.2, bone)
+        P.ellipse(24 + lx, 52 + b, 7, 3, bone)
+    else:
+        # legs and shoes
+        if robe:
+            for x, lift in ((19, q.lift_l), (29, q.lift_r)):
+                P.ellipse(x, 61 - lift * 3, 5, 3, shoes)
+        else:
+            lw = 5 if bulky else 4
+            for x, lift, sh in ((19, q.lift_l, 0), (29, q.lift_r, 1)):
+                P.rrect(x - lw, 50, x + lw, 59 - lift * 3, 3, _shade(pants, 0.85) if sh else pants)
+                P.ellipse(x + (1 if sh else -1), 60.5 - lift * 3, lw + 2, 3.5, shoes)
+        # torso
+        x0, x1 = (11, 37) if bulky else (15, 33)
+        x0, x1 = x0 + lx, x1 + lx
+        if robe:
+            P.poly([(x0, 37 + b), (x1, 37 + b), (x1 + 5, 61), (x0 - 5, 61)], shirt)
+            if "dress" in f:
+                P.rrect(x0, 37 + b, x1, 41 + b, 3, _shade(shirt, 1.2), shade=False)
+            else:
+                P.line([(x0, 47 + b), (x1, 47 + b)], 1.6, CROWN)
+        else:
+            P.rrect(x0, 37 + b, x1, 53 + b, 6, shirt)
+            if "armor" in f:
+                P.rrect(x0, 37 + b, x1, 47 + b, 5, steel)
+                P.rrect(21 + lx, 42 + b, 27 + lx, 53 + b, 2, shirt)
+            P.rrect(x0, 49 + b, x1, 52 + b, 1.2, leather, shade=False)
+            P.rrect(23 + lx, 49 + b, 26 + lx, 52 + b, 0.8, CROWN, shade=False, top=True)
+            if "zombie" in f:
+                for tx in (x0 + 3, x1 - 5):
+                    P.poly([(tx, 53 + b), (tx + 2, 49 + b), (tx + 4, 53 + b)], _shade(shirt, 0.6), shade=False, top=True)
+    # arms; returns the right hand
+    hand_r = (36.0, 51.0)
+    for side in ("l", "r"):
+        mode = q.arm_l if side == "l" else q.arm_r
+        if "zombie" in f and mode == "down" and q.attack < 0:
+            mode = "out"
+        d = -1 if side == "l" else 1
+        ax = (8 if bulky else 12) if side == "l" else (40 if bulky else 36)
+        ax += lx
+        sleeve = skin if "skull" in f else (steel if "armor" in f else shirt)
+        if mode in ("down", "swing_f", "swing_b"):
+            dy = {"swing_f": -2, "swing_b": 2}.get(mode, 0)
+            P.ellipse(ax, 44 + b + dy, 3.8 if "skull" not in f else 2, 7, sleeve)
+            hx, hy = ax, 51 + b + dy
+        elif mode == "up":
+            P.ellipse(ax + d * 3, 32 + b, 3.8, 7, sleeve)
+            hx, hy = ax + d * 3, 24 + b
+        else:
+            P.ellipse(ax + d * 6, 41 + b, 7, 3.6, sleeve)
+            hx, hy = ax + d * 12, 41 + b
+        P.ellipse(hx, hy, 3.2, 3.2, skin)
+        if side == "r":
+            hand_r = (hx, hy)
+    # head
+    hy0 = 24 + b
+    hc = 24 + lx
+    P.ellipse(hc, hy0, 15, 14, skin, shine=True)
+    if "ears" in f and "skull" not in f:
+        for ex, d in ((9, -1), (39, 1)):
+            P.poly([(ex + lx, hy0 - 3), (ex + d * 7 + lx, hy0 - 8), (ex + lx, hy0 + 4)], skin)
+    eyes = [(hc - 5, hy0 + 2), (hc + 5, hy0 + 2)]
+    if "skull" in f:
+        for ex, ey in eyes:
+            P.ellipse(ex, ey, 4, 4.4, EYE, shade=False, top=True)
+        P.poly([(hc, hy0 + 6), (hc - 1.6, hy0 + 9), (hc + 1.6, hy0 + 9)], EYE, shade=False, top=True)
+        for x in (hc - 4.5, hc - 1.5, hc + 1.5, hc + 4.5):
+            P.line([(x, hy0 + 10.5), (x, hy0 + 12.5)], 0.9, _shade(skin, 0.6))
+    else:
+        if "beard" in f:
+            P.poly([(hc - 13, hy0 + 4), (hc + 13, hy0 + 4), (hc + 11, hy0 + 16), (hc, hy0 + 23), (hc - 11, hy0 + 16)], hair)
+        if not covered or "mask" not in f:
+            if q.eyes == "blink":
+                for ex, ey in eyes:
+                    P.line([(ex - 2.5, ey + 1), (ex + 2.5, ey + 1)], 1.3, EYE)
+            else:
+                P.eyes(eyes, r=3.0, hurt=q.eyes == "hurt", lashes=col.hair_style == "long")
+            if not (f & ({"zombie", "beard"} | chibi.MONSTER_SKIN)):
+                P.cheeks([(hc - 9, hy0 + 7), (hc + 9, hy0 + 7)])
+            if "beard" not in f:
+                P.line([(hc - 1.5, hy0 + 9), (hc, hy0 + 10), (hc + 1.5, hy0 + 9)], 0.9, _shade(skin, 0.45))
+        if "tusks" in f:
+            for x in (hc - 4, hc + 4):
+                P.poly([(x - 1.6, hy0 + 11), (x, hy0 + 6), (x + 1.6, hy0 + 11)], WHITE, shade=False, top=True)
+        # hair over the head
+        if not covered and "skull" not in f:
+            P.ellipse(hc, hy0 - 7, 15.5, 8.5, hair)
+            P.rrect(hc - 15, hy0 - 8, hc - 11, hy0 + 4, 2.5, hair)
+            P.rrect(hc + 11, hy0 - 8, hc + 15, hy0 + 2, 2.5, _shade(hair, 0.85))
+            if col.hair_style == "spiky":
+                for sx in (-10, -4, 2, 8):
+                    P.poly([(hc + sx - 3, hy0 - 12), (hc + sx, hy0 - 19), (hc + sx + 3, hy0 - 12)], hair)
+            elif col.hair_style == "parted":
+                P.poly([(hc - 13, hy0 - 6), (hc + 2, hy0 - 6), (hc - 9, hy0 - 1)], hair)
+            else:
+                P.poly([(hc - 12, hy0 - 6), (hc + 12, hy0 - 6), (hc + 9, hy0 - 2), (hc + 2, hy0 - 4), (hc - 6, hy0 - 1)], hair)
+        # headgear
+        if "mask" in f:
+            wrap = _shade(shirt, 0.7)
+            P.ellipse(hc, hy0, 15.5, 14.5, wrap)
+            P.rrect(hc - 11, hy0 - 3, hc + 11, hy0 + 6, 3, skin)
+            P.eyes(eyes, r=2.6, hurt=q.eyes == "hurt")
+            P.rrect(hc - 15, hy0 - 8, hc + 15, hy0 - 5, 1.5, CAPE, shade=False)
+            P.line([(hc - 15, hy0 - 6), (hc - 21, hy0 - 2), (hc - 19, hy0 + 3)], 1.6, CAPE, top=False)
+        if "helmet" in f:
+            P.ellipse(hc, hy0 - 6, 16, 11, steel)
+            P.rrect(hc - 16, hy0 - 2, hc + 16, hy0 + 1, 1.5, _shade(steel, 0.8), shade=False)
+            P.rrect(hc - 1.5, hy0 - 6, hc + 1.5, hy0 + 2, 1, _shade(steel, 0.8), shade=False)
+            if "horns" in f:
+                for ex, d in ((hc - 15, -1), (hc + 15, 1)):
+                    P.poly([(ex, hy0 - 5), (ex + d * 6, hy0 - 19), (ex + d * 2, hy0 - 3)], WHITE)
+        elif "horns" in f:
+            for ex, d in ((hc - 8, -1), (hc + 8, 1)):
+                P.poly([(ex - 2, hy0 - 11), (ex + d * 2, hy0 - 19), (ex + 2, hy0 - 11)], WHITE)
+        if "hood" in f:
+            hood = shirt
+            P.ellipse(hc, hy0 - 1, 18, 16, hood)
+            P.ellipse(hc + 1, hy0 + 4, 11, 9.5, skin)
+            if q.eyes == "blink":
+                for ex, ey in eyes:
+                    P.line([(ex - 2.5, ey + 1), (ex + 2.5, ey + 1)], 1.3, EYE)
+            else:
+                P.eyes(eyes, r=3.0, hurt=q.eyes == "hurt")
+        if "hat" in f:
+            if f & {"staff", "robe"}:
+                P.poly([(hc - 18, hy0 - 6), (hc + 1, hy0 - 32), (hc + 18, hy0 - 6)], shirt)
+                P.ellipse(hc, hy0 - 6, 21, 3.6, _shade(shirt, 0.8))
+                P.ellipse(hc + 3, hy0 - 18, 1.6, 1.6, CROWN, shade=False, top=True)
+            else:
+                straw = _hexrgb(chibi.STRAW)
+                P.rrect(hc - 12, hy0 - 19, hc + 12, hy0 - 7, 5, straw)
+                P.rrect(hc - 12, hy0 - 10, hc + 12, hy0 - 7, 1, CAPE, shade=False)
+                P.ellipse(hc, hy0 - 6, 22, 4.2, straw)
+        if "crown" in f:
+            P.poly([(hc - 9, hy0 - 10), (hc - 9, hy0 - 19), (hc - 4.5, hy0 - 14), (hc, hy0 - 21), (hc + 4.5, hy0 - 14),
+                    (hc + 9, hy0 - 19), (hc + 9, hy0 - 10)], CROWN)
+            P.ellipse(hc, hy0 - 13, 1.8, 1.8, JEWEL, shade=False, top=True)
+    if "shield" in f:
+        P.rrect(0, 36 + b, 15, 56 + b, 5, steel)
+        P.rrect(2, 38 + b, 13, 54 + b, 4, WOOD)
+        P.rrect(6.5, 41 + b, 8.5, 51 + b, 0.8, shirt, shade=False, top=True)
+        P.rrect(3.5, 45 + b, 11.5, 47 + b, 0.8, shirt, shade=False, top=True)
+    hx, hy = hand_r
+    if weapon == "sword":
+        P.rrect(hx + 2, hy - 27, hx + 6, hy - 4, 1.5, (214, 220, 232), top=True)
+        P.rrect(hx - 1, hy - 5, hx + 9, hy - 2, 1.2, CROWN, shade=False, top=True)
+        P.rrect(hx + 2.5, hy - 2, hx + 5.5, hy + 3, 1.2, (120, 76, 44), shade=False, top=True)
+    elif weapon == "axe":
+        P.rrect(hx + 2, hy - 22, hx + 5, hy + 3, 1.5, WOOD, top=True)
+        P.poly([(hx + 4, hy - 23), (hx + 11, hy - 27), (hx + 11, hy - 11), (hx + 4, hy - 15)], STEEL, top=True)
+    elif weapon == "spear":
+        P.rrect(hx + 2, 5, hx + 4.5, min(63, hy + 10), 1.0, WOOD, top=True)
+        P.poly([(hx, 6), (hx + 3.25, -4), (hx + 6.5, 6)], STEEL, top=True)
+    elif weapon == "bow":
+        P.line([(hx + 3, hy - 18), (hx + 8, hy - 10), (hx + 8.5, hy - 3), (hx + 8, hy + 4), (hx + 3, hy + 10)], 2.2, WOOD)
+        P.line([(hx + 3, hy - 18), (hx + 3, hy + 10)], 0.7, STRING)
+    elif weapon == "staff":
+        P.rrect(hx + 2, hy - 28, hx + 5, 63, 1.5, WOOD, top=True)
+        P.ellipse(hx + 3.5, hy - 31, 4.6, 4.6, MAGIC, shine=True, top=True)
+
+
 PAINTERS = {"hero": draw_hero, "slime": draw_blob, "hopper": draw_blob, "bug": draw_blob, "flyer": draw_flyer,
             "robot": draw_robot, "turret": draw_turret, "coin": draw_coin, "star": draw_star, "gem": draw_gem,
             "heart": draw_heart, "orb": draw_orb, "door": draw_door, "exit": draw_exit, "portal": draw_portal,
             "spikes": draw_spikes, "bullet": draw_bullet,
-            "slash": draw_slash, "ship": draw_ship, "ufo": draw_ufo}
-OUTLINE = {"bullet": 0.8, "slash": 0.8, "coin": 1.0, "gem": 1.0, "star": 1.1, "heart": 1.1, "spikes": 1.0, "orb": 1.0}
+            "slash": draw_slash, "ship": draw_ship, "ufo": draw_ufo,
+            "beast": draw_beast, "spider": draw_spider, "dragon": draw_dragon, "ghost": draw_ghost, "snake": draw_snake,
+            "key": draw_key, "potion": draw_potion, "scroll": draw_scroll, "bomb": draw_bomb, "chest": draw_chest,
+            "arrow": draw_arrow, "tree": draw_tree, "bush": draw_bush, "rock": draw_rock}
+OUTLINE = {"bullet": 0.8, "slash": 0.8, "coin": 1.0, "gem": 1.0, "star": 1.1, "heart": 1.1, "spikes": 1.0, "orb": 1.0,
+           "key": 1.0, "potion": 1.0, "scroll": 1.0, "bomb": 1.0, "arrow": 0.8}
 
 
 def generate_cartoon(name: str, kind: str, color: str, features: list[str] | None = None, seed: int = 0) -> SpriteSet:
@@ -461,14 +987,21 @@ def generate_cartoon(name: str, kind: str, color: str, features: list[str] | Non
         feats.append("spots")
     if kind == "bug" and "legs" not in feats:
         feats.append("legs")
-    pal = palette(color)
+    if kind == "ghost":  # pale, like the pixel ghost
+        color = creatures._mix(color, (240, 244, 255), 0.82)
+    pal = palette(body_color(color, feats) if kind == "hero" else color)
     size = (spec.size[0] * DETAIL, spec.size[1] * DETAIL)
     frames: dict[str, list[np.ndarray]] = {}
+    painter = PAINTERS[kind]
+    if kind == "hero" and chibi.is_human(feats):  # people: the chibi twin of the fine pixel style
+        painter = draw_human
+        extra["colors"] = chibi.choose(name, color, feats, seed)
+        extra["weapon"] = held_weapon(feats)
     for anim, (n, _fps, _loop) in spec.anims.items():
         frames[anim] = []
         for i in range(n):
             P = Painter(*size, pal)
-            PAINTERS[kind](P, Pose(anim, i, feats, random.Random(rng_seed), extra))
+            painter(P, Pose(anim, i, feats, random.Random(rng_seed), extra))
             frames[anim].append(P.render(OUTLINE.get(kind, 1.6), flash=anim == "hurt"))
     fps, loop = add_derived(kind, frames, spec.anims, False, spec.anchor, motion.FLASH, rng_seed)
     sheet, anim_set = build_sheet(frames, fps, loop)

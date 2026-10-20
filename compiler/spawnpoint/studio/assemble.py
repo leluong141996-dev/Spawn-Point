@@ -144,6 +144,18 @@ def tower_profile(name: str, index: int) -> str:
             return prof
     return ("fast", "heavy", "long")[index % 3]
 ENEMY_SYMBOLS = "1234"
+# Decorative props per theme: (entity name, map symbol, colour). Names pick features (PineTree, BerryBush...).
+THEME_DECOR: dict[str, list[tuple[str, str, str]]] = {
+    "forest": [("Tree", "t", "#4aa050"), ("PineTree", "p", "#2f7a50"), ("BerryBush", "b", "#5ab050"), ("MossyRock", "r", "#8a8a9a")],
+    "night": [("PineTree", "p", "#2a5a5a"), ("Bush", "b", "#3a6a5a"), ("Rock", "r", "#6a6a80")],
+    "snow": [("PineTree", "p", "#3a7a6a"), ("Rock", "r", "#c0c8d8")],
+    "desert": [("Rock", "r", "#c8a070"), ("Bush", "b", "#9aa050")],
+    "lava": [("Rock", "r", "#5a4a4a")],
+    "candy": [("Tree", "t", "#f08ac0"), ("BerryBush", "b", "#f0a0d0")],
+    "ocean": [("MossyRock", "r", "#7a9ab0"), ("Bush", "b", "#4aa090")],
+    "neon": [],
+}
+DECOR_KINDS = {"tree": "tree", "pine": "tree", "bush": "bush", "rock": "rock"}
 
 FEEL_PLATFORMER = {
     "snappy": {},
@@ -254,6 +266,8 @@ class _Assembler:
             self._enemies(grid, lay)
             self._pickups(grid, lay)
             self._hazards(grid, lay)
+        if self.layer >= 2:
+            self._decor(grid, lay)
         intro = b.intro if self.layer >= 1 else "Layer 0: try the controls!"
         if b.goal == "score_target" and intro == f"Score {b.score_target} points!":
             intro = f"Score {self._score_target()} points!"  # the default intro follows the real target
@@ -285,6 +299,7 @@ class _Assembler:
             else:  # pixel art gets the classic palette that suits the theme
                 g["settings"]["pixel_palette"] = palettes.THEME_PALETTE[self.b.palette]
                 g["settings"]["scenery"] = self.b.palette
+                g["settings"]["pixel_size"] = 1  # the fine style: detailed chibi people, fine tiles
             if self.b.genre == "shmup":
                 g["settings"]["scenery"] = "space"  # scrolling stars, whatever the art style
         return g
@@ -993,6 +1008,35 @@ class _Assembler:
             grid[c] = "^"
 
     # -- polish (layer 2) --------------------------------------------------------------------
+    def _decor(self, grid: dict, lay: levelgen.Layout) -> None:
+        """Layer 2: a few trees, bushes and rocks on free ground (behind everything, no collision)."""
+        props = [d for d in THEME_DECOR.get(self.b.palette, []) if d[0] not in self.entities]
+        if not props:
+            return
+        # Separate streams: where props go depends on the level only, so a re-theme swaps them in place.
+        rng, pick = random.Random(self.seed * 7919 + 13), random.Random(self.seed * 7919 + 14)
+        keep_clear = [c for c in (lay.player, lay.exit, lay.door) if c is not None]
+        if self.platformer:
+            spots = sorted(((x, y) for x in range(lay.width) for y in range(lay.height - 1)
+                            if lay.is_free((x, y)) and lay.tiles.get((x, y + 1)) == "solid"), key=lambda c: c[0])
+            chance, spacing = 0.28, 3
+        else:
+            spots = list(lay.free_cells)
+            chance, spacing = 0.06, 2
+        placed: list[tuple[int, int]] = []
+        for c in spots:
+            if c in grid or any(abs(c[0] - k[0]) <= 2 and abs(c[1] - k[1]) <= 2 for k in keep_clear):
+                continue
+            if any(abs(c[0] - q[0]) < spacing and abs(c[1] - q[1]) < spacing for q in placed) or rng.random() > chance:
+                continue
+            name, sym, color = pick.choice(props)
+            grid[c] = sym
+            placed.append(c)
+            if name not in self.entities:
+                self.entities[name] = {"body": "area", "decor": True, "juice": "none", "components": {},
+                                       "shape": {"type": "rect", "size": [24, 24], "color": color}}
+                self.legend[sym] = name
+
     def _polish(self) -> None:
         self._sprites()
         k = JUICE_SCALE[self.b.juice]
@@ -1033,17 +1077,38 @@ class _Assembler:
 
 
 HUMANOID_WORDS = {"goblin", "zombie", "knight", "skeleton", "orc", "ninja", "soldier", "pirate", "bandit",
-                  "wizard", "witch", "mage", "guard", "thief", "samurai", "elf", "troll", "vampire", "mummy"}
-FLYER_WORDS = {"bat", "bird", "crow", "ghost", "spirit", "wasp", "bee", "fly", "dragon", "owl", "eagle"}
+                  "wizard", "witch", "mage", "guard", "thief", "samurai", "elf", "troll", "vampire", "mummy",
+                  "archer", "hunter", "ranger", "ogre", "giant", "brute", "paladin", "templar", "spearman", "sorcerer",
+                  "warlock", "necromancer", "druid", "shaman", "priest", "cleric", "healer", "monk", "rogue",
+                  "assassin", "viking", "barbarian", "berserker", "dwarf", "king", "queen", "prince", "princess",
+                  "lord", "dracula", "lich", "ghoul", "skelly", "warrior", "fighter", "villager", "peasant"}
+FLYER_WORDS = {"bat", "bird", "crow", "wasp", "bee", "fly", "owl", "eagle"}
+DRAGON_WORDS = {"dragon", "drake", "wyvern", "wyrm"}
+GHOST_WORDS = {"ghost", "spirit", "phantom", "specter", "spectre", "wraith", "spook", "banshee", "poltergeist"}
+SPIDER_WORDS = {"spider", "tarantula", "arachnid", "widow"}
+SNAKE_WORDS = {"snake", "serpent", "cobra", "python", "viper", "worm", "eel", "naga"}
+BEAST_WORDS = {"wolf", "fox", "dog", "puppy", "hound", "cat", "kitty", "tiger", "lion", "bear", "boar", "pig", "hog",
+               "panther", "jackal", "hyena", "werewolf", "coyote", "leopard", "cougar"}
 ROBOT_WORDS = {"robot", "bot", "droid", "mech", "drone", "android", "cyborg", "machine"}
-BUG_WORDS = {"bug", "beetle", "ant", "spider", "scorpion", "roach", "crab", "insect"}
+BUG_WORDS = {"bug", "beetle", "ant", "scorpion", "roach", "crab", "insect"}
 HOPPER_WORDS = {"frog", "toad", "bunny", "rabbit", "kangaroo"}
 SHIP_WORDS = {"ship", "fighter", "jet", "plane", "bomber", "gunship", "warship", "cruiser", "destroyer", "battleship",
               "raider", "falcon", "viper", "interceptor", "starfighter", "rocket", "dreadnought", "carrier"}
 UFO_WORDS = {"ufo", "saucer", "alien", "drone", "probe", "pod", "orb", "mine", "scout", "invader"}
-PICKUP_KINDS = (({"coin", "gold", "money", "cash", "token"}, "coin"), ({"star", "starlight"}, "star"),
+# Objects come before materials and uses, so a GoldKey is a key and a HealthPotion a potion.
+PICKUP_KINDS = (({"key"}, "key"), ({"potion", "elixir", "flask", "tonic", "brew"}, "potion"),
+                ({"scroll", "map", "letter", "page", "rune", "spellbook"}, "scroll"),
+                ({"bomb", "dynamite", "tnt"}, "bomb"), ({"chest", "treasure", "loot"}, "chest"),
+                ({"coin", "gold", "money", "cash", "token"}, "coin"), ({"star", "starlight"}, "star"),
                 ({"gem", "crystal", "diamond", "jewel", "ruby", "emerald", "shard", "sapphire"}, "gem"),
                 ({"heart", "life", "health"}, "heart"))
+ARROW_WORDS = {"arrow", "dart"}
+SHOOTER_ARCHETYPES = ("shooter", "turret", "gunship")
+
+
+def _archers(names: list[str]) -> bool:
+    """True when every name draws a bow (their shots are arrows)."""
+    return bool(names) and all("bow" in features_for(n) for n in names)
 
 
 def _ordered_words(name: str) -> list[str]:
@@ -1057,6 +1122,8 @@ def _words(name: str) -> set[str]:
 def sprite_kind(name: str, ent: dict, archetype: str | None, brief: GameBrief, platformer: bool) -> str:
     words = _words(name)
     comps = ent.get("components", {})
+    if ent.get("decor"):
+        return next((DECOR_KINDS[w] for w in _ordered_words(name)[::-1] if w in DECOR_KINDS), "rock")
     if brief.genre == "shmup":
         if name == "Player" or name == brief.boss or archetype == "gunship" or words & SHIP_WORDS:
             return "ship" if not words & UFO_WORDS else "ufo"
@@ -1065,6 +1132,10 @@ def sprite_kind(name: str, ent: dict, archetype: str | None, brief: GameBrief, p
     if name == "Player":
         return "hero"
     if name in ("Bullet", "EnemyBullet", "Gust"):
+        if name == "Bullet" and _archers([brief.player.character]):
+            return "arrow"
+        if name == "EnemyBullet" and _archers([e.name for e in brief.enemies if e.archetype in SHOOTER_ARCHETYPES]):
+            return "arrow"
         return "bullet"
     if name == "Slash":
         return "slash"
@@ -1075,10 +1146,12 @@ def sprite_kind(name: str, ent: dict, archetype: str | None, brief: GameBrief, p
     if "TowerBrain" in comps:
         return "turret"
     if "Projectile" in comps:
-        return "bullet"
+        return "arrow" if words & ARROW_WORDS else "bullet"
     if name in ("Door", "Cage"):
         return "door"
-    if name in ("CageKey", "XpGem"):
+    if name == "CageKey":
+        return "key"
+    if name == "XpGem":
         return "gem"
     if "TriggerZone" in comps and name not in ("Exit",):
         return "hero"  # someone to rescue
@@ -1097,7 +1170,8 @@ def sprite_kind(name: str, ent: dict, archetype: str | None, brief: GameBrief, p
         return "orb"
     if archetype == "turret":
         return "turret"
-    for keys, kind in ((ROBOT_WORDS, "robot"), (FLYER_WORDS, "flyer"), (HUMANOID_WORDS, "hero"),
+    for keys, kind in ((ROBOT_WORDS, "robot"), (DRAGON_WORDS, "dragon"), (GHOST_WORDS, "ghost"), (SPIDER_WORDS, "spider"),
+                       (SNAKE_WORDS, "snake"), (BEAST_WORDS, "beast"), (FLYER_WORDS, "flyer"), (HUMANOID_WORDS, "hero"),
                        (HOPPER_WORDS, "hopper"), (BUG_WORDS, "bug" if not platformer else "slime")):
         if words & keys:
             return kind

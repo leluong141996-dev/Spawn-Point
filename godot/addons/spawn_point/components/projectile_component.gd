@@ -30,6 +30,10 @@ func _ready() -> void:
 	_entity = get_parent() as Area2D
 	if _entity.has_meta(&"sp_direction"):
 		direction = (_entity.get_meta(&"sp_direction") as Vector2).normalized()
+	# Sprites are drawn facing right: turn the visual toward the flight direction (arrows point where they fly).
+	var visual := _entity.get_node_or_null(^"Visual/Shape") as Node2D
+	if visual and direction.length() > 0.01:
+		visual.rotation = direction.angle()
 	_entity.body_entered.connect(_on_body_entered)
 	var hitbox := SP.component(_entity, &"Hitbox") as HitboxComponent
 	if hitbox:

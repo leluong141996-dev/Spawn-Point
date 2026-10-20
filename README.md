@@ -180,7 +180,12 @@ spawnpoint sprites import hero.png --grid 32x32 --anim idle=0-3 --anim run=4-9
 spawnpoint sprites import sheet.png --rows idle,run,jump           # auto-sliced by transparent gutters
 spawnpoint sprites import kenney_frames/                           # idle_0.png, walk_1.png, ...
 spawnpoint sprites preview assets/sprites/Knight.sprite.json       # contact sheet + collision outline
+spawnpoint sprites gallery --style cartoon -o gallery.png          # every kind on one sheet, for review
 ```
+
+Names pick the art: `Knight` gets a helmet and shield, `SkeletonArcher` a skull and a bow (and shoots
+arrows), `HealthPotion` is a potion, `GoldKey` a key. Layer 2 scatters trees, bushes and rocks that
+match the palette, drawn behind everything and without collision.
 
 Record a clip of any built game to share it (a window opens for a few seconds; autopilot plays):
 

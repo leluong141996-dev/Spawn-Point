@@ -75,6 +75,7 @@ class Entity(_Model):
     sprite: Union[str, SpriteRef, None] = None
     components: dict[str, dict[str, Any]] = Field(default_factory=dict)
     juice: Union[Literal["none"], dict[str, Any], None] = None
+    decor: bool = Field(default=False, description="scenery (trees, bushes, rocks): drawn behind everything, no collision")
 
 
 class Level(_Model):
