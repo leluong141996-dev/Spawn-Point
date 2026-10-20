@@ -6,14 +6,15 @@
     "tile_size": 32,
     "lives": 1,
     "seed": 31,
-    "zoom": 1.25,
+    "zoom": 1.75,
     "background": "#12101c",
     "tiles": {
       "solid": {
         "color": "#3d3a4e",
         "top": "#6b6585"
       }
-    }
+    },
+    "pixel_size": 1
   },
   "entities": {
     "Hunter": {

@@ -9,7 +9,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/knight-quest.gif" width="48%" alt="Knight's Quest: a cartoon-style sword platformer">
+  <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/knight-quest.gif" width="48%" alt="Knight's Quest: a sword platformer">
   <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/castle-defense.gif" width="48%" alt="Castle Defense: a tower defense game">
   <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/ninja-rescue.gif" width="48%" alt="Ninja Rescue: a platformer where a ninja frees his mother">
   <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/dino-eggs.gif" width="48%" alt="Dino Eggs: a bubble shooter with dinosaur eggs">
@@ -18,10 +18,10 @@
   <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/star-run.gif" width="48%" alt="Star Run: a side-scrolling shooter with power-ups and a boss">
 </p>
 <p align="center"><sub>Seven of the demo games, each one a small JSON graph in <code>examples/</code> built from the
-same component library: generated cartoon or pixel art, collision traced from the sprites, juice on by default.
+same component library: generated pixel art, collision traced from the sprites, juice on by default.
 Recorded with <code>spawnpoint gif</code> (autopilot).</sub></p>
 
-<p align="center"><b><a href="https://leluong141996-dev.github.io/Spawn-Point/">▶ Play the demos in your browser</a></b>: a Mario-style platformer, a cartoon
+<p align="center"><b><a href="https://leluong141996-dev.github.io/Spawn-Point/">▶ Play the demos in your browser</a></b>: a Mario-style platformer, a
 knight with a sword, tower defense, a ninja rescue, a dinosaur-egg bubble shooter, a survivor with level-ups, a farming
 game, an arena shooter and a side-scrolling space shooter. No install needed, and
 they work on phones too (touch controls).</p>
@@ -145,10 +145,12 @@ use `--no-web` to skip and play natively with `spawnpoint run`.
 
 ## Sprites: generated or your own
 
-Layer 2 replaces placeholder shapes with **procedural sprites** — no assets, no GPU — in one of two art styles:
-**pixel art** (the default) or **cartoon** (`"art_style": "cartoon"` in the graph settings, or "cartoon style" in
-the prompt): smooth shaded sprites with a sticker outline, rounded tiles, and a parallax sky with hills, clouds and
-trees. The
+Layer 2 replaces placeholder shapes with **procedural pixel art** — no assets, no GPU: chibi people with big heads, monsters with faces (a biting plant, a mushroom, a snail, a flame spirit, a reaper, an alien, a dragon, a ghost...), items, props, themed tiles and a parallax sky. Spawn Point makes pixel art games only. (A graph can still ask for the smooth `"art_style": "cartoon"` look by hand, but games made from a prompt are always pixel art.)
+
+<p align="center"><img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/parade-heroes.gif" width="48%" alt="Animated heroes: knight, wizard, ranger, viking, king, princess, ninja..."> <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/parade-monsters.gif" width="48%" alt="Animated monsters: slime, frog, biting plant, mushroom, snail, flame..."></p>
+<p align="center"><sub>Every character and monster is drawn by plain Python from its name (<code>spawnpoint sprites parade --set heroes|monsters|items</code>).</sub></p>
+
+The
 kind follows the entity (`Goblin` → humanoid, `FireBat` → flyer, `LaserBot` → robot, `Crystal` → gem…)
 and details follow the name (`Ninja` → mask, `Fox` → ears and tail, `Spider` → legs, a sword-wielder holds a sword).
 Every sprite has idle / run / jump / fall / hurt animations driven automatically by an `Animator` component, plus
@@ -180,7 +182,8 @@ spawnpoint sprites import hero.png --grid 32x32 --anim idle=0-3 --anim run=4-9
 spawnpoint sprites import sheet.png --rows idle,run,jump           # auto-sliced by transparent gutters
 spawnpoint sprites import kenney_frames/                           # idle_0.png, walk_1.png, ...
 spawnpoint sprites preview assets/sprites/Knight.sprite.json       # contact sheet + collision outline
-spawnpoint sprites gallery --style cartoon -o gallery.png          # every kind on one sheet, for review
+spawnpoint sprites gallery --style fine -o gallery.png             # every kind on one sheet, for review
+spawnpoint sprites parade --set monsters -o monsters.gif           # an animated sheet of characters, monsters or items
 ```
 
 Names pick the art: `Knight` gets a helmet and shield, `SkeletonArcher` a skull and a bow (and shoots

@@ -7,7 +7,7 @@
     "lives": 3,
     "seed": 11,
     "background": "#8ecae6",
-    "zoom": 1.5,
+    "zoom": 2.0,
     "tiles": {
       "solid": {
         "color": "#4a3728",
@@ -17,7 +17,9 @@
         "color": "#8a5a3b"
       }
     },
-    "art_style": "cartoon"
+    "pixel_size": 1,
+    "pixel_palette": "endesga32",
+    "scenery": "forest"
   },
   "entities": {
     "Slash": {

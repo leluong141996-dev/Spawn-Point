@@ -8,7 +8,8 @@ import os
 # Names choose the art (sprites/generate.py FEATURE_WORDS, studio/assemble.py sprite_kind), so the prompts show
 # the model nouns that draw something specific. tests/test_sprites.py checks each one still does.
 ART_HEROES = ("Knight", "Wizard", "Ranger", "Viking", "King", "Ninja", "Princess")
-ART_MONSTERS = ("Skeleton", "Zombie", "Ghost", "Dragon", "Spider", "Snake", "Wolf", "Orc", "Goblin", "Bat")
+ART_MONSTERS = ("Skeleton", "Zombie", "Ghost", "Dragon", "Spider", "Snake", "Wolf", "Orc", "Goblin", "Bat", "PiranhaPlant",
+                "Mushroom", "Snail", "Reaper", "FireSpirit", "Alien")
 ART_PICKUPS = ("Coin", "Gem", "Star", "Key", "Potion", "Scroll", "Chest")
 ART_LINE = (f"Names choose the art, so use concrete nouns: heroes like {', '.join(ART_HEROES)} (a Ranger or Archer has a bow"
             f" and shoots arrows); monsters like {', '.join(ART_MONSTERS)}; pickups like {', '.join(ART_PICKUPS)}."

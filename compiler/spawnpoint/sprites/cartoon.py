@@ -972,6 +972,9 @@ PAINTERS = {"hero": draw_hero, "slime": draw_blob, "hopper": draw_blob, "bug": d
             "beast": draw_beast, "spider": draw_spider, "dragon": draw_dragon, "ghost": draw_ghost, "snake": draw_snake,
             "key": draw_key, "potion": draw_potion, "scroll": draw_scroll, "bomb": draw_bomb, "chest": draw_chest,
             "arrow": draw_arrow, "tree": draw_tree, "bush": draw_bush, "rock": draw_rock}
+from . import cartoon_monsters  # noqa: E402  (needs Painter and the helpers above)
+
+PAINTERS.update(cartoon_monsters.PAINTERS)
 OUTLINE = {"bullet": 0.8, "slash": 0.8, "coin": 1.0, "gem": 1.0, "star": 1.1, "heart": 1.1, "spikes": 1.0, "orb": 1.0,
            "key": 1.0, "potion": 1.0, "scroll": 1.0, "bomb": 1.0, "arrow": 0.8}
 

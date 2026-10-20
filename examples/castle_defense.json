@@ -14,7 +14,8 @@
         "top": "#a39a8c"
       }
     },
-    "art_style": "cartoon"
+    "pixel_size": 1,
+    "pixel_palette": "endesga32"
   },
   "entities": {
     "Commander": {

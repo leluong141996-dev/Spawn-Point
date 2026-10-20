@@ -6,7 +6,7 @@
     "tile_size": 32,
     "lives": 3,
     "seed": 21,
-    "zoom": 1.5,
+    "zoom": 2.0,
     "background": "#1d1a33",
     "tiles": {
       "solid": {
@@ -16,7 +16,8 @@
       "oneway": {
         "color": "#8a5a3b"
       }
-    }
+    },
+    "pixel_size": 1
   },
   "entities": {
     "Ninja": {

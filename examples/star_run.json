@@ -15,7 +15,8 @@
       }
     },
     "pixel_palette": "sweetie16",
-    "scenery": "space"
+    "scenery": "space",
+    "pixel_size": 1
   },
   "entities": {
     "Player": {

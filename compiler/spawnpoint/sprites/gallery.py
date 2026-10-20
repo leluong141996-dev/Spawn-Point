@@ -22,6 +22,8 @@ CAST: list[tuple[str, str, str]] = [
     ("Robot", "robot", "#83769c"), ("Turret", "turret", "#83769c"), ("Beetle", "bug", "#ab5236"),
     ("Wolf", "beast", "#8a8a9a"), ("Spider", "spider", "#5f574f"), ("Dragon", "dragon", "#ff004d"),
     ("Ghost", "ghost", "#c2c3c7"), ("Snake", "snake", "#3a8a40"),
+    ("BitingPlant", "plant", "#ff004d"), ("Mushroom", "mushroom", "#e8403a"), ("Reaper", "reaper", "#7e2553"),
+    ("Flame", "flame", "#ff6a1a"), ("Snail", "snail", "#b06ad8"), ("Alien", "alien", "#6fd24a"),
     ("Coin", "coin", "#ffcc40"), ("Star", "star", "#ffec27"), ("Gem", "gem", "#29adff"),
     ("Heart", "heart", "#ff004d"), ("Orb", "orb", "#83769c"), ("GoldKey", "key", "#ffcc40"),
     ("HealthPotion", "potion", "#e04858"), ("MagicScroll", "scroll", "#c03040"), ("Bomb", "bomb", "#333344"),
@@ -64,4 +66,43 @@ def gallery(style: str = "fine", columns: int = 8, cast: list[tuple[str, str, st
         out.alpha_composite(frame, (x + (CELL - size[0]) // 2, y + CELL - size[1] if KINDS[kind].anchor == "bottom"
                                     else y + (CELL - size[1]) // 2))
         d.text((x + 2, y + CELL + 1), name[:15], fill=TEXT)
+    return out
+
+
+PARADES: dict[str, list[str]] = {
+    "heroes": ["Knight", "Wizard", "Ranger", "Viking", "King", "Princess", "Ninja", "Hero", "Skeleton", "SkeletonArcher",
+               "Zombie", "Orc", "Goblin", "Alien", "Reaper"],
+    "monsters": ["Slime", "Frog", "BitingPlant", "Wolf", "Mushroom", "Snail", "Flame", "Ghost", "Snake", "Spider", "Bat",
+                 "Dragon", "Robot", "Beetle", "Turret"],
+    "items": ["Coin", "Star", "Gem", "Heart", "GoldKey", "HealthPotion", "MagicScroll", "Bomb", "TreasureChest", "Arrow",
+              "Orb", "BerryBush", "Tree", "PineTree", "MossyRock"],
+}
+
+
+def parade(which: str = "heroes", columns: int = 5, cell: int = 128, fps: int = 10, seconds: float = 3.0,
+           style: str = "fine") -> list[Image.Image]:
+    """An animated sheet: every cast member idles for half the time and runs for the other half (where it can),
+    each at the largest whole-number scale that fits its cell. Returns the GIF frames."""
+    by_name = {c[0]: c for c in CAST}
+    cast = [by_name[n] for n in PARADES[which]]
+    sprites = [render(name, kind, color, style) for name, kind, color in cast]
+    rows = -(-len(cast) // columns)
+    steps = round(fps * seconds)
+    out = []
+    for step in range(steps):
+        t = step / fps
+        img = Image.new("RGBA", (PAD + columns * (cell + PAD), PAD + rows * (cell + PAD)), BG)
+        d = ImageDraw.Draw(img)
+        for n, ((name, kind, _color), s) in enumerate(zip(cast, sprites)):
+            anim = "run" if "run" in s.animations and t >= seconds / 2 else "idle"
+            a = s.animations.get(anim) or next(iter(s.animations.values()))
+            w, h = s.frame_size
+            zoom = max(1, cell // max(w, h))
+            idx = int(t * a.fps) % len(a.frames)
+            frame = Image.fromarray(s.frame(*a.frames[idx])).resize((w * zoom, h * zoom), Image.NEAREST)
+            x, y = PAD + (n % columns) * (cell + PAD), PAD + (n // columns) * (cell + PAD)
+            d.rectangle([x, y, x + cell - 1, y + cell - 1], fill=TILE)
+            bottom = KINDS[kind].anchor == "bottom"
+            img.alpha_composite(frame, (x + (cell - w * zoom) // 2, y + cell - h * zoom - 6 if bottom else y + (cell - h * zoom) // 2))
+        out.append(img.convert("RGB"))
     return out
