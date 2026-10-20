@@ -7,6 +7,9 @@
 [![Model](https://img.shields.io/badge/%F0%9F%A4%97%20model-SpawnPoint--Coder--7B-yellow)](https://huggingface.co/smoky1496/SpawnPoint-Coder-7B-AWQ)
 [![Play the demos](https://img.shields.io/badge/%E2%96%B6%20play-demos%20in%20your%20browser-ff004d)](https://leluong141996-dev.github.io/Spawn-Point/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/leluong141996-dev/Spawn-Point?style=social)](https://github.com/leluong141996-dev/Spawn-Point/stargazers)
+
+⭐ **If Spawn Point drew something fun or useful, a star helps other people find it. If it drew something wrong, [open an issue](https://github.com/leluong141996-dev/Spawn-Point/issues/new) with your prompt: the model's tests grow from prompts that broke.**
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/knight-quest.gif" width="48%" alt="Knight's Quest: a sword platformer">
