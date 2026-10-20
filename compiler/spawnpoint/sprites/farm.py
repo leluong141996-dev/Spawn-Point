@@ -44,18 +44,54 @@ GRASS_C, PATH_C, WATER_C, FIELD_C, SAND_C = ".", ":", "~", ",", "_"
 
 def _noise(h: int, w: int, cell: int, rng: np.random.Generator, smooth: float) -> np.ndarray:
     """Low-frequency value noise in 0..1: a coarse random grid, upscaled and blurred."""
-    from scipy.ndimage import gaussian_filter
     gh, gw = h // cell + 2, w // cell + 2
     grid = rng.random((gh, gw))
     up = np.kron(grid, np.ones((cell, cell)))[:h, :w]
-    return gaussian_filter(up, smooth)
+    return _blur(up, smooth)
 
 
 def _soft_mask(cells: np.ndarray, sigma: float, jitter: np.ndarray, k: float = 0.16) -> np.ndarray:
     """Cell mask -> pixel mask with rounded corners and bumpy edges."""
-    from scipy.ndimage import gaussian_filter
     up = np.kron(cells.astype(float), np.ones((CELL, CELL)))
-    return gaussian_filter(up, sigma) > 0.5 + (jitter - 0.5) * k
+    return _blur(up, sigma) > 0.5 + (jitter - 0.5) * k
+
+
+def _blur(a: np.ndarray, sigma: float) -> np.ndarray:
+    """Gaussian blur (separable, edges extended), numpy only."""
+    r = max(1, int(3 * sigma))
+    x = np.arange(-r, r + 1)
+    k = np.exp(-(x ** 2) / (2 * sigma * sigma))
+    k /= k.sum()
+    p = np.pad(a, r, mode="edge")
+    p = np.apply_along_axis(lambda v: np.convolve(v, k, mode="valid"), 0, p)
+    return np.apply_along_axis(lambda v: np.convolve(v, k, mode="valid"), 1, p)
+
+
+def _erode(m: np.ndarray, n: int) -> np.ndarray:
+    """Shrinks m by n pixels (4-neighbourhood); beyond the picture's edge counts as more of the same."""
+    for _ in range(n):
+        p = np.pad(m, 1, mode="edge")
+        m = p[1:-1, 1:-1] & p[:-2, 1:-1] & p[2:, 1:-1] & p[1:-1, :-2] & p[1:-1, 2:]
+    return m
+
+
+def _dilate(m: np.ndarray, n: int) -> np.ndarray:
+    for _ in range(n):
+        p = np.pad(m, 1, mode="edge")
+        m = p[1:-1, 1:-1] | p[:-2, 1:-1] | p[2:, 1:-1] | p[1:-1, :-2] | p[1:-1, 2:]
+    return m
+
+
+def _depth(m: np.ndarray, most: int) -> np.ndarray:
+    """How many pixels deep inside m each pixel is (1 at the edge), up to `most`."""
+    out = np.zeros(m.shape, dtype=float)
+    cur = m.copy()
+    for k in range(1, most + 1):
+        out[cur] = k
+        cur = _erode(cur, 1)
+        if not cur.any():
+            break
+    return out
 
 
 def _shift(m: np.ndarray, dy: int, dx: int) -> np.ndarray:
@@ -87,8 +123,7 @@ def terrain_image(rows: list[str], seed: int = 0) -> np.ndarray:
     nrng = np.random.default_rng(zlib.crc32(f"terrain:{seed}".encode()))
     jitter = _noise(H, W, 3, nrng, 1.0)
     water = _soft_mask(grid == WATER_C, 4.0, jitter)
-    from scipy.ndimage import binary_opening
-    water = binary_opening(water, iterations=2) | (np.kron(grid == WATER_C, np.ones((CELL, CELL), dtype=bool)) & water)
+    water = _dilate(_erode(water, 2), 2) | (np.kron(grid == WATER_C, np.ones((CELL, CELL), dtype=bool)) & water)
     sand = _soft_mask((grid == SAND_C) | (grid == WATER_C), 4.0, jitter) & ~water
     path = _soft_mask(grid == PATH_C, 4.0, jitter) & ~water & ~sand
     land = ~water
@@ -132,8 +167,7 @@ def terrain_image(rows: list[str], seed: int = 0) -> np.ndarray:
         _pebble(img, x, y)
 
     # water: deep middle, light shore line, sparkles; a brown cliff where land drops into it to the south
-    from scipy.ndimage import distance_transform_edt
-    dist = distance_transform_edt(water)
+    dist = _depth(water, 12)
     img[water] = WATER
     deep = water & (dist > 9) & (_noise(H, W, 14, nrng, 4.0) > 0.52)
     img[deep] = WATER_DEEP
