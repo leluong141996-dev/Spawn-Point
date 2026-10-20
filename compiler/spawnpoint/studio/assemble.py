@@ -294,12 +294,11 @@ class _Assembler:
 
     def _styled(self, g: dict) -> dict:
         if self.layer >= 2:
-            if self.b.art_style != "pixel":
-                g["settings"]["art_style"] = self.b.art_style
-            else:  # pixel art gets the classic palette that suits the theme
-                g["settings"]["pixel_palette"] = palettes.THEME_PALETTE[self.b.palette]
-                g["settings"]["scenery"] = self.b.palette
-                g["settings"]["pixel_size"] = 1  # the fine style: detailed chibi people, fine tiles
+            # Spawn Point makes pixel art games: a brief that asks for cartoon art still gets pixel art, with the
+            # classic palette that suits the theme.
+            g["settings"]["pixel_palette"] = palettes.THEME_PALETTE[self.b.palette]
+            g["settings"]["scenery"] = self.b.palette
+            g["settings"]["pixel_size"] = 1  # the fine style: detailed chibi people, fine tiles
             if self.b.genre == "shmup":
                 g["settings"]["scenery"] = "space"  # scrolling stars, whatever the art style
         return g
@@ -1089,6 +1088,12 @@ SPIDER_WORDS = {"spider", "tarantula", "arachnid", "widow"}
 SNAKE_WORDS = {"snake", "serpent", "cobra", "python", "viper", "worm", "eel", "naga"}
 BEAST_WORDS = {"wolf", "fox", "dog", "puppy", "hound", "cat", "kitty", "tiger", "lion", "bear", "boar", "pig", "hog",
                "panther", "jackal", "hyena", "werewolf", "coyote", "leopard", "cougar"}
+PLANT_WORDS = {"plant", "flower", "piranha", "venus", "vine", "sprout", "thorn"}
+MUSHROOM_WORDS = {"mushroom", "shroom", "toadstool", "fungus", "funguy", "spore"}
+REAPER_WORDS = {"reaper", "grim", "scythe"}
+FLAME_WORDS = {"flame", "fire", "ember", "blaze", "inferno", "pyro", "lava"}
+SNAIL_WORDS = {"snail", "slug"}
+ALIEN_WORDS = {"alien", "martian", "extraterrestrial"}
 ROBOT_WORDS = {"robot", "bot", "droid", "mech", "drone", "android", "cyborg", "machine"}
 BUG_WORDS = {"bug", "beetle", "ant", "scorpion", "roach", "crab", "insect"}
 HOPPER_WORDS = {"frog", "toad", "bunny", "rabbit", "kangaroo"}
@@ -1170,8 +1175,11 @@ def sprite_kind(name: str, ent: dict, archetype: str | None, brief: GameBrief, p
         return "orb"
     if archetype == "turret":
         return "turret"
-    for keys, kind in ((ROBOT_WORDS, "robot"), (DRAGON_WORDS, "dragon"), (GHOST_WORDS, "ghost"), (SPIDER_WORDS, "spider"),
-                       (SNAKE_WORDS, "snake"), (BEAST_WORDS, "beast"), (FLYER_WORDS, "flyer"), (HUMANOID_WORDS, "hero"),
+    for keys, kind in ((ROBOT_WORDS, "robot"), (DRAGON_WORDS, "dragon"), (FLYER_WORDS, "flyer"), (FLAME_WORDS, "flame"),
+                       (GHOST_WORDS, "ghost"), (SPIDER_WORDS, "spider"),
+                       (SNAKE_WORDS, "snake"), (BEAST_WORDS, "beast"),
+                       (PLANT_WORDS, "plant"), (MUSHROOM_WORDS, "mushroom"), (REAPER_WORDS, "reaper"), (SNAIL_WORDS, "snail"),
+                       (ALIEN_WORDS, "alien"), (HUMANOID_WORDS, "hero"),
                        (HOPPER_WORDS, "hopper"), (BUG_WORDS, "bug" if not platformer else "slime")):
         if words & keys:
             return kind

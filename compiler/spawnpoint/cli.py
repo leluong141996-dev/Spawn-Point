@@ -124,6 +124,9 @@ def main(argv: list[str] | None = None) -> int:
     sga = sps.add_parser("gallery", help="render one contact sheet of every procedural kind, for review")
     sga.add_argument("--style", choices=["pixel", "fine", "cartoon"], default="fine")
     sga.add_argument("-o", "--out", type=Path, default=Path("sprite-gallery.png"))
+    spa = sps.add_parser("parade", help="render an animated sheet (GIF) of characters, monsters or items")
+    spa.add_argument("--set", dest="which", choices=["heroes", "monsters", "items"], default="heroes")
+    spa.add_argument("-o", "--out", type=Path, default=Path("sprite-parade.gif"))
 
     ds = sub.add_parser("dataset", help="recorded fine-tuning data")
     ds.add_argument("action", choices=["stats", "path"])
@@ -274,6 +277,12 @@ def _sprites(args) -> int:
         if args.sprites_cmd == "kinds":
             for k, spec in gen.KINDS.items():
                 print(f"{k:<8} {spec.size[0]}x{spec.size[1]} px  animations: {', '.join(spec.anims)}")
+            return 0
+        if args.sprites_cmd == "parade":
+            from .sprites.gallery import parade
+            frames = parade(args.which)
+            frames[0].save(args.out, save_all=True, append_images=frames[1:], duration=100, loop=0, optimize=True)
+            print(f"Wrote {args.out}")
             return 0
         if args.sprites_cmd == "gallery":
             from .sprites.gallery import gallery

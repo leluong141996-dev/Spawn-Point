@@ -414,7 +414,8 @@ def test_new_game_kinds_assemble_clean(manifest, kind):
         assert player["Farmer"]["crops"].startswith("Carrot|") and "Corn|" in player["Farmer"]["crops"]
         assert ents["Slash"]["sprite"]["generate"]["kind"] == "slash" and "Health" in player  # the fox bites
         assert "CropPest" in ents["Crow"]["components"] and "ChaseAI" in ents["Fox"]["components"]
-        assert graph["settings"]["art_style"] == "cartoon" and "score >= 250" in rules and "lose()" in rules
+        assert "art_style" not in graph["settings"]  # a cartoon request still gets pixel art
+        assert "score >= 250" in rules and "lose()" in rules
     elif kind == "tower_defense":
         towers = ents["Commander"]["components"]["TowerBuilder"]["towers"]
         assert towers == "ArcherTower|50;CannonTower|110;MageTower|90"

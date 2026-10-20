@@ -5,7 +5,8 @@
   "settings": {
     "tile_size": 32,
     "lives": 3,
-    "seed": 21
+    "seed": 21,
+    "pixel_size": 1
   },
   "entities": {
     "Player": {

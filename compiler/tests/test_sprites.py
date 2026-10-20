@@ -355,8 +355,9 @@ def test_assembler_gives_pixel_games_a_theme_palette():
         b, _ = normalize(GameBrief(title="t", genre="platformer", palette=theme))
         assert assemble(b, 2, seed=1)["settings"]["pixel_palette"] == pal
         assert "pixel_palette" not in assemble(b, 1, seed=1)["settings"]  # layers 0-1 are placeholders
-    b, _ = normalize(GameBrief(title="t", genre="platformer", art_style="cartoon"))
-    assert "pixel_palette" not in assemble(b, 2, seed=1)["settings"]
+    b, _ = normalize(GameBrief(title="t", genre="platformer", art_style="cartoon"))  # Spawn Point makes pixel art only
+    assert "art_style" not in assemble(b, 2, seed=1)["settings"]
+    assert "pixel_palette" in assemble(b, 2, seed=1)["settings"]
 
 
 # --- attack and death animations --------------------------------------------------------------
@@ -659,7 +660,7 @@ def test_assembler_draws_pixel_games_in_the_fine_style():
     b, _ = normalize(GameBrief(title="t", genre="platformer"))
     assert assemble(b, 2, seed=1)["settings"]["pixel_size"] == 1
     b, _ = normalize(GameBrief(title="t", genre="platformer", art_style="cartoon"))
-    assert "pixel_size" not in assemble(b, 2, seed=1)["settings"]
+    assert assemble(b, 2, seed=1)["settings"]["pixel_size"] == 1  # a cartoon request still gets pixel art
 
 
 # --- chibi creatures (beast, spider, dragon, ghost, snake) -------------------------------------
@@ -835,3 +836,20 @@ def test_cages_are_barred_doors():
     assert features_for("Cage") == ["bars"] and features_for("Door") == []
     door, cage = (generate(n, "door", "#8a8f98", None, 1, fine=True).sheet.tobytes() for n in ("Door", "Cage"))
     assert door != cage
+
+
+@pytest.mark.parametrize("name,kind", [("PiranhaPlant", "plant"), ("Mushroom", "mushroom"), ("Reaper", "reaper"),
+                                       ("FireSpirit", "flame"), ("GiantSnail", "snail"), ("Alien", "alien"),
+                                       ("Firefly", "slime"), ("Bat", "flyer"), ("Ghost", "ghost")])
+def test_new_monster_names_pick_their_art(name, kind):
+    from spawnpoint.studio.assemble import sprite_kind
+    b = GameBrief(title="t", genre="platformer")
+    assert sprite_kind(name, {}, "walker", b, True) == kind
+
+
+def test_the_monster_parade_has_every_new_kind_and_animates():
+    from spawnpoint.sprites.gallery import PARADES, parade
+    frames = parade("monsters", seconds=1.0, fps=5)
+    assert len(frames) == 5 and frames[0].size == frames[-1].size
+    assert {"BitingPlant", "Mushroom", "Snail", "Flame"} <= set(PARADES["monsters"])
+    assert frames[0].tobytes() != frames[2].tobytes()  # the creatures move

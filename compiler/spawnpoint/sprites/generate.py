@@ -16,7 +16,7 @@ from typing import Callable
 
 import numpy as np
 
-from . import chibi, creatures, items, motion, palettes
+from . import chibi, creatures, items, monsters, motion, palettes
 from .spriteset import SpriteSet, build_sheet, finalize
 
 RGBA = tuple[int, int, int, int]
@@ -765,6 +765,16 @@ KINDS: dict[str, Kind] = {
     "ghost": Kind((12, 14), {"idle": (4, 6, True), "run": (4, 8, True), "hurt": (1, 1, False)}, None),
     "snake": Kind((16, 8), {"idle": (2, 3, True), "run": (4, 8, True), "jump": (1, 1, False), "fall": (1, 1, False),
                             "hurt": (1, 1, False)}, None, "bottom"),
+    # more chibi monsters, painted natively at the fine size by monsters.py
+    "plant": Kind((14, 16), {"idle": (4, 6, True), "run": (4, 8, True), "hurt": (1, 1, False)}, None, "bottom"),
+    "mushroom": Kind((14, 14), {"idle": (2, 3, True), "run": (4, 8, True), "jump": (1, 1, False), "fall": (1, 1, False),
+                                "hurt": (1, 1, False)}, None, "bottom"),
+    "reaper": Kind((14, 16), {"idle": (4, 5, True), "run": (4, 8, True), "hurt": (1, 1, False)}, None),
+    "flame": Kind((12, 14), {"idle": (4, 8, True), "run": (4, 10, True), "hurt": (1, 1, False)}, None, "bottom"),
+    "snail": Kind((16, 12), {"idle": (2, 3, True), "run": (4, 5, True), "jump": (1, 1, False), "fall": (1, 1, False),
+                             "hurt": (1, 1, False)}, None, "bottom"),
+    "alien": Kind((12, 16), {"idle": (2, 3, True), "run": (4, 10, True), "jump": (1, 1, False), "fall": (1, 1, False),
+                             "hurt": (1, 1, False)}, None, "bottom"),
     # chibi items and decorative props, painted natively by items.py
     "key": Kind((8, 8), {"idle": (4, 6, True)}, None),
     "potion": Kind((8, 10), {"idle": (4, 6, True)}, None),
@@ -814,7 +824,7 @@ def refine(f: np.ndarray, outline: RGBA) -> np.ndarray:
 
 # Animations a painter draws itself (on top of the kind's own), and the kinds that get a derived attack pulse.
 DRAWN_EXTRA: dict[str, dict[str, tuple[int, float, bool]]] = {"hero": {"attack": (3, 14, False)}}
-NATIVE = {**creatures.PAINTERS, **items.PAINTERS}  # kinds painted at the fine size (coarse = 2:1 shrink)
+NATIVE = {**creatures.PAINTERS, **items.PAINTERS, **monsters.PAINTERS}  # kinds painted at the fine size (coarse = 2:1 shrink)
 ATTACKERS = {"hero", "slime", "hopper", "flyer", "robot", "bug", "beast", "spider", "dragon", "ghost", "snake"}
 DERIVED = {"attack": (3, 14.0, False), "die": (5, 10.0, False)}
 

@@ -6,7 +6,8 @@
     "tile_size": 32,
     "lives": 3,
     "seed": 21,
-    "zoom": 1.5
+    "zoom": 2.0,
+    "pixel_size": 1
   },
   "entities": {
     "Player": {
