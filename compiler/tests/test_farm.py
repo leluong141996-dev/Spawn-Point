@@ -120,3 +120,9 @@ def test_placeholder_farm_layers_still_compile(manifest, layer):
     assert all("sprite" not in e and "farm_kind" not in e for e in g["entities"].values())
     a = analyze(g, manifest)
     assert a.ok, a.diagnostics.render()
+
+
+def test_ocean_farms_are_islands_and_forest_farms_are_meadows():
+    for seed in range(4):
+        assert assemble(_farm_brief(palette="ocean"), 2, seed=seed)["settings"]["terrain"][0].strip("~") == ""
+        assert "~" not in assemble(_farm_brief(palette="forest"), 2, seed=seed)["settings"]["terrain"][0]

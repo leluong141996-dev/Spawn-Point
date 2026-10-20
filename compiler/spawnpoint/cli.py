@@ -95,6 +95,11 @@ def main(argv: list[str] | None = None) -> int:
     gf.add_argument("--width", type=int, default=640)
     gf.add_argument("--skip", type=float, default=0.0, help="seconds of play before the clip starts")
 
+    ov = sub.add_parser("overview", help="save one picture of a built project's whole map (needs a display)")
+    ov.add_argument("project", type=Path)
+    ov.add_argument("-o", "--out", type=Path, help="output file (default: <project>/overview.png)")
+    ov.add_argument("--seconds", type=float, default=20.0, help="seconds of autopilot play first")
+
     sp = sub.add_parser("sprites", help="import, generate or preview sprites")
     sps = sp.add_subparsers(dest="sprites_cmd", required=True)
     si = sps.add_parser("import", help="turn a sprite sheet or a folder of frames into a SpriteSet")
@@ -143,7 +148,7 @@ def main(argv: list[str] | None = None) -> int:
         return {"validate": _validate, "build": _build, "run": _run, "components": _components,
                 "manifest": _manifest, "create": studio_cli.create, "tweak": studio_cli.tweak,
                 "serve": studio_cli.serve, "dataset": studio_cli.dataset, "playtest": studio_cli.playtest, "studio": studio_cli.studio,
-                "sprites": _sprites, "gif": _gif, "llm": _llm, "examples": _examples,
+                "sprites": _sprites, "gif": _gif, "overview": _overview, "llm": _llm, "examples": _examples,
                 "demo": _demo}[args.cmd](args)
     except godot.GodotError as e:
         print(f"error: {e}", file=sys.stderr)
@@ -254,6 +259,15 @@ def _gif(args) -> int:
     out = args.out or args.project / "demo.gif"
     path = record_gif(args.project.resolve(), out.resolve(), args.seconds, args.fps, args.width, args.skip)
     print(f"Wrote {out} ({path.stat().st_size / 1e6:.1f} MB)")
+    return 0
+
+
+def _overview(args) -> int:
+    from .gif import overview
+
+    out = args.out or args.project / "overview.png"
+    overview(args.project.resolve(), out.resolve(), args.seconds)
+    print(f"Wrote {out}")
     return 0
 
 

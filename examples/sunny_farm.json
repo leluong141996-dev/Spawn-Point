@@ -5,18 +5,132 @@
   "settings": {
     "tile_size": 32,
     "lives": 1,
-    "seed": 5,
-    "zoom": 1.75,
-    "background": "#4f8a3a",
+    "seed": 7,
+    "zoom": 1.6,
+    "background": "#3aa0e8",
+    "tile_style": "flat",
     "tiles": {
       "solid": {
-        "color": "#8a5a3b",
-        "top": "#c2a476"
+        "color": "#00000000",
+        "top": "#00000000"
       }
     },
-    "pixel_size": 1
+    "terrain": [
+      "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
+      "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
+      "~~.................~~~~~........~~",
+      "~~.................~~~~~........~~",
+      "~~..............................~~",
+      "~~..........,,,,,,,,,,..........~~",
+      "~~..........,,,,,,,,,,........~~~~",
+      "~~....:.....,,,,,,,,,,........~~~~",
+      "~~....:.....,,,,,,,,,,........~~~~",
+      "~~~...:..........:............~~~~",
+      "~~~::::::::::::::::::::::::::::~~~",
+      "~~~.....:..............:......~~~~",
+      "~~............................~~~~",
+      "~~....................~~......~~~~",
+      "~~...................~~~~.......~~",
+      "~~...................~~~........~~",
+      "~~..............................~~",
+      "~~..............................~~",
+      "~~..............................~~",
+      "~~..............................~~",
+      "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
+      "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    ],
+    "y_sort": true,
+    "art": {
+      "soil": {
+        "kind": "soil"
+      },
+      "soil_wet": {
+        "kind": "soil_wet"
+      },
+      "crop_Strawberry": {
+        "kind": "crop",
+        "of": "Strawberry",
+        "color": "#e83a4a"
+      },
+      "icon_Strawberry": {
+        "kind": "crop_icon",
+        "of": "Strawberry",
+        "color": "#e83a4a"
+      },
+      "crop_Carrot": {
+        "kind": "crop",
+        "of": "Carrot",
+        "color": "#ff8a2a"
+      },
+      "icon_Carrot": {
+        "kind": "crop_icon",
+        "of": "Carrot",
+        "color": "#ff8a2a"
+      },
+      "crop_Pumpkin": {
+        "kind": "crop",
+        "of": "Pumpkin",
+        "color": "#ff9a2a"
+      },
+      "icon_Pumpkin": {
+        "kind": "crop_icon",
+        "of": "Pumpkin",
+        "color": "#ff9a2a"
+      },
+      "icon_egg": {
+        "kind": "item_icon",
+        "of": "egg"
+      },
+      "icon_milk": {
+        "kind": "item_icon",
+        "of": "milk"
+      },
+      "icon_wood": {
+        "kind": "item_icon",
+        "of": "wood"
+      },
+      "icon_stone": {
+        "kind": "item_icon",
+        "of": "stone"
+      }
+    }
   },
   "entities": {
+    "Player": {
+      "components": {
+        "TopDownMovement": {
+          "max_speed": 190,
+          "acceleration": 2200
+        },
+        "PlayerInput": {},
+        "Farmer": {
+          "crops": "Strawberry|#e83a4a|8|4|res://sprites/art_crop_Strawberry.png|res://sprites/art_icon_Strawberry.png;Carrot|#ff8a2a|14|9|res://sprites/art_crop_Carrot.png|res://sprites/art_icon_Carrot.png;Pumpkin|#ff9a2a|24|20|res://sprites/art_crop_Pumpkin.png|res://sprites/art_icon_Pumpkin.png",
+          "goods": "Egg|6|res://sprites/art_icon_egg.png;Milk|14|res://sprites/art_icon_milk.png;Wood|3|res://sprites/art_icon_wood.png;Stone|4|res://sprites/art_icon_stone.png",
+          "reach": 46,
+          "basket_size": 16
+        },
+        "Aim": {
+          "mode": "movement"
+        },
+        "Weapon": {
+          "projectile": "Gust",
+          "fire_rate": 3.0,
+          "spread_deg": 0,
+          "muzzle_distance": 14
+        }
+      },
+      "base": [
+        18,
+        18
+      ],
+      "sprite": {
+        "generate": {
+          "kind": "farmer",
+          "seed": 7,
+          "color": "#29adff"
+        }
+      }
+    },
     "Gust": {
       "body": "area",
       "juice": "none",
@@ -34,7 +148,8 @@
       "sprite": {
         "generate": {
           "kind": "bullet",
-          "color": "#fff1e8"
+          "color": "#fff1e8",
+          "seed": 7
         }
       }
     },
@@ -51,7 +166,374 @@
       "components": {
         "FarmPlot": {
           "water_seconds": 6.0,
-          "size": 30
+          "size": 30,
+          "soil_texture": "res://sprites/art_soil.png",
+          "wet_texture": "res://sprites/art_soil_wet.png"
+        }
+      }
+    },
+    "ShippingBin": {
+      "body": "area",
+      "juice": "none",
+      "base": [
+        30,
+        20
+      ],
+      "components": {
+        "Market": {
+          "width": 32,
+          "stall": false
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "bin",
+          "seed": 7,
+          "color": "#9a5e36"
+        }
+      }
+    },
+    "Farmhouse": {
+      "body": "static",
+      "juice": "none",
+      "base": [
+        150,
+        56
+      ],
+      "components": {},
+      "sprite": {
+        "generate": {
+          "kind": "farmhouse",
+          "seed": 7,
+          "color": "#b4472e"
+        }
+      }
+    },
+    "Signpost": {
+      "body": "static",
+      "juice": "none",
+      "base": [
+        12,
+        8
+      ],
+      "components": {},
+      "sprite": {
+        "generate": {
+          "kind": "signpost",
+          "seed": 7,
+          "color": "#9a5e36"
+        }
+      }
+    },
+    "Barrel": {
+      "body": "static",
+      "juice": "none",
+      "base": [
+        24,
+        14
+      ],
+      "components": {},
+      "sprite": {
+        "generate": {
+          "kind": "barrel",
+          "seed": 7,
+          "color": "#9a5e36"
+        }
+      }
+    },
+    "FencePost": {
+      "body": "static",
+      "juice": "none",
+      "base": [
+        12,
+        12
+      ],
+      "components": {},
+      "sprite": {
+        "generate": {
+          "kind": "fence_post",
+          "seed": 7,
+          "color": "#9a5e36"
+        }
+      }
+    },
+    "FenceH": {
+      "body": "static",
+      "juice": "none",
+      "base": [
+        32,
+        12
+      ],
+      "components": {},
+      "sprite": {
+        "generate": {
+          "kind": "fence_h",
+          "seed": 7,
+          "color": "#9a5e36"
+        }
+      }
+    },
+    "FenceV": {
+      "body": "static",
+      "juice": "none",
+      "base": [
+        10,
+        30
+      ],
+      "components": {},
+      "sprite": {
+        "generate": {
+          "kind": "fence_v",
+          "seed": 7,
+          "color": "#9a5e36"
+        }
+      }
+    },
+    "Scarecrow": {
+      "body": "static",
+      "juice": "none",
+      "base": [
+        12,
+        10
+      ],
+      "components": {},
+      "sprite": {
+        "generate": {
+          "kind": "scarecrow",
+          "seed": 7,
+          "color": "#4a7ad0"
+        }
+      }
+    },
+    "Coop": {
+      "body": "static",
+      "juice": "none",
+      "base": [
+        72,
+        30
+      ],
+      "components": {},
+      "sprite": {
+        "generate": {
+          "kind": "coop",
+          "seed": 7,
+          "color": "#c0503a"
+        }
+      }
+    },
+    "Hay": {
+      "body": "static",
+      "juice": "none",
+      "base": [
+        28,
+        14
+      ],
+      "components": {},
+      "sprite": {
+        "generate": {
+          "kind": "hay",
+          "seed": 7,
+          "color": "#e8c25a"
+        }
+      }
+    },
+    "AppleTree": {
+      "body": "static",
+      "juice": "none",
+      "base": [
+        22,
+        14
+      ],
+      "components": {
+        "Gatherable": {
+          "item": "Wood",
+          "hits": 3,
+          "amount": 2,
+          "chip_color": "#5cb84a",
+          "leaves": "Stump"
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "tree_fruit",
+          "seed": 7,
+          "color": "#5cb84a"
+        }
+      }
+    },
+    "Oak": {
+      "body": "static",
+      "juice": "none",
+      "base": [
+        22,
+        14
+      ],
+      "components": {
+        "Gatherable": {
+          "item": "Wood",
+          "hits": 3,
+          "amount": 2,
+          "chip_color": "#5cb84a",
+          "leaves": "Stump"
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "tree_oak",
+          "seed": 7,
+          "color": "#5cb84a"
+        }
+      }
+    },
+    "FlowerBush": {
+      "body": "static",
+      "juice": "none",
+      "base": [
+        24,
+        12
+      ],
+      "components": {},
+      "sprite": {
+        "generate": {
+          "kind": "flower_bush",
+          "seed": 7,
+          "color": "#ff8fb4"
+        }
+      }
+    },
+    "Pine": {
+      "body": "static",
+      "juice": "none",
+      "base": [
+        20,
+        14
+      ],
+      "components": {
+        "Gatherable": {
+          "item": "Wood",
+          "hits": 3,
+          "amount": 2,
+          "chip_color": "#2f8a5a",
+          "leaves": "Stump"
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "tree_pine",
+          "seed": 7,
+          "color": "#2f8a5a"
+        }
+      }
+    },
+    "CherryTree": {
+      "body": "static",
+      "juice": "none",
+      "base": [
+        22,
+        14
+      ],
+      "components": {
+        "Gatherable": {
+          "item": "Wood",
+          "hits": 3,
+          "amount": 2,
+          "chip_color": "#ffa8c8",
+          "leaves": "Stump"
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "tree_blossom",
+          "seed": 7,
+          "color": "#ffa8c8"
+        }
+      }
+    },
+    "Stump": {
+      "body": "static",
+      "juice": "none",
+      "base": [
+        22,
+        12
+      ],
+      "components": {},
+      "sprite": {
+        "generate": {
+          "kind": "stump",
+          "seed": 7,
+          "color": "#9a5e36"
+        }
+      }
+    },
+    "Chicken": {
+      "team": "neutral",
+      "juice": "none",
+      "base": [
+        16,
+        10
+      ],
+      "components": {
+        "FarmAnimal": {
+          "product": "Egg",
+          "product_seconds": 18,
+          "icon": "res://sprites/art_icon_egg.png",
+          "wander_radius": 56.0,
+          "speed": 26.0
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "chicken",
+          "seed": 7,
+          "color": "#f4ece0"
+        }
+      }
+    },
+    "Chick": {
+      "team": "neutral",
+      "juice": "none",
+      "base": [
+        12,
+        8
+      ],
+      "components": {
+        "FarmAnimal": {
+          "product": "",
+          "product_seconds": 600,
+          "icon": "",
+          "wander_radius": 56.0,
+          "speed": 34.0
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "chick",
+          "seed": 7,
+          "color": "#ffd84a"
+        }
+      }
+    },
+    "Cow": {
+      "team": "neutral",
+      "juice": "none",
+      "base": [
+        24,
+        12
+      ],
+      "components": {
+        "FarmAnimal": {
+          "product": "Milk",
+          "product_seconds": 30,
+          "icon": "res://sprites/art_icon_milk.png",
+          "wander_radius": 56.0,
+          "speed": 26.0
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "cow",
+          "seed": 7,
+          "color": "#a0582e"
         }
       }
     },
@@ -63,7 +545,7 @@
           "acceleration": 600
         },
         "CropPest": {
-          "eat_seconds": 3.0,
+          "eat_seconds": 2.9,
           "appetite": 2
         },
         "Health": {
@@ -77,11 +559,8 @@
       "sprite": {
         "generate": {
           "kind": "flyer",
-          "color": "#29243a",
-          "features": [
-            "wings",
-            "beak"
-          ]
+          "color": "#ff004d",
+          "seed": 7
         }
       }
     },
@@ -98,60 +577,11 @@
       "components": {
         "Spawner": {
           "entity": "Crow",
-          "interval": 12.0,
+          "interval": 14.0,
           "interval_ramp": 0.95,
           "min_interval": 5.0,
           "start_delay": 25.0,
           "max_alive": 3
-        }
-      }
-    },
-    "Farmhand": {
-      "components": {
-        "TopDownMovement": {
-          "max_speed": 210,
-          "acceleration": 2200
-        },
-        "PlayerInput": {},
-        "Farmer": {
-          "crops": "Carrot|#ff9f1c|8|4;Tomato|#ff004d|14|9;Pumpkin|#ffa300|24|20",
-          "reach": 44,
-          "basket_size": 12
-        },
-        "Aim": {
-          "mode": "movement"
-        },
-        "Weapon": {
-          "projectile": "Gust",
-          "fire_rate": 3.0,
-          "spread_deg": 0,
-          "muzzle_distance": 14
-        }
-      },
-      "sprite": {
-        "generate": {
-          "kind": "hero",
-          "color": "#f4d35e",
-          "features": [
-            "hat"
-          ]
-        }
-      }
-    },
-    "Stall": {
-      "body": "area",
-      "juice": "none",
-      "shape": {
-        "type": "rect",
-        "size": [
-          64,
-          48
-        ],
-        "color": "#00000000"
-      },
-      "components": {
-        "Market": {
-          "width": 64
         }
       }
     }
@@ -159,33 +589,51 @@
   "level": {
     "map": [
       "##################################",
-      "#.c............................c.#",
-      "#................................#",
-      "#................................#",
-      "#................................#",
-      "#................................#",
-      "#.......f..f..f..f...............#",
-      "#................................#",
-      "#................................#",
-      "#.......f..f..f..f...............#",
-      "#...P.......................M....#",
-      "#................................#",
-      "#.......f..f..f..f...............#",
-      "#................................#",
-      "#................................#",
-      "#.....................##.........#",
-      "#.....................##.........#",
-      "#................................#",
-      "#................................#",
-      "#................................#",
+      "##################################",
+      "##........k.l.l.ml.#####o..o..o.##",
+      "##on...............#####........##",
+      "##.........deeeeeeeeeed.....k.o.##",
+      "##o........g..........g...m.....##",
+      "##....a....g.ff.ff.ff.g.o..l..####",
+      "##k......Mcg.ff.ff.ff.g......p####",
+      "##..o.P....g...h......gp......####",
+      "###..b.....deeeee.eeeed.......####",
+      "###............................###",
+      "###deeee.eeed.................####",
+      "##lg.......jg..l..............####",
+      "##.g.i......g.........##.....o####",
+      "##.g..s.s.s.gm.......####......l##",
+      "##.g........g........###........##",
+      "##.g..t.u...g.k............m.k..##",
+      "##pdeeeeeeeed.........k.l......o##",
+      "##.....o.k.p..k...o.........o...##",
+      "##l.p...........l......p..p...l.##",
+      "##################################",
       "##################################"
     ],
     "legend": {
       "#": "solid",
-      "P": "Farmhand",
+      "P": "Player",
       "f": "Plot",
-      "M": "Stall",
-      "c": "CrowNest"
+      "M": "ShippingBin",
+      "a": "Farmhouse",
+      "b": "Signpost",
+      "c": "Barrel",
+      "d": "FencePost",
+      "e": "FenceH",
+      "g": "FenceV",
+      "h": "Scarecrow",
+      "i": "Coop",
+      "j": "Hay",
+      "k": "AppleTree",
+      "l": "Oak",
+      "m": "FlowerBush",
+      "o": "Pine",
+      "p": "CherryTree",
+      "s": "Chicken",
+      "t": "Chick",
+      "u": "Cow",
+      "n": "CrowNest"
     }
   },
   "rules": [
@@ -194,14 +642,14 @@
       "do": [
         "set_var('time_limit', 180)",
         "set_var('score_label', 'MONEY')",
-        "message('Earn $250 before sunset! Space: plant, water, harvest')"
+        "message('Earn $250 before sunset!')"
       ]
     },
     {
       "on": "GameState.second_passed",
-      "if": "event.seconds == 25",
+      "if": "event.seconds == 4",
       "do": [
-        "message('Crows! Shoo them away with X')"
+        "message('Space: plant, water, harvest, collect eggs, chop trees')"
       ]
     },
     {
@@ -218,6 +666,26 @@
       "do": [
         "message('The sun has set')",
         "lose()"
+      ]
+    },
+    {
+      "on": "GameState.second_passed",
+      "if": "event.seconds == 12",
+      "do": [
+        "message('Sell crops, eggs, milk and wood at the shipping bin')"
+      ]
+    },
+    {
+      "on": "GameState.second_passed",
+      "if": "event.seconds == 25",
+      "do": [
+        "message('Crows are coming! Chase them off with X')"
+      ]
+    },
+    {
+      "on": "Crow.died",
+      "do": [
+        "add_score(2)"
       ]
     }
   ]

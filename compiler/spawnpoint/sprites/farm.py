@@ -153,7 +153,50 @@ def terrain_image(rows: list[str], seed: int = 0) -> np.ndarray:
     sparkle = water & ~cliff & (dist > 3) & (nrng.random((H, W)) < 0.004)
     for y, x in zip(*np.nonzero(sparkle)):
         _sparkle(img, x, y)
+    # lily pads out on the water, reeds along the shore, the odd mushroom in the grass
+    rnd = _rng("details", seed)
+    for y in range(hh):
+        for x in range(ww):
+            cx, cy = x * CELL + 8, y * CELL + 8
+            if grid[y, x] == WATER_C and 0 < cy < H and 0 < cx < W and water[cy, cx] and not cliff[cy, cx]:
+                if dist[cy, cx] > 6 and rnd.random() < 0.05:
+                    _lily(img, cx + rnd.randint(-3, 3), cy + rnd.randint(-3, 3), rnd)
+                elif 2 < dist[cy, cx] <= 6 and rnd.random() < 0.12:
+                    _reeds(img, cx + rnd.randint(-5, 5), cy + rnd.randint(-2, 4))
+            elif grid[y, x] == GRASS_C and rnd.random() < 0.025:
+                _mushroom(img, x * CELL + rnd.randint(3, 12), y * CELL + rnd.randint(5, 13))
     return img
+
+
+def _lily(img: np.ndarray, x: int, y: int, rnd: random.Random) -> None:
+    h, w = img.shape[:2]
+    for dy in range(-3, 4):
+        for dx in range(-4, 5):
+            if (dx / 4.4) ** 2 + (dy / 3.2) ** 2 <= 1 and not (dx > 0 and abs(dy) <= dx // 2) and 0 <= y + dy < h and 0 <= x + dx < w:
+                img[y + dy, x + dx] = _c("#4aa040") if dy > 0 else _c("#62bf4a")
+    if rnd.random() < 0.4 and 0 <= y - 1 < h and 0 <= x - 1 < w:
+        img[y - 1, x - 1] = _c("#ff9ac0")
+        img[y - 1, x - 2] = _c("#ffd0e0")
+
+
+def _reeds(img: np.ndarray, x: int, y: int) -> None:
+    h, w = img.shape[:2]
+    for k, (dx, top) in enumerate(((-1, 5), (0, 7), (1, 4), (2, 6))):
+        for dy in range(top):
+            if 0 <= y - dy < h and 0 <= x + dx < w:
+                img[y - dy, x + dx] = _c("#3f8f3a") if dy < top - 2 else _c("#86d25a")
+        if k == 1 and 0 <= y - top - 1 < h and 0 <= x + dx < w:
+            img[y - top, x + dx] = _c("#8a5530")
+            img[y - top - 1, x + dx] = _c("#8a5530")
+
+
+def _mushroom(img: np.ndarray, x: int, y: int) -> None:
+    h, w = img.shape[:2]
+    for dx, dy, col in ((0, 0, _c("#f4ece0")), (0, -1, _c("#f4ece0")), (-1, -2, _c("#e83a3a")), (0, -2, _c("#e83a3a")),
+                        (1, -2, _c("#e83a3a")), (0, -3, _c("#e83a3a")), (-1, -3, _c("#ffffff")), (1, -1, _c("#2a1e2e")),
+                        (-1, -1, _c("#2a1e2e"))):
+        if 0 <= y + dy < h and 0 <= x + dx < w:
+            img[y + dy, x + dx] = col
 
 
 def _tuft(img: np.ndarray, x: int, y: int, rnd: random.Random) -> None:

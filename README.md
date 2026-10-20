@@ -25,8 +25,8 @@ same component library: generated pixel art, collision traced from the sprites, 
 Recorded with <code>spawnpoint gif</code> (autopilot).</sub></p>
 
 <p align="center"><b><a href="https://leluong141996-dev.github.io/Spawn-Point/">▶ Play the demos in your browser</a></b>: a Mario-style platformer, a
-knight with a sword, tower defense, a ninja rescue, a dinosaur-egg bubble shooter, a survivor with level-ups, a farming
-game, an arena shooter and a side-scrolling space shooter. No install needed, and
+knight with a sword, tower defense, a ninja rescue, a dinosaur-egg bubble shooter, a survivor with level-ups, a cozy
+island farm, an arena shooter and a side-scrolling space shooter. No install needed, and
 they work on phones too (touch controls).</p>
 
 Spawn Point is an open-source, autonomous game studio that runs on your own machine. Instead of asking an LLM to type
@@ -145,6 +145,26 @@ server has it, else its first model), `SPAWNPOINT_LLM_API_KEY`.
 Web builds need the Godot **web export templates** (Editor → Manage Export Templates, or unpack
 `web_*.zip` from the official `.tpz` into `~/.local/share/godot/export_templates/<version>/`);
 use `--no-web` to skip and play natively with `spawnpoint run`.
+
+## A cozy farm from one sentence
+
+<p align="center"><img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/farm-overview.png" width="92%" alt="A generated island farm: farmhouse, fenced crop field, animal pen with a coop, pond and woods"><br><sub>One generated farm, the whole map: everything here is drawn by plain Python, no image files.</sub></p>
+
+Ask for a farming game (`spawnpoint create "a cozy farming game with strawberries and pumpkins"`) and
+Spawn Point lays out a whole farm: a farmhouse with a dirt path to its door, a fenced crop field, an animal pen with a
+coop, a pond, a shipping bin, and woods around the edge, on an island (water all round, cliffs to the south; an
+ocean-themed farm always is one) or in a meadow in the woods. The art is a 16-pixel tile set drawn from code: grass with tufts, flowers and mushrooms, paths with soft edges,
+water with lily pads and reeds, buildings, fences, four kinds of tree, chickens and cows, a farmer who walks in four
+directions, and crops with five growth stages (strawberries, carrots, potatoes, pumpkins, corn, wheat, cabbages...,
+picked from the crop's name).
+
+What you do there: plant, water and harvest; collect eggs and milk when an animal has something to give; chop trees and
+break rocks for wood and stone; carry it all to the shipping bin before sunset, while crows go for your crops. The
+hotbar shows your seeds and basket. You walk behind trees and the house (the scene is depth-sorted), and only an
+object's footprint blocks you. `spawnpoint overview <project>` saves a picture of the whole map after a short autopilot
+run, like the one above.
+
+<p align="center"><img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/sunny-farm.gif" width="70%" alt="Sunny Farm: the farmer harvests, sells at the shipping bin and works the field"></p>
 
 ## Sprites: generated or your own
 
@@ -348,7 +368,7 @@ headless smoke test (spawn, scripted input, crash detection) and report `E_RUNTI
 | Game modes | `BubbleBoard` (a complete bubble shooter: bank shots, colour pops, falling clusters, a descending ceiling) |
 | Shooters | `FlightPath` (straight, wave, dive and hover patterns across the screen), `ShmupShip` (auto-fire, power-ups that add shots and spread), `HealthBar` (boss bars), and `WaveSpawner` gates (`autostart`, `endless`, random spread) |
 | Tower defense | `PathFollower` (walks the road to the base), `Base` (loses a life per invader that gets in), `WaveSpawner` ("8 x Goblin every 1.2; ..."), `TowerSlot`, `TowerBuilder` (click a pad, pay in gold), `TowerBrain` (targets the invader furthest along), `GroundPatch` (roads and paths) |
-| Farming | `FarmPlot` (soil that grows a crop only while watered), `Farmer` (plant / water / harvest, a basket, crop choice), `Market` (sell the basket), `CropPest` (crows that eat crops) |
+| Farming | `FarmPlot` (soil that grows a crop only while watered, drawn from its growth stages), `Farmer` (plant / water / harvest, collect, chop, a basket and a hotbar), `FarmAnimal` (wanders, gives eggs or milk), `Gatherable` (trees and rocks that break into wood and stone), `Market` (a stall or a shipping bin that buys the basket), `CropPest` (crows that eat crops) |
 | Feel | `Juice` — attached to every entity unless `"juice": "none"` |
 
 Runtime autoloads: `GameState` (score, lives, variables, win/lose), `World` (spawning, rule

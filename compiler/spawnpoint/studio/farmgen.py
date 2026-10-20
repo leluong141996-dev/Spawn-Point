@@ -53,10 +53,12 @@ OBJECT_KINDS = ("farmhouse", "coop", "fence_h", "fence_v", "fence_post", "tree_o
                 "tree_fruit", "boulder", "stump", "flower_bush", "hay", "barrel", "well", "scarecrow", "signpost")
 
 
-def cozy_farm(seed: int, length: str = "medium", plot_target: int = 12) -> CozyFarm:
+def cozy_farm(seed: int, length: str = "medium", plot_target: int = 12, island: bool | None = None) -> CozyFarm:
+    """`island` forces water all round (True) or a meadow (False); None lets the seed choose."""
     w, h = FARM_MAPS.get(length, FARM_MAPS["medium"])
     rng = random.Random(f"cozyfarm:{seed}")
-    island = rng.random() < 0.6
+    pick = rng.random() < 0.6
+    island = pick if island is None else island
     m = 2  # the margin: water around an island, woods around a meadow
     grid = [["." for _ in range(w)] for _ in range(h)]
     taken: set[Cell] = set()
@@ -158,7 +160,7 @@ def cozy_farm(seed: int, length: str = "medium", plot_target: int = 12) -> CozyF
         path((pen_gate[0], y))
     objects.append(("coop", (px0 + 1, py0 + 1)))
     put("hay", (px0 + pw - 1, py0))
-    animals = [(px0 + 3 + i % 4, py0 + 2 + i // 4) for i in range(6)]
+    animals = [(px0 + 2 + 2 * (i % 3), py0 + 2 + 2 * (i // 3)) for i in range(6)]  # apart, so none start stuck
 
     # the pond: below the road on the right
     lw, lh = rng.randint(4, 6), rng.randint(2, 3)

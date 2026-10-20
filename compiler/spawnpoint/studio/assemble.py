@@ -107,6 +107,7 @@ FARM_CROP_COLORS = {"strawberry": "#e83a4a", "potato": "#c8986a", "carrot": "#ff
                     "pumpkin": "#ff9a2a", "corn": "#ffd84a", "cabbage": "#8ad860", "wheat": "#e8c25a",
                     "onion": "#f4ece0", "eggplant": "#8a4ac8", "blueberry": "#4a6ae8", "turnip": "#c84a9a"}
 FARM_GOODS = (("Egg", 6), ("Milk", 14), ("Wood", 3), ("Stone", 4))
+FARM_ISLAND = {"ocean": True, "forest": False}  # an ocean farm is an island, a forest farm a meadow in the woods
 # object kind -> (entity name, {"base": footprint px, "gather": (item, hits, amount, chip colour)})
 FARM_OBJECTS: dict[str, tuple[str, dict]] = {
     "farmhouse": ("Farmhouse", {"base": (150, 56)}), "coop": ("Coop", {"base": (72, 30)}),
@@ -124,13 +125,13 @@ FARM_OBJECTS: dict[str, tuple[str, dict]] = {
 # (entity, sprite kind, product, seconds between products, footprint) in the pen, by length
 FARM_ANIMALS = {
     "short": [("Chicken", "chicken", "Egg", 18, (16, 10)), ("Chicken", "chicken", "Egg", 18, (16, 10)),
-              ("Cow", "cow", "Milk", 30, (40, 14)), ("Chick", "chick", "", 0, (12, 8))],
+              ("Cow", "cow", "Milk", 30, (24, 12)), ("Chick", "chick", "", 0, (12, 8))],
     "medium": [("Chicken", "chicken", "Egg", 18, (16, 10)), ("Chicken", "chicken", "Egg", 18, (16, 10)),
                ("Chicken", "chicken", "Egg", 18, (16, 10)), ("Chick", "chick", "", 0, (12, 8)),
-               ("Cow", "cow", "Milk", 30, (40, 14))],
+               ("Cow", "cow", "Milk", 30, (24, 12))],
     "long": [("Chicken", "chicken", "Egg", 18, (16, 10)), ("Chicken", "chicken", "Egg", 18, (16, 10)),
              ("Chicken", "chicken", "Egg", 18, (16, 10)), ("Chick", "chick", "", 0, (12, 8)),
-             ("Cow", "cow", "Milk", 30, (40, 14)), ("Cow", "cow", "Milk", 30, (40, 14))],
+             ("Cow", "cow", "Milk", 30, (24, 12)), ("Cow", "cow", "Milk", 30, (24, 12))],
 }
 FARM_GROUND = {"forest": "#4f8a3a", "night": "#2f5a3a", "desert": "#c9a66b", "snow": "#dfe9ee",
                "candy": "#9ad08a", "ocean": "#5a9a5a", "lava": "#6b4a3a", "neon": "#24453a"}
@@ -341,7 +342,8 @@ class _Assembler:
         """A cozy farm: farmhouse, fenced field, animal pen, pond and woods on a drawn map (see farmgen.py)."""
         b, pal = self.b, self.pal
         d = b.difficulty
-        fm = farmgen.cozy_farm(self.seed, b.length, plot_target={"short": 8, "medium": 12, "long": 16}.get(b.length, 12))
+        fm = farmgen.cozy_farm(self.seed, b.length, plot_target={"short": 8, "medium": 12, "long": 16}.get(b.length, 12),
+                               island=FARM_ISLAND.get(b.palette))
         target, minutes = self._farm_target(), self._farm_seconds()
         art: dict[str, dict] = {"soil": {"kind": "soil"}, "soil_wet": {"kind": "soil_wet"}}
         crop_entries = []
