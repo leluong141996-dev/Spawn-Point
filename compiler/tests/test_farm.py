@@ -126,3 +126,10 @@ def test_ocean_farms_are_islands_and_forest_farms_are_meadows():
     for seed in range(4):
         assert assemble(_farm_brief(palette="ocean"), 2, seed=seed)["settings"]["terrain"][0].strip("~") == ""
         assert "~" not in assemble(_farm_brief(palette="forest"), 2, seed=seed)["settings"]["terrain"][0]
+
+
+def test_only_farm_prompts_get_the_farm_vocabulary():
+    from spawnpoint.studio.prompts import BRIEF_SYSTEM_V5, FARM_LINE, brief_messages_v5
+    assert brief_messages_v5("a ninja platformer with slimes")[0]["content"] == BRIEF_SYSTEM_V5
+    for p in ("game nông trại trên đảo, trồng dâu tây", "a farming game with pumpkins", "thu hoạch cà rốt"):
+        assert FARM_LINE in brief_messages_v5(p)[0]["content"], p
