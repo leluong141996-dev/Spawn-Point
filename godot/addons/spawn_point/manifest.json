@@ -708,6 +708,30 @@
           "hint_string": "0.0,1.0,0.05",
           "default": 0.5,
           "doc": "How much of a crop's growing time one night adds (watered crops only)."
+        },
+        {
+          "name": "rain_chance",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,1.0,0.05",
+          "default": 0.3,
+          "doc": "Chance that a day (after the first) is rainy: rain waters every crop all day."
+        },
+        {
+          "name": "snow",
+          "type": "bool",
+          "hint": "",
+          "hint_string": "",
+          "default": false,
+          "doc": "Snow instead of rain (winter farms): it looks lovely and waters nothing."
+        },
+        {
+          "name": "weather_seed",
+          "type": "int",
+          "hint": "",
+          "hint_string": "",
+          "default": 0,
+          "doc": "Seeds the weather, so a farm has the same weather every time it is played."
         }
       ],
       "state": [
@@ -718,6 +742,10 @@
         {
           "name": "clock",
           "type": "float"
+        },
+        {
+          "name": "weather",
+          "type": "String"
         }
       ],
       "signals": [
@@ -1000,6 +1028,10 @@
           "type": "Dictionary"
         },
         {
+          "name": "extra_crops",
+          "type": "Array"
+        },
+        {
           "name": "upgrades",
           "type": "Dictionary"
         }
@@ -1198,6 +1230,57 @@
       ],
       "methods": [],
       "doc": "Flies its entity across the screen on a pattern (side-scrolling shooters). \"straight\" keeps its heading, \"wave\" swings up and down along it, \"dive\" turns toward the player's height while the player is still ahead, \"hover\" flies in, stops at [member hover_at] and bobs up and down (gunships and bosses). Drives a TopDownMovement body, or moves an Area2D directly at [member speed]. Leaves the screen quietly past the far edge."
+    },
+    {
+      "name": "GameMenu",
+      "class": "GameMenuComponent",
+      "script": "res://addons/spawn_point/components/game_menu_component.gd",
+      "base": "Node",
+      "hosts": [],
+      "requires": [],
+      "category": "core",
+      "entity_params": [],
+      "params": [
+        {
+          "name": "title",
+          "type": "String",
+          "hint": "",
+          "hint_string": "",
+          "default": "Spawn Point",
+          "doc": "Big title on the title screen."
+        },
+        {
+          "name": "subtitle",
+          "type": "String",
+          "hint": "",
+          "hint_string": "",
+          "default": "",
+          "doc": "A line under it (what to do)."
+        },
+        {
+          "name": "music",
+          "type": "bool",
+          "hint": "",
+          "hint_string": "",
+          "default": true,
+          "doc": "Play res://sfx/music.wav on repeat."
+        }
+      ],
+      "state": [
+        {
+          "name": "showing",
+          "type": "String"
+        }
+      ],
+      "signals": [
+        {
+          "name": "started",
+          "args": [],
+          "doc": "Emitted when the player leaves the title screen."
+        }
+      ],
+      "methods": [],
+      "doc": "A title screen and a pause menu, and the background music. The game waits on the title screen until the player presses Space / Enter or taps; with a saved farm ([FarmSaveComponent]) it offers to carry on, and N starts a new one. P or Esc pauses (M turns the music on or off, R restarts). Bots, recordings and headless runs skip the title screen. Put it on the player."
     },
     {
       "name": "Gate",
@@ -2449,6 +2532,54 @@
       "doc": "The player's ship in a side-scrolling shooter. It fires on its own toward the right, grows stronger with every power-up (more shots, a wider spread, a faster rate) and loses a level of power when it is hit."
     },
     {
+      "name": "Shop",
+      "class": "ShopComponent",
+      "script": "res://addons/spawn_point/components/shop_component.gd",
+      "base": "Node",
+      "hosts": [],
+      "requires": [],
+      "category": "core",
+      "entity_params": [],
+      "params": [
+        {
+          "name": "offers",
+          "type": "String",
+          "hint": "",
+          "hint_string": "",
+          "default": "chicken|Chicken|40;cow|Cow|90;sprinkler|Sprinkler|60",
+          "doc": "What is for sale (see the class description)."
+        },
+        {
+          "name": "rare_crop",
+          "type": "String",
+          "hint": "",
+          "hint_string": "",
+          "default": "",
+          "doc": "The rare crop the \"seeds\" offer adds, in the farmer's crop format (\"Name|#color|seconds|price|stages|icon\")."
+        }
+      ],
+      "state": [
+        {
+          "name": "offer_list",
+          "type": "Array"
+        }
+      ],
+      "signals": [
+        {
+          "name": "bought",
+          "args": [
+            {
+              "name": "key",
+              "type": "String"
+            }
+          ],
+          "doc": "Emitted after a purchase with the offer's key."
+        }
+      ],
+      "methods": [],
+      "doc": "A shop stall: interact once to see the next thing for sale, again (within a few seconds) to buy it. Sells animals (a new hen or cow walks into the pen), a rare crop's seeds (a new slot in the hotbar) and sprinklers (the next [SprinklerComponent] on the farm starts working).\n[member offers] is a \";\"-separated list of \"key|Name|price\"; keys: chicken, cow, seeds, sprinkler."
+    },
+    {
       "name": "SleepSpot",
       "class": "SleepSpotComponent",
       "script": "res://addons/spawn_point/components/sleep_spot_component.gd",
@@ -2577,6 +2708,43 @@
         }
       ],
       "doc": "Spawns entities at its position on a timer (enemy waves, portals, hazards)."
+    },
+    {
+      "name": "Sprinkler",
+      "class": "SprinklerComponent",
+      "script": "res://addons/spawn_point/components/sprinkler_component.gd",
+      "base": "Node",
+      "hosts": [],
+      "requires": [],
+      "category": "core",
+      "entity_params": [],
+      "params": [
+        {
+          "name": "radius",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "16.0,200.0,1.0",
+          "default": 52.0,
+          "doc": "Plots closer than this are watered (px)."
+        },
+        {
+          "name": "start_active",
+          "type": "bool",
+          "hint": "",
+          "hint_string": "",
+          "default": false,
+          "doc": "Starts working without being bought."
+        }
+      ],
+      "state": [
+        {
+          "name": "active",
+          "type": "bool"
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "doc": "A sprinkler waiting to be bought (see [ShopComponent]): hidden until [method activate]; then every morning (and right away) it waters the plots within [member radius]."
     },
     {
       "name": "Stomp",

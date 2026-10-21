@@ -8,7 +8,7 @@ const SP_NAME := "FarmPlot"
 const SP_HOSTS: Array[String] = ["Area2D"]
 const SP_REQUIRES: Array[String] = []
 const SP_INTERNAL: Array[String] = ["plant", "water", "harvest", "destroy_crop", "state", "is_empty", "is_ripe",
-	"has_crop", "growth", "till", "stage", "overnight", "snapshot", "restore", "progress"]
+	"has_crop", "growth", "till", "stage", "overnight", "snapshot", "restore", "progress", "rain"]
 const SP_CATEGORY := "core"
 
 enum State { EMPTY, GROWING, RIPE }
@@ -111,6 +111,13 @@ func water() -> bool:
 	wet_left = water_seconds
 	_watered_today = true
 	return true
+
+
+## Rain on the plot: wet for as long as it rains (and it counts as watered today).
+func rain() -> void:
+	if state == State.GROWING:
+		wet_left = maxf(wet_left, 1.0)
+		_watered_today = true
 
 
 ## A night passes: a crop that was watered today grows [param share] of its growing time; the soil dries.

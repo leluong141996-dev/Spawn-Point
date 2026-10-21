@@ -9,6 +9,8 @@ var _players: Array[AudioStreamPlayer] = []
 var _next := 0
 var _streams := {}
 var _combo := {}  # name -> {"until": msec, "step": int}
+var music_on := true
+var _music: AudioStreamPlayer
 
 
 func _ready() -> void:
@@ -41,6 +43,34 @@ func play_combo(sound_name: String, window := 0.8, max_steps := 12) -> void:
 	c.until = now + int(window * 1000.0)
 	_combo[sound_name] = c
 	play(sound_name, 0.0, 0.0, pow(2.0, c.step / 12.0))
+
+
+## Plays res://sfx/<name>.wav on repeat as background music (quietly). Does nothing when there is none.
+func play_music(sound_name := "music", volume_db := -12.0) -> void:
+	var stream := _stream(sound_name)
+	if stream == null:
+		return
+	if _music == null:
+		_music = AudioStreamPlayer.new()
+		_music.name = "Music"
+		add_child(_music)
+		_music.finished.connect(func() -> void:
+			if music_on:
+				_music.play())
+	_music.stream = stream
+	_music.volume_db = volume_db
+	if music_on:
+		_music.play()
+
+
+## Turns the background music on or off (it stays off until turned on again).
+func set_music_on(on: bool) -> void:
+	music_on = on
+	if _music:
+		if on and not _music.playing:
+			_music.play()
+		elif not on:
+			_music.stop()
 
 
 func has_sound(sound_name: String) -> bool:

@@ -133,6 +133,8 @@ class Settings(_Model):
     # "~" water, "," tidy grass (fields), "_" sand. Used by farms; replaces the floor and scenery.
     terrain: list[str] | None = None
     season: Literal["spring", "autumn", "winter", "desert"] = "spring"  # the terrain's colours
+    # Background music, composed at build time (see music.py): a season's tune, or none.
+    music: Literal["none", "spring", "autumn", "winter", "desert"] = "none"
     # Draw entities lower on screen in front of the ones above them (top-down games with tall trees and houses).
     y_sort: bool = False
     # Extra pictures for components (crop growth stages, item icons, soil): name -> what to draw.

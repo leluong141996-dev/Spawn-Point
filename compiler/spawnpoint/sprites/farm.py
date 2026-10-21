@@ -726,6 +726,42 @@ def paint_workbench(g: Fig, color: str, anim: str, i: int) -> None:
     _out(g)
 
 
+def paint_shop(g: Fig, color: str, anim: str, i: int) -> None:
+    d, b, l = _ramp(color)
+    g.ellipse(16, 31, 15, 1.8, _c("#2c5a30", 110))
+    g.rect(3, 10, 4, 30, WOOD_DARK)  # posts
+    g.rect(27, 10, 28, 30, WOOD_DARK)
+    g.rect(1, 19, 30, 29, WOOD)  # the counter
+    g.rect(1, 19, 30, 20, WOOD_LIGHT)
+    g.rect(1, 29, 30, 29, WOOD_DARK)
+    for k, x in enumerate(range(0, 32, 4)):  # a striped awning with a scalloped edge
+        g.rect(x, 4, x + 3, 10, b if k % 2 == 0 else WHITE)
+        g.ellipse(x + 2, 11, 2, 1.6, b if k % 2 == 0 else WHITE)
+    g.rect(0, 3, 31, 4, d)
+    g.rect(5, 15, 9, 18, _c("#e8c25a"))  # wares: a sack of seeds, eggs, a chick in a basket
+    g.rect(6, 14, 8, 14, _c("#c8a040"))
+    g.ellipse(14, 17, 2, 1.6, _c("#f8f0e0"))
+    g.ellipse(17.5, 17, 2, 1.6, _c("#f8f0e0"))
+    g.rect(21, 15, 26, 18, WOOD_LIGHT)
+    g.ellipse(23.5, 14, 1.8, 1.6, _c("#ffd84a"))
+    g.rect(10, 22, 21, 25, PLANK)  # a sign on the counter
+    g.rect(12, 23, 19, 23, WOOD_DARK)
+    _out(g)
+
+
+def paint_sprinkler(g: Fig, color: str, anim: str, i: int) -> None:
+    g.ellipse(8, 14, 4, 1.2, _c("#2c5a30", 110))
+    g.rect(7, 7, 8, 13, STONE_DARK)
+    g.rect(5, 12, 10, 13, STONE)
+    g.ellipse(7.5, 6, 3, 2, STONE)
+    g.ellipse(7, 5.5, 1.4, 0.8, STONE_LIGHT)
+    k = i % 4
+    for n, (dx, dy) in enumerate(((-5, -2), (5, -2), (-3, -4), (3, -4))):  # little jets of water
+        if (n + k) % 2 == 0:
+            g.set(7.5 + dx, 5 + dy, _c("#7fd0ff"))
+    _out(g)
+
+
 def paint_sign(g: Fig, color: str, anim: str, i: int) -> None:
     g.rect(7, 8, 8, 15, WOOD_DARK)
     g.rect(1, 2, 14, 9, WOOD)
@@ -1397,6 +1433,8 @@ SPRITES: dict[str, tuple[tuple[int, int], dict[str, tuple[int, float, bool]], ob
     "barrel": ((16, 16), {"idle": (1, 1, False)}, paint_barrel, "#9a5e36"),
     "signpost": ((16, 16), {"idle": (1, 1, False)}, paint_sign, "#9a5e36"),
     "workbench": ((24, 18), {"idle": (1, 1, False)}, paint_workbench, "#9a5e36"),
+    "shop": ((32, 32), {"idle": (1, 1, False)}, paint_shop, "#3a8ad0"),
+    "sprinkler": ((16, 16), {"idle": (4, 6, True)}, paint_sprinkler, "#a8a8b8"),
     "flower_bush": ((16, 16), {"idle": (1, 1, False)}, paint_flower_bush, "#ff8fb4"),
     "fence_h": ((16, 16), {"idle": (1, 1, False)}, paint_fence_h, "#9a5e36"),
     "fence_v": ((16, 16), {"idle": (1, 1, False)}, paint_fence_v, "#9a5e36"),
