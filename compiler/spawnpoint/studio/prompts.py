@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 
 # Names choose the art (sprites/generate.py FEATURE_WORDS, studio/assemble.py sprite_kind), so the prompts show
 # the model nouns that draw something specific. tests/test_sprites.py checks each one still does.
@@ -11,6 +12,9 @@ ART_HEROES = ("Knight", "Wizard", "Ranger", "Viking", "King", "Ninja", "Princess
 ART_MONSTERS = ("Skeleton", "Zombie", "Ghost", "Dragon", "Spider", "Snake", "Wolf", "Orc", "Goblin", "Bat", "PiranhaPlant",
                 "Mushroom", "Snail", "Reaper", "FireSpirit", "Alien")
 ART_PICKUPS = ("Coin", "Gem", "Star", "Key", "Potion", "Scroll", "Chest")
+FARM_LINE = ('Farms: crops are named in English: "dâu tây" = Strawberry, "nho" = Grape, "cà rốt" = Carrot, "bí ngô"/"bí đỏ" = Pumpkin,'
+             ' "khoai tây" = Potato, "ngô"/"bắp" = Corn, "lúa" = Wheat, "cà chua" = Tomato, "bắp cải" = Cabbage, "quạ" = Crow.'
+             ' A farm on an island ("trên đảo") has palette ocean, a farm in the woods palette forest.')
 ART_LINE = (f"Names choose the art, so use concrete nouns: heroes like {', '.join(ART_HEROES)} (a Ranger or Archer has a bow"
             f" and shoots arrows); monsters like {', '.join(ART_MONSTERS)}; pickups like {', '.join(ART_PICKUPS)}."
             " Words combine: SkeletonArcher is a skeleton with a bow, GoldKey a key, HealthPotion a potion.")
@@ -165,10 +169,14 @@ Archetypes: walker patrols, hopper bounces, chaser runs at you, shooter keeps it
 Abilities: double_jump, dash, stomp, shoot, sword (melee); one weapon, shoot or sword. Goals: reach_exit, collect_all, collect_all_then_exit, defeat_all, score_target, survive, rescue (platformer), defeat_boss (shmup).
 The level, platforms and the player are never enemies or pickups.
 """ + ART_LINE
+# Farm words in English and Vietnamese: only a farm prompt gets the farm vocabulary, so every other prompt reads
+# exactly as the model was trained on.
+FARM_WORDS = re.compile(r"farm|harvest|crop|plant|nông trại|nông trang|trang trại|làm vườn|trồng|thu hoạch|gieo", re.I)
 
 
 def brief_messages_v5(prompt: str) -> list[dict]:
-    return [{"role": "system", "content": BRIEF_SYSTEM_V5}, {"role": "user", "content": prompt}]
+    system = BRIEF_SYSTEM_V5 + ("\n" + FARM_LINE if FARM_WORDS.search(prompt) else "")
+    return [{"role": "system", "content": system}, {"role": "user", "content": prompt}]
 
 
 TWEAK_SYSTEM_V5 = """You edit a game's JSON. Answer {"brief": the updated game, "new_level": true only if the player asks for a different level or map}.

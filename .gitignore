@@ -19,3 +19,7 @@ dist/
 
 # Demo site output (spawnpoint demo)
 site/
+
+# Third-party reference art and game captures: kept local only (licensing)
+spite_sample/
+game_sample/

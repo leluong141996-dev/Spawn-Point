@@ -982,6 +982,10 @@ OUTLINE = {"bullet": 0.8, "slash": 0.8, "coin": 1.0, "gem": 1.0, "star": 1.1, "h
 def generate_cartoon(name: str, kind: str, color: str, features: list[str] | None = None, seed: int = 0) -> SpriteSet:
     if kind not in KINDS:
         raise ValueError(f"unknown sprite kind '{kind}'")
+    from . import farm
+    if kind in farm.SPRITES:  # the farm set is pixel art only
+        from .generate import generate
+        return generate(name, kind, color, features, seed)
     spec = KINDS[kind]
     feats = list(features) if features is not None else features_for(name)
     rng_seed = zlib.crc32(f"{name}:{kind}:{seed}".encode())

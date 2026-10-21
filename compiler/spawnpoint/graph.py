@@ -76,6 +76,9 @@ class Entity(_Model):
     components: dict[str, dict[str, Any]] = Field(default_factory=dict)
     juice: Union[Literal["none"], dict[str, Any], None] = None
     decor: bool = Field(default=False, description="scenery (trees, bushes, rocks): drawn behind everything, no collision")
+    # Footprint [width, height] in px: the entity stands on the bottom of its drawing (origin at its feet) and only
+    # this box at its base collides, so a tree's crown or a house's roof can be walked behind (with y_sort).
+    base: tuple[float, float] | None = None
 
 
 class Level(_Model):
@@ -99,6 +102,15 @@ class TileStyle(_Model):
     _color = field_validator("color", "top")(_check_color)
 
 
+class ArtRequest(_Model):
+    """An extra picture drawn by the compiler for a component to use (res://sprites/art_<name>.png)."""
+    kind: Literal["crop", "crop_icon", "item_icon", "soil", "soil_wet"]
+    of: str = ""  # the crop name ("Strawberry") or item ("egg", "milk", "wood", "stone")
+    color: str | None = None
+
+    _color = field_validator("color")(_check_color)
+
+
 class Settings(_Model):
     tile_size: int = Field(default=32, ge=8, le=128)
     viewport: tuple[int, int] = (960, 540)
@@ -117,6 +129,14 @@ class Settings(_Model):
     # colour, a theme name forces one, "flat" keeps the plain hills and checkered floor.
     scenery: Literal["auto", "flat", "night", "forest", "desert", "neon", "candy", "ocean", "lava", "snow", "space"] = "auto"
     zoom: float = Field(default=1.0, ge=0.5, le=4.0)
+    # A drawn ground for the whole map, one character per cell like the level map: "." grass, ":" dirt path,
+    # "~" water, "," tidy grass (fields), "_" sand. Used by farms; replaces the floor and scenery.
+    terrain: list[str] | None = None
+    season: Literal["spring", "autumn", "winter", "desert"] = "spring"  # the terrain's colours
+    # Draw entities lower on screen in front of the ones above them (top-down games with tall trees and houses).
+    y_sort: bool = False
+    # Extra pictures for components (crop growth stages, item icons, soil): name -> what to draw.
+    art: dict[str, ArtRequest] = Field(default_factory=dict)
 
     _bg = field_validator("background")(_check_color)
 

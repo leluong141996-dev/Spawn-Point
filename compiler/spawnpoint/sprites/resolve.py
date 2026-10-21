@@ -70,10 +70,12 @@ def derived_shape(ent: Entity, s: SpriteSet, genre: str) -> Shape:
     return Shape(type="rect", size=(w, h), color=color)
 
 
-def plan_entry(entity: str, s: SpriteSet) -> dict:
+def plan_entry(entity: str, s: SpriteSet, on_base: bool = False) -> dict:
     fw, fh = s.frame_size
     bx, by, bw, bh = s.bounds
     cx, cy = bx + bw / 2, by + bh / 2  # the entity origin sits at the center of the opaque box
+    if on_base:  # ...or at the bottom of it (things that stand on the ground; their footprint collides, not the drawing)
+        cy = by + bh
     k = s.scale
     return {
         "texture": f"{SPRITE_DIR}/{entity}.png",
@@ -82,7 +84,7 @@ def plan_entry(entity: str, s: SpriteSet) -> dict:
         "offset": [round((fw / 2 - cx) * k, 3), round((fh / 2 - cy) * k, 3)],
         "animations": {n: {"frames": [list(f) for f in a.frames], "fps": a.fps, "loop": a.loop}
                        for n, a in s.animations.items()},
-        "polygon": [[round((x - cx) * k, 2), round((y - cy) * k, 2)] for x, y in safe_polygon(s.polygon)],
+        "polygon": [] if on_base else [[round((x - cx) * k, 2), round((y - cy) * k, 2)] for x, y in safe_polygon(s.polygon)],
         "color": s.color,
         "smooth": s.smooth,
     }

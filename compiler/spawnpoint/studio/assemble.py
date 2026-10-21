@@ -9,9 +9,10 @@ import re
 from typing import Any
 
 from ..level import jump_model
+from ..sprites import farm as farm_art
 from ..sprites import palettes
 from ..sprites.generate import features_for
-from . import levelgen
+from . import farmgen, levelgen
 from .brief import DEFAULT_SCORE_TARGET, ENEMY_POINTS, EnemyBrief, GameBrief
 
 TILE = 32
@@ -101,6 +102,47 @@ SPEED = {"slow": 0.75, "normal": 1.0, "fast": 1.3}
 # Farm: (grow seconds, price) for the first, second and third crop: cheap and quick to slow and valuable.
 FARM_CROPS = ((8, 4), (14, 9), (24, 20))
 FARM_CROP_PAL = {"pickup": "#ff9f1c", "bg": "#4f8a3a"}
+# The cozy farm (farmgen.py, sprites/farm.py): crop colours by kind, what else sells, objects and animals.
+FARM_CROP_COLORS = {"strawberry": "#e83a4a", "potato": "#c8986a", "carrot": "#ff8a2a", "tomato": "#e83a3a",
+                    "pumpkin": "#ff9a2a", "corn": "#ffd84a", "cabbage": "#8ad860", "wheat": "#e8c25a",
+                    "onion": "#f4ece0", "eggplant": "#8a4ac8", "blueberry": "#4a6ae8", "turnip": "#c84a9a"}
+FARM_GOODS = (("Egg", 6), ("Milk", 14), ("Fish", 10), ("Wood", 3), ("Stone", 4))
+FARM_ISLAND = {"ocean": True, "forest": False, "desert": False}  # an ocean farm is an island, a forest farm a meadow
+FARM_SEASON = {"snow": "winter", "desert": "desert", "lava": "autumn"}  # the theme sets the season (spring otherwise)
+FARM_TREE_COLORS = {"autumn": {"tree_oak": "#e8922a"}}  # the same tree in another season's colours
+# object kind -> (entity name, {"base": footprint px, "gather": (item, hits, amount, chip colour)})
+FARM_OBJECTS: dict[str, tuple[str, dict]] = {
+    "farmhouse": ("Farmhouse", {"base": (150, 56)}), "coop": ("Coop", {"base": (72, 30)}),
+    "fence_h": ("FenceH", {"base": (32, 12)}), "fence_v": ("FenceV", {"base": (10, 30)}),
+    "fence_post": ("FencePost", {"base": (12, 12)}),
+    "tree_oak": ("Oak", {"base": (22, 14), "gather": ("Wood", 3, 2, "#5cb84a")}),
+    "tree_pine": ("Pine", {"base": (20, 14), "gather": ("Wood", 3, 2, "#2f8a5a")}),
+    "tree_fruit": ("AppleTree", {"base": (22, 14), "gather": ("Wood", 3, 2, "#5cb84a")}),
+    "tree_blossom": ("CherryTree", {"base": (22, 14), "gather": ("Wood", 3, 2, "#ffa8c8")}),
+    "tree_maple": ("Maple", {"base": (22, 14), "gather": ("Wood", 3, 2, "#d8402a")}),
+    "tree_snowy_pine": ("SnowyPine", {"base": (20, 14), "gather": ("Wood", 3, 2, "#f8fbff")}),
+    "tree_bare": ("BareTree", {"base": (20, 14), "gather": ("Wood", 2, 2, "#9a5e36")}),
+    "tree_palm": ("Palm", {"base": (16, 12), "gather": ("Wood", 3, 2, "#4caf50")}),
+    "cactus": ("Cactus", {"base": (16, 12)}),
+    "boulder": ("Boulder", {"base": (26, 16), "gather": ("Stone", 2, 2, "#a8a8b8")}),
+    "stump": ("Stump", {"base": (22, 12)}), "flower_bush": ("FlowerBush", {"base": (24, 12)}),
+    "hay": ("Hay", {"base": (28, 14)}), "barrel": ("Barrel", {"base": (24, 14)}), "well": ("Well", {"base": (44, 28)}),
+    "scarecrow": ("Scarecrow", {"base": (12, 10)}), "signpost": ("Signpost", {"base": (12, 8)}),
+    "bed": ("Bed", {"base": (28, 56)}), "fireplace": ("Fireplace", {"base": (60, 20)}), "table": ("Table", {"base": (56, 20)}),
+    "chair": ("Chair", {"base": (20, 12)}), "dresser": ("Dresser", {"base": (44, 16)}),
+    "potted_plant": ("PottedPlant", {"base": (16, 12)}),
+}
+# (entity, sprite kind, product, seconds between products, footprint) in the pen, by length
+FARM_ANIMALS = {
+    "short": [("Chicken", "chicken", "Egg", 18, (16, 10)), ("Chicken", "chicken", "Egg", 18, (16, 10)),
+              ("Cow", "cow", "Milk", 30, (24, 12)), ("Chick", "chick", "", 0, (12, 8))],
+    "medium": [("Chicken", "chicken", "Egg", 18, (16, 10)), ("Chicken", "chicken", "Egg", 18, (16, 10)),
+               ("Chicken", "chicken", "Egg", 18, (16, 10)), ("Chick", "chick", "", 0, (12, 8)),
+               ("Cow", "cow", "Milk", 30, (24, 12))],
+    "long": [("Chicken", "chicken", "Egg", 18, (16, 10)), ("Chicken", "chicken", "Egg", 18, (16, 10)),
+             ("Chicken", "chicken", "Egg", 18, (16, 10)), ("Chick", "chick", "", 0, (12, 8)),
+             ("Cow", "cow", "Milk", 30, (24, 12)), ("Cow", "cow", "Milk", 30, (24, 12))],
+}
 FARM_GROUND = {"forest": "#4f8a3a", "night": "#2f5a3a", "desert": "#c9a66b", "snow": "#dfe9ee",
                "candy": "#9ad08a", "ocean": "#5a9a5a", "lava": "#6b4a3a", "neon": "#24453a"}
 ROAD_COLORS = {"snow": "#9fb4c2", "lava": "#4a3030", "neon": "#3a2a5a", "night": "#a08a62"}
@@ -294,6 +336,8 @@ class _Assembler:
 
     def _styled(self, g: dict) -> dict:
         if self.layer >= 2:
+            if self.b.genre == "farm":  # the cozy farm keeps its own colours and chunky 16 px tiles
+                return g
             # Spawn Point makes pixel art games: a brief that asks for cartoon art still gets pixel art, with the
             # classic palette that suits the theme.
             g["settings"]["pixel_palette"] = palettes.THEME_PALETTE[self.b.palette]
@@ -305,19 +349,32 @@ class _Assembler:
 
     # -- farm --------------------------------------------------------------------------------
     def _farm_graph(self) -> dict:
+        """A cozy farm: farmhouse, fenced field, animal pen, pond and woods on a drawn map (see farmgen.py)."""
         b, pal = self.b, self.pal
         d = b.difficulty
-        lay = levelgen.farm(self.seed, b.length)
+        season = FARM_SEASON.get(b.palette, "spring")
+        fm = farmgen.cozy_farm(self.seed, b.length, plot_target={"short": 8, "medium": 12, "long": 16}.get(b.length, 12),
+                               island=FARM_ISLAND.get(b.palette), season=season)
         target, minutes = self._farm_target(), self._farm_seconds()
-        crops = ";".join(f"{c}|{pickup_color(c, FARM_CROP_PAL)}|{grow}|{price}"
-                         for c, (grow, price) in zip(b.crops, FARM_CROPS))
-        comps: dict[str, dict] = {"TopDownMovement": {"max_speed": round(210 * SPEED[b.player.speed]),
+        art: dict[str, dict] = {"soil": {"kind": "soil"}, "soil_wet": {"kind": "soil_wet"}}
+        crop_entries = []
+        for c, (grow, price) in zip(b.crops, FARM_CROPS):
+            color = FARM_CROP_COLORS.get(farm_art.crop_kind(c)) or pickup_color(c, FARM_CROP_PAL)
+            art[f"crop_{c}"] = {"kind": "crop", "of": c, "color": color}
+            art[f"icon_{c}"] = {"kind": "crop_icon", "of": c, "color": color}
+            crop_entries.append(f"{c}|{color}|{grow}|{price}|res://sprites/art_crop_{c}.png|res://sprites/art_icon_{c}.png")
+        goods = []
+        for item, price in FARM_GOODS:
+            art[f"icon_{item.lower()}"] = {"kind": "item_icon", "of": item.lower()}
+            goods.append(f"{item}|{price}|res://sprites/art_icon_{item.lower()}.png")
+        comps: dict[str, dict] = {"TopDownMovement": {"max_speed": round(190 * SPEED[b.player.speed]),
                                                        "acceleration": 2200}, "PlayerInput": {},
-                                  "Farmer": {"crops": crops, "reach": 44, "basket_size": 12}}
+                                  "Farmer": {"crops": ";".join(crop_entries), "goods": ";".join(goods), "reach": 46,
+                                             "basket_size": 16}}
         if "dash" in b.player.abilities:
-            comps["TopDownMovement"]["dash_speed"] = 640.0
-        self.entities["Player"] = {"shape": {"type": "circle", "size": [24, 24], "color": pal["player"]},
-                                   "components": comps}
+            comps["TopDownMovement"]["dash_speed"] = 600.0
+        self.entities["Player"] = {"shape": {"type": "circle", "size": [18, 18], "color": pal["player"]},
+                                   "components": comps, "base": [18, 18], "farm_kind": "farmer"}
         chasers = [e for e in b.enemies if e.archetype in ("chaser", "shooter")]
         if chasers:  # something hunts the farmer, so the farmer can get hurt
             comps["Health"] = {"max_health": b.player.health, "invincibility_time": 1.0}
@@ -325,16 +382,69 @@ class _Assembler:
         if b.enemies:
             self._melee_or_gust(comps)
         self.entities["Plot"] = {"body": "area", "juice": "none", "shape": {"type": "none", "size": [30, 30]},
-                                 "components": {"FarmPlot": {"water_seconds": round(7.0 - 0.5 * d, 1), "size": 30}}}
-        self.entities["Stall"] = {"body": "area", "juice": "none",
-                                  "shape": {"type": "rect", "size": [64, 48], "color": "#00000000"},
-                                  "components": {"Market": {"width": 64, "color": pal["enemies"][0]}}}
-        legend = {"#": "solid", "P": "Player", "f": "Plot", "M": "Stall"}
-        cells: dict[tuple[int, int], str] = {lay.player: "P", lay.market: "M"}
-        for c in lay.plots:
+                                 "components": {"FarmPlot": {"water_seconds": round(7.0 - 0.5 * d, 1), "size": 30,
+                                                             "tilled": False,  # the hoe comes first
+                                                             "soil_texture": "res://sprites/art_soil.png",
+                                                             "wet_texture": "res://sprites/art_soil_wet.png"}}}
+        self.entities["ShippingBin"] = {"body": "area", "juice": "none", "base": [30, 20], "farm_kind": "bin",
+                                        "shape": {"type": "rect", "size": [30, 20], "color": "#9a5e36"},
+                                        "components": {"Market": {"width": 32, "stall": False}}}
+        legend = {"#": "solid", "P": "Player", "f": "Plot", "M": "ShippingBin"}
+        cells: dict[tuple[int, int], str] = {fm.player: "P", fm.bin: "M"}
+        for c in fm.plots:
             cells[c] = "f"
-        for c in lay.rocks:
-            cells[c] = "#"
+        symbols = iter("abcdeghijklmopstuvwxyzABCDEFGHIJKLNOQRSTUVWXYZ0123456789")
+        sym_of: dict[str, str] = {}
+
+        def place(entity: str, c: tuple[int, int]) -> None:
+            if entity not in sym_of:
+                sym_of[entity] = next(symbols)
+                legend[sym_of[entity]] = entity
+            cells[c] = sym_of[entity]
+
+        for kind, c in fm.objects:
+            name, spec = FARM_OBJECTS[kind]
+            if name not in self.entities:
+                ent = {"body": "static", "juice": "none", "base": list(spec["base"]), "farm_kind": kind,
+                       "farm_color": FARM_TREE_COLORS.get(season, {}).get(kind),
+                       "shape": {"type": "rect", "size": list(spec["base"]), "color": spec.get("color", "#9a5e36")},
+                       "components": {}}
+                if "gather" in spec:
+                    item, hits, amount, chips = spec["gather"]
+                    ent["components"]["Gatherable"] = {"item": item, "hits": hits, "amount": amount, "chip_color": chips,
+                                                       **({"leaves": "Stump"} if kind.startswith("tree") else {})}
+                self.entities[name] = ent
+            place(name, c)
+        if fm.door_mat is not None:  # the farmhouse door and the mat inside are linked
+            def px(c: tuple[int, int]) -> list[float]:
+                return [(c[0] + 0.5) * TILE, (c[1] + 0.5) * TILE]
+            self.entities["HouseDoor"] = {"body": "area", "juice": "none", "shape": {"type": "rect", "size": [28, 28], "color": "#00000000"},
+                                          "components": {"Warp": {"to": px((fm.door_mat[0], fm.door_mat[1] - 1)), "hint": "Enter"}}}
+            self.entities["DoorMat"] = {"body": "area", "juice": "none", "shape": {"type": "rect", "size": [28, 28], "color": "#00000000"},
+                                        "components": {"Warp": {"to": px((fm.door[0], fm.door[1] + 1)), "hint": "Go out"}}}
+            place("HouseDoor", fm.door)
+            place("DoorMat", fm.door_mat)
+        for c, wd in fm.fishing:  # shore spots to fish from (wd: which way the water is)
+            name = "Shore" if wd == (0, 1) else "ShoreEast"
+            if name not in self.entities:
+                self.entities[name] = {"body": "area", "juice": "none", "shape": {"type": "none", "size": [24, 24]},
+                                       "components": {"FishingSpot": {"water_dir": list(wd), "min_wait": 1.5,
+                                                                      "max_wait": 4.5,
+                                                                      "bite_time": round(1.1 - 0.05 * d, 2)}}}
+            place(name, c)
+        if "Stump" not in self.entities and any(k.startswith("tree") for k, _ in fm.objects):
+            self.entities["Stump"] = {"body": "static", "juice": "none", "base": [22, 12], "farm_kind": "stump",
+                                      "shape": {"type": "rect", "size": [22, 12], "color": "#9a5e36"}, "components": {}}
+        for i, (animal, c) in enumerate(zip(FARM_ANIMALS[b.length if b.length in FARM_ANIMALS else "medium"], fm.animals)):
+            name, kind, product, seconds, base = animal
+            if name not in self.entities:
+                self.entities[name] = {
+                    "team": "neutral", "juice": "none", "base": list(base), "farm_kind": kind,
+                    "shape": {"type": "circle", "size": list(base), "color": "#f4ece0"},
+                    "components": {"FarmAnimal": {"product": product, "product_seconds": round(seconds * (0.8 + 0.1 * d)) if product else 600,
+                                                  "icon": f"res://sprites/art_icon_{product.lower()}.png" if product else "",
+                                                  "wander_radius": 56.0, "speed": 26.0 if kind != "chick" else 34.0}}}
+            place(name, c)
         for i, e in enumerate(b.enemies[:3]):
             self._pest(e, i)
             nest = f"{e.name}Nest"
@@ -343,36 +453,43 @@ class _Assembler:
                 "body": "static", "juice": "none", "shape": {"type": "none", "size": [4, 4]},
                 "components": {"Spawner": {"entity": e.name, "interval": round(14.0 / (0.6 + 0.2 * d) / k, 1),
                                            "interval_ramp": 0.95, "min_interval": 5.0,
-                                           "start_delay": 20.0 + 15 * i, "max_alive": max(1, min(e.count, 6))}}}
+                                           "start_delay": 25.0 + 15 * i, "max_alive": max(1, min(e.count, 6))}}}
             legend["nqr"[i]] = nest
-            cells[lay.nests[i % len(lay.nests)]] = "nqr"[i]
+            cells[fm.nests[i % len(fm.nests)]] = "nqr"[i]
         rows = []
-        for y in range(lay.height):
-            rows.append("".join("#" if x in (0, lay.width - 1) or y in (0, lay.height - 1)
-                                else cells.get((x, y), ".") for x in range(lay.width)).rstrip("."))
+        for y in range(fm.height):
+            rows.append("".join(cells.get((x, y), "#" if (x, y) in fm.solid else ".") for x in range(fm.width)).rstrip("."))
         intro = b.intro or f"Earn ${target} before sunset!"
         if intro in (f"Score {b.score_target} points!", f"Earn ${b.score_target} before sunset!"):
             intro = f"Earn ${target} before sunset!"  # the default intro follows the real target
         rules = [
             {"on": "Game.ready", "do": [f"set_var('time_limit', {minutes})", "set_var('score_label', 'MONEY')",
-                                        f"message({_q(intro + ' Space: plant, water, harvest')})"]},
+                                        f"message({_q(intro)})"]},
+            {"on": "GameState.second_passed", "if": "event.seconds == 4",
+             "do": ["message('Space: till, plant, water, fish, chop')"]},
             {"on": "GameState.score_changed", "if": f"score >= {target}", "do": ["message('What a harvest!')", "win()"]},
             {"on": "GameState.second_passed", "if": f"event.seconds >= {minutes}",
              "do": ["message('The sun has set')", "lose()"]},
+            {"on": "GameState.second_passed", "if": "event.seconds == 12",
+             "do": ["message('Sell crops, eggs, milk and wood at the shipping bin')"]},
         ]
         if b.enemies:
             pest = b.enemies[0].name
-            rules.append({"on": "GameState.second_passed", "if": "event.seconds == 20",
+            rules.append({"on": "GameState.second_passed", "if": "event.seconds == 25",
                           "do": [f"message({_q(pest + 's are coming! Chase them off with X')})"]})
             for e in b.enemies[:3]:
                 rules.append({"on": f"{e.name}.died", "do": ["add_score(2)"]})
         self.rules = rules
         if self.layer >= 2:
             self._polish()
-        bg = FARM_GROUND.get(b.palette, FARM_GROUND["forest"])
+        for ent in self.entities.values():
+            ent.pop("farm_kind", None)
+            ent.pop("farm_color", None)
         return {"spawnpoint": 1, "name": b.title or "Untitled", "genre": "topdown",
-                "settings": {"tile_size": TILE, "lives": 1, "seed": self.seed, "zoom": 1.25, "background": bg,
-                             "tiles": {"solid": {"color": "#8a5a3b", "top": "#c2a476"}}},
+                "settings": {"tile_size": TILE, "lives": 1, "seed": self.seed, "zoom": 1.6,
+                             "background": "#3aa0e8" if fm.island else "#4f8a3a",
+                             "tile_style": "flat", "tiles": {"solid": {"color": "#00000000", "top": "#00000000"}},
+                             "terrain": fm.terrain, "season": season, "y_sort": True, "art": art},
                 "entities": self.entities, "level": {"map": rows, "legend": legend}, "rules": self.rules}
 
     def _farm_target(self) -> int:
@@ -1053,8 +1170,17 @@ class _Assembler:
         archetypes = {e.name: e.archetype for e in self.b.enemies}
         ai_art = self.ai_art
         for name, ent in self.entities.items():
-            if ent["shape"].get("type") == "none" or "Market" in ent.get("components", {}):
-                continue  # invisible helpers (survivor nests, plots, roads) and self-drawn stalls
+            farm_kind = ent.pop("farm_kind", None)
+            comps = ent.get("components", {})
+            if farm_kind is None and (ent["shape"].get("type") == "none" or "Market" in comps or "Warp" in comps):
+                continue  # invisible helpers (survivor nests, plots, roads, doorways) and self-drawn stalls
+            if farm_kind is not None:  # the cozy farm's own art (sprites/farm.py)
+                gen_farm: dict[str, Any] = {"kind": farm_kind, "seed": self.seed,
+                                            "color": ent["shape"]["color"] if farm_kind == "farmer"
+                                            else ent.pop("farm_color", None) or farm_art.SPRITES[farm_kind][3]}
+                ent["sprite"] = {"generate": gen_farm}
+                del ent["shape"]
+                continue
             kind = sprite_kind(name, ent, archetypes.get(name), self.b, self.platformer)
             color = ent["shape"]["color"]
             if ai_art:

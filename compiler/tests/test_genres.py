@@ -9,7 +9,7 @@ from spawnpoint.studio.assemble import assemble
 from spawnpoint.studio.brief import GameBrief, normalize
 from spawnpoint.studio.llm import ScriptedModel
 from spawnpoint.studio.orchestrator import create, design_brief, load_session, tweak
-from spawnpoint.studio.prompts import BRIEF_SYSTEM, BRIEF_SYSTEM_V5, brief_format, brief_messages, brief_messages_v5
+from spawnpoint.studio.prompts import BRIEF_SYSTEM, BRIEF_SYSTEM_V5, FARM_LINE, brief_format, brief_messages, brief_messages_v5
 
 BRIEFS = {
     "platformer": dict(title="a", genre="platformer", player={"character": "Fox", "abilities": ["stomp", "sword"]},
@@ -99,7 +99,8 @@ def test_design_brief_in_v5(v5):
     assert english == "trang trại thỏ" and len(llm.seen) == 1
     assert brief.genre == "farm" and brief.crops == ["Carrot", "Corn"] and brief.score_target == 300
     system = llm.seen[0][0]["content"]
-    assert system == BRIEF_SYSTEM_V5 and len(llm.seen[0]) == 2  # a system line and the idea: no example turns
+    # a system line (plus the farm words, since this is a farm) and the idea: no example turns
+    assert system == BRIEF_SYSTEM_V5 + "\n" + FARM_LINE and len(llm.seen[0]) == 2
 
 
 def test_create_and_tweak_in_v5(v5, tmp_path, manifest):

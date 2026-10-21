@@ -73,3 +73,26 @@ func test_attack_plays_when_the_weapon_fires() -> void:
 	assert_eq(String(spr.animation), "attack")
 	await frames(30)
 	assert_eq(String(spr.animation), "idle", "back to idle after the swing:")
+
+
+func test_four_direction_sprites_follow_the_facing() -> void:
+	var e := make_entity("Walker", "character", SP.TEAM_PLAYER, Vector2(16, 16), {"TopDownMovement": {}}, Vector2(100, 100))
+	var spr := _with_sprite(e)
+	var img := Image.create(4, 4, false, Image.FORMAT_RGBA8)
+	img.fill(Color.WHITE)
+	for a in ["idle_up", "run_up", "idle_side", "run_side"]:
+		spr.sprite_frames.add_animation(a)
+		spr.sprite_frames.add_frame(a, ImageTexture.create_from_image(img))
+	var mv := SP.movement(e) as TopDownMovementComponent
+	await frames(2)
+	mv.move_vector = Vector2.UP
+	await frames(10)
+	assert_eq(String(spr.animation), "run_up")
+	mv.move_vector = Vector2.LEFT
+	await frames(10)
+	assert_eq(String(spr.animation), "run_side")
+	mv.move_vector = Vector2.DOWN
+	await frames(4)
+	mv.move_vector = Vector2.ZERO
+	await frames(40)
+	assert_eq(String(spr.animation), "idle", "standing, facing down")

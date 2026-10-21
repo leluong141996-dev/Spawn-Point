@@ -14,6 +14,8 @@ signal sold(amount: int)
 @export_range(16.0, 256.0, 1.0) var width: float = 64.0
 ## Awning colour.
 @export var color: Color = Color("#ff004d")
+## Draw the striped stall; off when the entity has its own picture (a shipping bin).
+@export var stall: bool = true
 
 var _entity: Area2D
 var _view: Node2D
@@ -38,6 +40,8 @@ func _on_body_entered(body: Node) -> void:
 
 
 func _on_draw() -> void:
+	if not stall:
+		return
 	var w := width
 	var h := w * 0.75
 	_view.draw_rect(Rect2(-w / 2, -h / 2 + h * 0.35, w, h * 0.65), Color("#8a5a3b"))  # counter

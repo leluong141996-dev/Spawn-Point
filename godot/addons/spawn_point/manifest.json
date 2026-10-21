@@ -560,6 +560,80 @@
       "doc": "Experience points and levels (survivor-style games). XP comes from [XpOrbComponent] pickups or [method add_xp]; every level needs [member growth] times more XP than the one before. Pair with [LevelUpMenuComponent] to let the player pick an upgrade on each level."
     },
     {
+      "name": "FarmAnimal",
+      "class": "FarmAnimalComponent",
+      "script": "res://addons/spawn_point/components/farm_animal_component.gd",
+      "base": "Node",
+      "hosts": [
+        "CharacterBody2D"
+      ],
+      "requires": [],
+      "category": "core",
+      "entity_params": [],
+      "params": [
+        {
+          "name": "product",
+          "type": "String",
+          "hint": "",
+          "hint_string": "",
+          "default": "Egg",
+          "doc": "What it gives (\"Egg\", \"Milk\"); the farmer's goods list prices it."
+        },
+        {
+          "name": "product_seconds",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "1.0,600.0,0.5",
+          "default": 20.0,
+          "doc": "Seconds between products."
+        },
+        {
+          "name": "icon",
+          "type": "String",
+          "hint": "",
+          "hint_string": "",
+          "default": "",
+          "doc": "Picture shown in the bubble (res:// path); empty draws a white dot."
+        },
+        {
+          "name": "wander_radius",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,600.0,1.0",
+          "default": 70.0,
+          "doc": "How far from home it strolls (px)."
+        },
+        {
+          "name": "speed",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,300.0,1.0",
+          "default": 28.0,
+          "doc": "Walking speed (px/s)."
+        }
+      ],
+      "state": [
+        {
+          "name": "home",
+          "type": "Vector2"
+        }
+      ],
+      "signals": [
+        {
+          "name": "collected",
+          "args": [
+            {
+              "name": "item",
+              "type": "String"
+            }
+          ],
+          "doc": "Emitted when the farmer takes the product."
+        }
+      ],
+      "methods": [],
+      "doc": "A farm animal: wanders around where it was placed, and every [member product_seconds] has something to give (an egg, milk) that a [FarmerComponent] collects with interact. A speech bubble shows when it is ready."
+    },
+    {
       "name": "FarmPlot",
       "class": "FarmPlotComponent",
       "script": "res://addons/spawn_point/components/farm_plot_component.gd",
@@ -586,6 +660,30 @@
           "hint_string": "16.0,128.0,1.0",
           "default": 30.0,
           "doc": "Size of the soil patch in px."
+        },
+        {
+          "name": "tilled",
+          "type": "bool",
+          "hint": "",
+          "hint_string": "",
+          "default": true,
+          "doc": "Starts as tilled soil; off, it is grass until a [FarmerComponent] works it with the hoe."
+        },
+        {
+          "name": "soil_texture",
+          "type": "String",
+          "hint": "",
+          "hint_string": "",
+          "default": "",
+          "doc": "Picture of dry tilled soil (res:// path); empty draws plain soil."
+        },
+        {
+          "name": "wet_texture",
+          "type": "String",
+          "hint": "",
+          "hint_string": "",
+          "default": "",
+          "doc": "Picture of watered soil (res:// path)."
         }
       ],
       "state": [
@@ -612,9 +710,18 @@
         {
           "name": "wet_left",
           "type": "float"
+        },
+        {
+          "name": "crop_texture",
+          "type": "Object"
         }
       ],
       "signals": [
+        {
+          "name": "tilled_soil",
+          "args": [],
+          "doc": "Emitted when the hoe turns the grass into soil."
+        },
         {
           "name": "planted",
           "args": [
@@ -658,11 +765,25 @@
       ],
       "methods": [
         {
+          "name": "till",
+          "args": [],
+          "default_count": 0,
+          "returns": "bool",
+          "doc": "Turns grass into soil (the hoe). Returns false when it already was soil."
+        },
+        {
           "name": "progress",
           "args": [],
           "default_count": 0,
           "returns": "float",
           "doc": "Growth as 0..1 (1 when ripe)."
+        },
+        {
+          "name": "stage",
+          "args": [],
+          "default_count": 0,
+          "returns": "int",
+          "doc": "Which picture of the crop to show: 0 seeds .. 4 ripe."
         }
       ],
       "doc": "A patch of soil for farming games. A [FarmerComponent] plants a crop here, waters it and harvests it when ripe. The crop only grows while the soil is wet, and the soil dries after [member water_seconds]. Pests ([CropPestComponent]) can eat what grows here."
@@ -686,6 +807,14 @@
           "doc": "The crops on offer (see the class description)."
         },
         {
+          "name": "goods",
+          "type": "String",
+          "hint": "",
+          "hint_string": "",
+          "default": "",
+          "doc": "Prices of the other things the basket can hold (see the class description)."
+        },
+        {
           "name": "reach",
           "type": "float",
           "hint": "range",
@@ -700,6 +829,14 @@
           "hint_string": "1.0,999.0",
           "default": 12,
           "doc": "Most crops the basket holds."
+        },
+        {
+          "name": "hotbar",
+          "type": "bool",
+          "hint": "",
+          "hint_string": "",
+          "default": true,
+          "doc": "Show the hotbar (seed slots and the basket) at the bottom of the screen."
         }
       ],
       "state": [
@@ -708,11 +845,19 @@
           "type": "Array"
         },
         {
+          "name": "goods_list",
+          "type": "Array"
+        },
+        {
           "name": "selected",
           "type": "int"
         },
         {
           "name": "basket",
+          "type": "Dictionary"
+        },
+        {
+          "name": "goods_basket",
           "type": "Dictionary"
         }
       ],
@@ -735,11 +880,95 @@
               "type": "String"
             }
           ],
-          "doc": "Emitted after each action: \"plant\", \"water\" or \"harvest\"."
+          "doc": "Emitted after each action: \"till\", \"plant\", \"water\", \"harvest\", \"collect\", \"chop\", \"gather\", \"cast\" or \"catch\"."
         }
       ],
       "methods": [],
-      "doc": "The player's farming hands. Press interact (Space / E) next to a [FarmPlotComponent]: an empty plot gets the selected seed, a growing one gets water, a ripe one is harvested into the basket. Keys 1-3 choose the crop. Walk into a [MarketComponent] to sell the basket for money (score).\n[member crops] is a \";\"-separated list of \"Name|#color|grow seconds|price\"."
+      "doc": "The player's farming hands. Press interact (Space / E) next to something: grass where a plot goes is tilled with the hoe, an empty plot gets the selected seed, a growing one gets water, a ripe one is harvested into the basket; a [FarmAnimalComponent] gives its egg or milk; a [GatherableComponent] tree or rock takes a hit (and gives wood or stone when it breaks); at a [FishingSpotComponent] the first press casts and the next one, when a fish bites, reels it in. Keys 1-9 choose the seed. Walk into a [MarketComponent] (a stall or a shipping bin) to sell the basket.\n[member crops] is a \";\"-separated list of \"Name|#color|grow seconds|price\", optionally followed by \"|growth stages picture|icon picture\" (res:// paths). [member goods] prices everything else the basket can hold: \"Name|price|icon picture;...\" (eggs, milk, wood, stone)."
+    },
+    {
+      "name": "FishingSpot",
+      "class": "FishingSpotComponent",
+      "script": "res://addons/spawn_point/components/fishing_spot_component.gd",
+      "base": "Node",
+      "hosts": [],
+      "requires": [],
+      "category": "core",
+      "entity_params": [],
+      "params": [
+        {
+          "name": "catch_name",
+          "type": "String",
+          "hint": "",
+          "hint_string": "",
+          "default": "Fish",
+          "doc": "What a catch is called (the farmer's goods list prices it)."
+        },
+        {
+          "name": "water_dir",
+          "type": "Vector2",
+          "hint": "",
+          "hint_string": "",
+          "default": "(0.0, 1.0)",
+          "doc": "Direction of the water from the spot (the bobber lands this way)."
+        },
+        {
+          "name": "min_wait",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.2,30.0,0.1",
+          "default": 1.5,
+          "doc": "Shortest wait for a bite (seconds)."
+        },
+        {
+          "name": "max_wait",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.2,30.0,0.1",
+          "default": 4.0,
+          "doc": "Longest wait for a bite (seconds)."
+        },
+        {
+          "name": "bite_time",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.1,5.0,0.05",
+          "default": 0.9,
+          "doc": "How long the fish stays on the hook (seconds)."
+        }
+      ],
+      "state": [
+        {
+          "name": "state",
+          "type": "int"
+        },
+        {
+          "name": "bite_left",
+          "type": "float"
+        }
+      ],
+      "signals": [
+        {
+          "name": "caught",
+          "args": [
+            {
+              "name": "item",
+              "type": "String"
+            }
+          ],
+          "doc": "Emitted with the catch."
+        }
+      ],
+      "methods": [
+        {
+          "name": "bobber_position",
+          "args": [],
+          "default_count": 0,
+          "returns": "Vector2",
+          "doc": "Where the bobber floats."
+        }
+      ],
+      "doc": "A place on the shore to fish from. A [FarmerComponent]'s interact casts the line (a bobber lands on the water in [member water_dir]); after a wait the fish bites (a \"!\" and a splash) and interact again reels it in. Too soon or too late and it gets away."
     },
     {
       "name": "FlightPath",
@@ -890,6 +1119,78 @@
         }
       ],
       "doc": "A solid barrier that can be opened and closed by rules (doors, bridges, locked exits)."
+    },
+    {
+      "name": "Gatherable",
+      "class": "GatherableComponent",
+      "script": "res://addons/spawn_point/components/gatherable_component.gd",
+      "base": "Node",
+      "hosts": [],
+      "requires": [],
+      "category": "core",
+      "entity_params": [],
+      "params": [
+        {
+          "name": "hits",
+          "type": "int",
+          "hint": "range",
+          "hint_string": "1.0,20.0",
+          "default": 3,
+          "doc": "Hits needed."
+        },
+        {
+          "name": "item",
+          "type": "String",
+          "hint": "",
+          "hint_string": "",
+          "default": "Wood",
+          "doc": "What it gives (\"Wood\", \"Stone\"); the farmer's goods list prices it."
+        },
+        {
+          "name": "amount",
+          "type": "int",
+          "hint": "range",
+          "hint_string": "1.0,20.0",
+          "default": 2,
+          "doc": "How many of it."
+        },
+        {
+          "name": "leaves",
+          "type": "String",
+          "hint": "",
+          "hint_string": "",
+          "default": "",
+          "doc": "Entity left behind (e.g. \"Stump\"); empty for none."
+        },
+        {
+          "name": "chip_color",
+          "type": "Color",
+          "hint": "",
+          "hint_string": "",
+          "default": "(0.4157, 0.6588, 0.3098, 1.0)",
+          "doc": "Colour of the chips that fly off."
+        }
+      ],
+      "state": [
+        {
+          "name": "hits_left",
+          "type": "int"
+        }
+      ],
+      "signals": [
+        {
+          "name": "gathered",
+          "args": [
+            {
+              "name": "item",
+              "type": "String"
+            }
+          ],
+          "doc": "Emitted when it breaks, with the item it gave."
+        }
+      ],
+      "methods": [],
+      "doc": "A tree to chop or a rock to break: each interact from a [FarmerComponent] is a hit (the thing shakes); after [member hits] it gives [member item] and is replaced by [member leaves] (a stump), or just goes."
     },
     {
       "name": "GroundPatch",
@@ -1507,6 +1808,14 @@
           "hint_string": "",
           "default": "(1.0, 0.0, 0.302, 1.0)",
           "doc": "Awning colour."
+        },
+        {
+          "name": "stall",
+          "type": "bool",
+          "hint": "",
+          "hint_string": "",
+          "default": true,
+          "doc": "Draw the striped stall; off when the entity has its own picture (a shipping bin)."
         }
       ],
       "state": [],
@@ -2425,6 +2734,51 @@
       ],
       "methods": [],
       "doc": "An invisible-or-visible zone that fires [signal triggered] when an entity of [member group] enters (exit doors, checkpoints, kill zones, tutorial hints)."
+    },
+    {
+      "name": "Warp",
+      "class": "WarpComponent",
+      "script": "res://addons/spawn_point/components/warp_component.gd",
+      "base": "Node",
+      "hosts": [
+        "Area2D"
+      ],
+      "requires": [],
+      "category": "core",
+      "entity_params": [],
+      "params": [
+        {
+          "name": "to",
+          "type": "Vector2",
+          "hint": "",
+          "hint_string": "",
+          "default": "(0.0, 0.0)",
+          "doc": "Where the player arrives (world px)."
+        },
+        {
+          "name": "hint",
+          "type": "String",
+          "hint": "",
+          "hint_string": "",
+          "default": "Enter",
+          "doc": "The hint shown when the player steps in (\"Enter\", \"Go out\")."
+        }
+      ],
+      "state": [
+        {
+          "name": "player_inside",
+          "type": "Object"
+        }
+      ],
+      "signals": [
+        {
+          "name": "warped",
+          "args": [],
+          "doc": "Emitted after the player went through."
+        }
+      ],
+      "methods": [],
+      "doc": "A doorway: while the player stands in this area, interact (Space / E) moves them to [member to] (a house's inside, and back out). The screen dips to black for a moment and the camera jumps along."
     },
     {
       "name": "WaveSpawner",
