@@ -94,6 +94,8 @@ def main(argv: list[str] | None = None) -> int:
     gf.add_argument("--fps", type=int, default=20)
     gf.add_argument("--width", type=int, default=640)
     gf.add_argument("--skip", type=float, default=0.0, help="seconds of play before the clip starts")
+    gf.add_argument("--focus", default="", choices=["", "field", "animals", "fish", "house"],
+                    help="farms: show one activity")
 
     ov = sub.add_parser("overview", help="save one picture of a built project's whole map (needs a display)")
     ov.add_argument("project", type=Path)
@@ -257,7 +259,7 @@ def _gif(args) -> int:
     from .gif import record_gif
 
     out = args.out or args.project / "demo.gif"
-    path = record_gif(args.project.resolve(), out.resolve(), args.seconds, args.fps, args.width, args.skip)
+    path = record_gif(args.project.resolve(), out.resolve(), args.seconds, args.fps, args.width, args.skip, args.focus)
     print(f"Wrote {out} ({path.stat().st_size / 1e6:.1f} MB)")
     return 0
 

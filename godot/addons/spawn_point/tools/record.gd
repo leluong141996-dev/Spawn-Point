@@ -19,6 +19,7 @@ func _ready() -> void:
 	var total := int(args[1]) if args.size() > 1 else 360
 	var step := int(args[2]) if args.size() > 2 else 3
 	var skip := int(args[3]) if args.size() > 3 else 0  # frames played before recording starts
+	_focus = args[4] if args.size() > 4 else ""  # farm clips: "field", "animals", "fish" or "house"
 	DirAccess.make_dir_recursive_absolute(out_dir)
 	add_child((load(LEVEL) as PackedScene).instantiate())
 	await get_tree().physics_frame
@@ -132,6 +133,9 @@ func _defend(builder: TowerBuilderComponent) -> void:
 		builder.build_on(best)
 
 
+var _focus := ""  # which farm activity a clip shows ("" = a bit of everything)
+var _tour := 0  # the house tour's step
+var _press := 0  # frames left holding interact
 var _blocked := {}  # Vector2i cell -> true, for the farm autopilot's path finding
 var _path: Array[Vector2] = []
 var _goal := Vector2.INF
@@ -147,6 +151,12 @@ func _farm(p: CharacterBody2D, farmer: FarmerComponent, frame: int) -> void:
 	farmer.select(int(frame / 600) % maxi(farmer.crop_list.size(), 1))
 	if frame % 120 == 20:
 		_blocked = _scan_blocked(p)
+	if _focus == "house":
+		_house_tour(p, frame)
+		return
+	var want_plots := _focus in ["", "field"]
+	var want_animals := _focus in ["", "animals"]
+	var want_fish := _focus in ["", "fish"]
 	var carried := 0
 	for c in farmer.basket:
 		carried += int(farmer.basket[c])
@@ -157,7 +167,7 @@ func _farm(p: CharacterBody2D, farmer: FarmerComponent, frame: int) -> void:
 	var act := false
 	var on_plot := false
 	var best := INF
-	for e in get_tree().get_nodes_in_group(&"farm_plot"):
+	for e in (get_tree().get_nodes_in_group(&"farm_plot") if want_plots else []):
 		var fp := SP.component(e, &"FarmPlot") as FarmPlotComponent
 		var need := 0.0 if fp.is_ripe() else (1.0 if fp.is_empty() else (2.0 if fp.wet_left <= 0.5 else INF))
 		if need == INF or int(_skip.get(e.get_instance_id(), -1)) > frame:
@@ -168,7 +178,7 @@ func _farm(p: CharacterBody2D, farmer: FarmerComponent, frame: int) -> void:
 			target = (e as Node2D).global_position
 			target_id = e.get_instance_id()
 			on_plot = true
-	for e in get_tree().get_nodes_in_group(&"farm_animal"):
+	for e in (get_tree().get_nodes_in_group(&"farm_animal") if want_animals else []):
 		var an := SP.component(e, &"FarmAnimal") as FarmAnimalComponent
 		if an and an.is_ready() and int(_skip.get(e.get_instance_id(), -1)) <= frame:
 			var score: float = 150.0 + (e as Node2D).global_position.distance_to(p.global_position)
@@ -177,7 +187,7 @@ func _farm(p: CharacterBody2D, farmer: FarmerComponent, frame: int) -> void:
 				target = (e as Node2D).global_position
 				target_id = e.get_instance_id()
 				on_plot = false
-	if _chops < 6 and frame > 900:
+	if _chops < 6 and frame > 900 and _focus == "":
 		for e in get_tree().get_nodes_in_group(&"gatherable"):
 			if int(_skip.get(e.get_instance_id(), -1)) > frame:
 				continue
@@ -188,7 +198,7 @@ func _farm(p: CharacterBody2D, farmer: FarmerComponent, frame: int) -> void:
 				target_id = e.get_instance_id()
 				on_plot = false
 	var fishing: FishingSpotComponent = null
-	if frame > 1200 and _catches < 2:  # a little fishing once the farm is running
+	if want_fish and ((frame > 1200 and _catches < 2) or _focus == "fish"):  # a little fishing once the farm runs
 		for e in get_tree().get_nodes_in_group(&"fishing_spot"):
 			var score: float = 450.0 + (e as Node2D).global_position.distance_to(p.global_position) * 1.5
 			if score < best:
@@ -197,7 +207,7 @@ func _farm(p: CharacterBody2D, farmer: FarmerComponent, frame: int) -> void:
 				target_id = e.get_instance_id()
 				on_plot = true  # stand right on the spot
 				fishing = SP.component(e, &"FishingSpot") as FishingSpotComponent
-	if carried >= 8 or (target == Vector2.INF and carried > 0):
+	if carried >= 8 or (target == Vector2.INF and carried > 0 and _focus != "animals"):
 		fishing = null
 		on_plot = false
 		for e in get_tree().get_nodes_in_group(SP.ENTITY_GROUP):
@@ -235,6 +245,47 @@ func _farm(p: CharacterBody2D, farmer: FarmerComponent, frame: int) -> void:
 	while not _path.is_empty() and p.global_position.distance_to(_path[0]) < 8.0:
 		_path.pop_front()
 	_steer((_path[0] if not _path.is_empty() else target) - p.global_position)
+
+
+## The house clip: walk to the farmhouse door, go in, look around the room, come back out.
+func _house_tour(p: CharacterBody2D, frame: int) -> void:
+	for a in [&"move_left", &"move_right", &"move_up", &"move_down"]:
+		Input.action_release(a)
+	if _press > 0:  # holding interact for a doorway, or just standing a moment
+		_press -= 1
+		if _press == 0 or _press == 68:
+			Input.action_release(&"interact")
+		return
+	var stops := {}
+	for e in get_tree().get_nodes_in_group(SP.ENTITY_GROUP):
+		for n in ["HouseDoor", "DoorMat", "Bed", "Fireplace", "Table"]:
+			if String(e.name) == n:
+				stops[n] = (e as Node2D).global_position
+	var plan := [["HouseDoor", Vector2.ZERO, true], ["Table", Vector2(0, 40), false], ["Fireplace", Vector2(0, 30), false],
+		["Bed", Vector2(30, 0), false], ["DoorMat", Vector2.ZERO, true]]
+	if _tour >= plan.size():
+		_steer(Vector2(0, 100))  # back outside: stroll down the path
+		return
+	var step: Array = plan[_tour]
+	if not stops.has(step[0]):
+		_tour += 1
+		return
+	var goal: Vector2 = stops[step[0]] + step[1]
+	if p.global_position.distance_to(goal) < 8.0:
+		_path.clear()
+		_tour += 1
+		if step[2]:  # a doorway: press interact to go through
+			Input.action_press(&"interact")
+			_press = 2
+		else:  # stop and look a moment
+			_press = 70
+		return
+	if _path.is_empty() or _goal.distance_to(goal) > 4.0 or frame % 45 == 0:
+		_goal = goal
+		_path = _find_path(p.global_position, goal, 6.0)
+	while not _path.is_empty() and p.global_position.distance_to(_path[0]) < 8.0:
+		_path.pop_front()
+	_steer((_path[0] if not _path.is_empty() else goal) - p.global_position)
 
 
 func _steer(to: Vector2) -> void:

@@ -12,17 +12,13 @@
 ⭐ **If Spawn Point drew something fun or useful, a star helps other people find it. If it drew something wrong, [open an issue](https://github.com/leluong141996-dev/Spawn-Point/issues/new) with your prompt: the model's tests grow from prompts that broke.**
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/knight-quest.gif" width="48%" alt="Knight's Quest: a sword platformer">
-  <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/castle-defense.gif" width="48%" alt="Castle Defense: a tower defense game">
-  <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/ninja-rescue.gif" width="48%" alt="Ninja Rescue: a platformer where a ninja frees his mother">
-  <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/dino-eggs.gif" width="48%" alt="Dino Eggs: a bubble shooter with dinosaur eggs">
-  <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/night-survivor.gif" width="48%" alt="Night Survivor: auto-fire, gems, level-ups">
-  <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/pixel-hopper.gif" width="48%" alt="Pixel Hopper: a Mario-style platformer">
-  <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/star-run.gif" width="48%" alt="Star Run: a side-scrolling shooter with power-ups and a boss">
+  <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/farm-field.gif" width="48%" alt="Tilling, planting, watering and harvesting in the fenced field">
+  <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/farm-animals.gif" width="48%" alt="Collecting eggs and milk from the chickens and the cow in the pen">
+  <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/farm-fishing.gif" width="48%" alt="Fishing from the pond's shore: cast, wait for the bite, reel in">
+  <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/farm-house.gif" width="48%" alt="Walking into the farmhouse: bed, fireplace, table and rug">
 </p>
-<p align="center"><sub>Seven of the demo games, each one a small JSON graph in <code>examples/</code> built from the
-same component library: generated pixel art, collision traced from the sprites, juice on by default.
-Recorded with <code>spawnpoint gif</code> (autopilot).</sub></p>
+<p align="center"><sub>A cozy farm made from one sentence: the field, the animals, fishing and the farmhouse inside.
+Every tile, building, animal and crop is drawn by plain Python. Recorded with <code>spawnpoint gif --focus field|animals|fish|house</code> (autopilot).</sub></p>
 
 <p align="center"><b><a href="https://leluong141996-dev.github.io/Spawn-Point/">▶ Play the demos in your browser</a></b>: a Mario-style platformer, a
 knight with a sword, tower defense, a ninja rescue, a dinosaur-egg bubble shooter, a survivor with level-ups, a cozy
@@ -172,13 +168,17 @@ The theme sets the season: a snowy farm is winter (snow, frozen pond, snowy pine
 sand, palms and cacti, a lava-red one is autumn, the rest is spring.
 
 <p align="center"><img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/farm-seasons.png" width="92%" alt="The same kind of farm in spring, autumn, winter and the desert"></p>
+<p align="center">
+  <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/farm-winter.gif" width="32%" alt="A winter farm: snow, snowy pines, bare trees">
+  <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/farm-autumn.gif" width="32%" alt="An autumn farm: orange ground, maples">
+  <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/farm-desert.gif" width="32%" alt="A desert farm: sand, palms and cacti">
+</p>
 
 ## Sprites: generated or your own
 
 Layer 2 replaces placeholder shapes with **procedural pixel art** — no assets, no GPU: chibi people with big heads, monsters with faces (a biting plant, a mushroom, a snail, a flame spirit, a reaper, an alien, a dragon, a ghost...), items, props, themed tiles and a parallax sky. Spawn Point makes pixel art games only. (A graph can still ask for the smooth `"art_style": "cartoon"` look by hand, but games made from a prompt are always pixel art.)
 
-<p align="center"><img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/parade-heroes.gif" width="48%" alt="Animated heroes: knight, wizard, ranger, viking, king, princess, ninja..."> <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/parade-monsters.gif" width="48%" alt="Animated monsters: slime, frog, biting plant, mushroom, snail, flame..."></p>
-<p align="center"><sub>Every character and monster is drawn by plain Python from its name (<code>spawnpoint sprites parade --set heroes|monsters|items</code>).</sub></p>
+Every character and monster is drawn by plain Python from its name; `spawnpoint sprites parade --set heroes|monsters|items` renders them as an animated sheet.
 
 The
 kind follows the entity (`Goblin` → humanoid, `FireBat` → flyer, `LaserBot` → robot, `Crystal` → gem…)
@@ -223,7 +223,7 @@ match the palette, drawn behind everything and without collision.
 Record a clip of any built game to share it (a window opens for a few seconds; autopilot plays):
 
 ```bash
-spawnpoint gif out/pixel-hopper -o demo.gif --seconds 8 --fps 20 --width 640
+spawnpoint gif out/sunny-farm -o demo.gif --seconds 10 --fps 10 --focus fish
 ```
 
 **AI art (optional plug-in).** Point Spawn Point at an image model and layer 2 asks it for the look of
