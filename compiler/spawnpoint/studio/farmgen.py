@@ -135,57 +135,73 @@ def cozy_farm(seed: int, length: str = "medium", plot_target: int = 12, island: 
     put("well", (hx - 4, hy + 2)) if hx - 4 > m else None
     put("barrel", (hx + 4, hy + 2))
 
-    # the crop field: 2x2 groups of plots inside a fence, gate in the bottom side onto the road
+    # Two fenced zones: the crop field and the animal pen. One sits above the road to the right of the house
+    # (gate at the bottom), the other below the road on the left (gate at the top); which is which varies.
+    swap = rng.random() < 0.5
     n_groups = max(2, min(8, round(plot_target / 4)))
     groups_y = 1 if n_groups <= 3 else 2
+    if n_groups == 4 and rng.random() < 0.5:
+        groups_y = 1  # a long single row of plot groups instead of a block
     groups_x = -(-n_groups // groups_y)
     fw, fh = groups_x * 3 + 1, groups_y * 3 + 1
-    fx0 = hx + 6
-    fy0 = road - 1 - fh
-    if fy0 < m + 1:
-        fy0 = m + 1
-    fx0 = min(fx0, w - m - fw - 2)
+    pw, ph = 8, 5
+
+    def zone(width: int, height: int, above: bool) -> tuple[int, int]:
+        if above:
+            x0 = min(hx + 6, w - m - width - 2)
+            return x0, max(m + 1, road - 1 - height)
+        return m + 2, min(road + 2, h - m - height - 2)
+
+    def clear(x0: int, y0: int, width: int, height: int) -> None:
+        for x in range(x0 - 1, x0 + width + 1):
+            for y in range(y0 - 1, y0 + height + 1):
+                if grid[y][x] == "~":
+                    grid[y][x] = "."
+                taken.add((x, y))
+
+    def gate_path(gate: Cell, above: bool) -> None:
+        for y in (range(gate[1], road) if above else range(road + 1, gate[1] + 1)):
+            path((gate[0], y))
+
+    field_above = not swap
+    if not field_above and road + 2 + fh + 2 > h - m - 1:
+        groups_y, groups_x = 1, n_groups
+        fw, fh = groups_x * 3 + 1, 4
+    fx0, fy0 = zone(fw, fh, field_above)
     plots: list[Cell] = []
     for gy in range(groups_y):
         for gx in range(groups_x):
             for dy in (0, 1):
                 for dx in (0, 1):
                     plots.append((fx0 + 1 + gx * 3 + dx, fy0 + 1 + gy * 3 + dy))
-    for x in range(fx0 - 1, fx0 + fw + 1):
-        for y in range(fy0 - 1, fy0 + fh + 1):
-            if grid[y][x] == "~":
-                grid[y][x] = "."
-            if fx0 <= x < fx0 + fw and fy0 <= y < fy0 + fh:
-                grid[y][x] = ","
-            taken.add((x, y))
+    clear(fx0, fy0, fw, fh)
+    for x in range(fx0, fx0 + fw):
+        for y in range(fy0, fy0 + fh):
+            grid[y][x] = ","
     gate_x = fx0 + fw // 2
-    _fence(objects, fx0 - 1, fy0 - 1, fx0 + fw, fy0 + fh, gate=(gate_x, fy0 + fh))
-    for y in range(fy0 + fh, road):
-        path((gate_x, y))
-    put("scarecrow", (fx0 + 3 if groups_x > 1 else fx0 + fw - 1, fy0 + fh - 1)) if (fx0 + 3, fy0 + fh - 1) not in plots else None
+    field_gate = (gate_x, fy0 + fh) if field_above else (gate_x, fy0 - 1)
+    _fence(objects, fx0 - 1, fy0 - 1, fx0 + fw, fy0 + fh, gate=field_gate)
+    gate_path(field_gate, field_above)
+    scare = (fx0 + 3 if groups_x > 1 else fx0 + fw - 1, fy0 + fh - 1 if field_above else fy0)
+    if scare not in plots:
+        put("scarecrow", scare)
 
-    # the animal pen below the road, gate at the top; a coop inside
-    pw, ph = 8, 5
-    px0 = m + 2
-    py0 = road + 2
-    if py0 + ph + 1 > h - m - 1:
-        py0 = h - m - ph - 2
-    for x in range(px0 - 1, px0 + pw + 1):
-        for y in range(py0 - 1, py0 + ph + 1):
-            if grid[y][x] == "~":
-                grid[y][x] = "."
-            taken.add((x, y))
-    pen_gate = (px0 + pw // 2, py0 - 1)
+    px0, py0 = zone(pw, ph, not field_above)
+    clear(px0, py0, pw, ph)
+    pen_gate = (px0 + pw // 2, py0 + ph) if not field_above else (px0 + pw // 2, py0 - 1)
     _fence(objects, px0 - 1, py0 - 1, px0 + pw, py0 + ph, gate=pen_gate)
-    for y in range(road + 1, py0):
-        path((pen_gate[0], y))
+    gate_path(pen_gate, not field_above)
     objects.append(("coop", (px0 + 1, py0 + 1)))
-    put("hay", (px0 + pw - 1, py0))
+    put("hay", (px0 + pw - 1, py0 + (ph - 1 if field_above else 0)))
     animals = [(px0 + 2 + 2 * (i % 3), py0 + 2 + 2 * (i // 3)) for i in range(6)]  # apart, so none start stuck
+    animals = [c for c in animals if py0 <= c[1] < py0 + ph] or [(px0 + 3, py0 + 2)]
+    while len(animals) < 6:
+        animals.append((animals[-1][0] + 1, animals[-1][1]))
+    below_x1 = (px0 + pw) if field_above else (fx0 + fw)  # where the zone below the road ends
 
     # the pond: below the road on the right
     lw, lh = rng.randint(4, 6), rng.randint(2, 3)
-    lx0 = max(px0 + pw + 3, w - m - lw - 4 - rng.randint(0, 3))
+    lx0 = max(below_x1 + 3, w - m - lw - 4 - rng.randint(0, 3))
     ly0 = min(road + 3, h - m - lh - 2)
     for x in range(lx0, lx0 + lw):
         for y in range(ly0, ly0 + lh):
@@ -238,8 +254,26 @@ def cozy_farm(seed: int, length: str = "medium", plot_target: int = 12, island: 
     farm = CozyFarm(w, h, island, terrain, solid, player, door, bin_cell, plots, (px0, py0, px0 + pw - 1, py0 + ph - 1),
                     animals, objects, nests, fishing)
     _clear_paths(farm)
+    if rng.random() < 0.5:  # the house on the right instead
+        _mirror(farm)
     _add_interior(farm)
     return farm
+
+
+def _mirror(farm: CozyFarm) -> None:
+    """Flip the whole farm left to right."""
+    w = farm.width
+    fx = lambda c: (w - 1 - c[0], c[1])  # noqa: E731
+    farm.terrain = [r.ljust(w, ".")[::-1] for r in farm.terrain]
+    farm.solid = {fx(c) for c in farm.solid}
+    farm.player, farm.door, farm.bin = fx(farm.player), fx(farm.door), fx(farm.bin)
+    farm.plots = [fx(c) for c in farm.plots]
+    x0, y0, x1, y1 = farm.pen
+    farm.pen = (w - 1 - x1, y0, w - 1 - x0, y1)
+    farm.animals = [fx(c) for c in farm.animals]
+    farm.objects = [(k, fx(c)) for k, c in farm.objects]
+    farm.nests = [fx(c) for c in farm.nests]
+    farm.fishing = [(fx(c), (-d[0], d[1])) for c, d in farm.fishing]
 
 
 SEA_GAP, DARK_GAP = 6, 6  # rows of sea, then darkness, between the farm and the room

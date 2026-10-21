@@ -888,6 +888,106 @@ def paint_cow(g: Fig, color: str, anim: str, i: int) -> None:
     _out(g)
 
 
+# pests, in the same 16 px style (side views, facing right) ---------------------------------------
+
+def paint_crow(g: Fig, color: str, anim: str, i: int) -> None:
+    d, b, l = _ramp(color)
+    k = i % 4
+    hop = (0, 2, 3, 1)[k] if anim == "run" else 0
+    flap = anim == "run" and k in (1, 2)
+    g.ellipse(8, 15, 4, 1, _c("#2c5a30", 100))
+    g.rect(6, 12 - hop, 6, 14 - hop, _c("#e0a030"))
+    g.rect(9, 12 - hop, 9, 14 - hop, _c("#e0a030"))
+    g.ellipse(7, 9 - hop, 5, 3.6, b)
+    g.poly([(2, 8 - hop), (-1, 6 - hop), (2, 10 - hop)], d)  # tail
+    if flap:
+        g.poly([(5, 8 - hop), (2, 1 - hop), (9, 7 - hop)], d)
+    else:
+        g.ellipse(6, 10 - hop, 3.2, 2, d)
+    g.ellipse(12, 6 - hop, 2.8, 2.6, b)
+    g.rect(14, 6 - hop, 15, 6 - hop, _c("#e0a030"))
+    g.set(15, 7 - hop, _c("#c08020"))
+    g.set(13, 5 - hop, WHITE)
+    g.set(13, 6 - hop, BLACK)
+    g.set(11, 4 - hop, l)
+    _out(g)
+
+
+def paint_fox(g: Fig, color: str, anim: str, i: int) -> None:
+    d, b, l = _ramp(color)
+    k = i % 4
+    step = ((1, -1), (0, 0), (-1, 1), (0, 0))[k] if anim == "run" else (0, 0)
+    bob = (0, 1, 0, 1)[k] if anim == "run" else 0
+    g.ellipse(9, 15, 6, 1.2, _c("#2c5a30", 100))
+    for x, s_, col in ((4, step[0], d), (6, step[1], b), (11, step[1], d), (13, step[0], b)):
+        g.rect(x + s_, 11, x + s_, 14, col)
+        g.set(x + s_, 14, BLACK)
+    g.ellipse(9, 9 + bob, 5.4, 3, b)  # body
+    g.ellipse(9, 10.5 + bob, 3.4, 1.4, WHITE)
+    g.poly([(4, 8 + bob), (-1, 4 + bob), (0, 9 + bob), (3, 11 + bob)], b)  # bushy tail with a white tip
+    g.ellipse(0.5, 5 + bob, 1.4, 1.4, WHITE)
+    g.ellipse(14, 6 + bob, 2.8, 2.6, b)  # head
+    g.poly([(15, 6 + bob), (16, 8 + bob), (17, 7 + bob)], WHITE)
+    g.poly([(12, 4 + bob), (13, 1 + bob), (14, 4 + bob)], b)  # ears
+    g.poly([(14, 4 + bob), (15, 1 + bob), (16, 4 + bob)], d)
+    g.set(15, 5 + bob, BLACK)
+    g.set(16, 7 + bob, BLACK)
+    _out(g)
+
+
+def paint_rabbit(g: Fig, color: str, anim: str, i: int) -> None:
+    d, b, l = _ramp(color)
+    k = i % 4
+    hop = (0, 2, 3, 1)[k] if anim == "run" else 0
+    g.ellipse(8, 15, 4, 1, _c("#2c5a30", 100))
+    g.ellipse(7, 11 - hop, 4.6, 3.4, b)
+    g.ellipse(3, 10 - hop, 1.6, 1.6, WHITE)  # tail
+    g.ellipse(11, 7 - hop, 2.8, 2.6, b)
+    g.rect(10, 1 - hop, 10, 5 - hop, b)  # ears
+    g.rect(12, 1 - hop, 12, 5 - hop, d)
+    g.set(10, 2 - hop, _c("#ffb0c0"))
+    g.set(12, 7 - hop, BLACK)
+    g.set(14, 8 - hop, _c("#ff8fb4"))
+    g.rect(5, 13 - hop, 9, 14 - hop, d)
+    _out(g)
+
+
+def paint_mouse(g: Fig, color: str, anim: str, i: int) -> None:
+    d, b, l = _ramp(color)
+    k = i % 4
+    sc = (0, 1, 0, 1)[k] if anim == "run" else 0
+    g.ellipse(8, 15, 4, 1, _c("#2c5a30", 100))
+    g.line(3, 12, 0, 9 + sc, _c("#e8a0a0"))  # tail
+    g.ellipse(8, 12, 4.6, 2.8, b)
+    g.ellipse(12, 11, 2.4, 2.2, b)
+    g.ellipse(10, 8.5, 1.6, 1.6, l)  # ear
+    g.set(10, 8, _c("#ffb0c0"))
+    g.set(13, 10, BLACK)
+    g.set(14, 12, _c("#ff8fb4"))
+    g.rect(6 + sc, 14, 6 + sc, 14, d)
+    g.rect(10 - sc, 14, 10 - sc, 14, d)
+    _out(g)
+
+
+PEST_KINDS = {"crow": ("crow", "#3a3448"), "raven": ("crow", "#3a3448"), "bird": ("crow", "#8a6a4a"),
+              "sparrow": ("crow", "#a87a50"), "pigeon": ("crow", "#9aa0b4"), "magpie": ("crow", "#3a3448"),
+              "fox": ("fox", "#e07a2a"), "wolf": ("fox", "#8a8a9a"), "coyote": ("fox", "#c09a6a"),
+              "raccoon": ("fox", "#8a8090"), "dog": ("fox", "#b08050"), "rabbit": ("rabbit", "#d8c8b8"),
+              "bunny": ("rabbit", "#f4ece0"), "hare": ("rabbit", "#c0a080"), "mouse": ("mouse", "#9a9aa8"),
+              "rat": ("mouse", "#7a7484"), "mole": ("mouse", "#5a4a44"), "gopher": ("mouse", "#a07a50")}
+
+
+def pest_kind(name: str) -> tuple[str, str] | None:
+    """(farm sprite kind, colour) for a pest's name, or None when it is not a farm animal."""
+    import re
+    for w in reversed([w.lower() for w in re.findall(r"[A-Z][a-z]*|[a-z]+", name)]):
+        if w in PEST_KINDS:
+            return PEST_KINDS[w]
+        if w.rstrip("s") in PEST_KINDS:
+            return PEST_KINDS[w.rstrip("s")]
+    return None
+
+
 # the farmer: four directions -------------------------------------------------------------------
 
 FARMER_W, FARMER_H = 16, 24
@@ -1276,6 +1376,10 @@ SPRITES: dict[str, tuple[tuple[int, int], dict[str, tuple[int, float, bool]], ob
     "fence_v": ((16, 16), {"idle": (1, 1, False)}, paint_fence_v, "#9a5e36"),
     "fence_post": ((16, 16), {"idle": (1, 1, False)}, paint_fence_post, "#9a5e36"),
     "chicken": ((16, 16), {"idle": (2, 2, True), "run": (4, 8, True)}, paint_chicken, "#f4ece0"),
+    "crow": ((16, 16), {"idle": (2, 2, True), "run": (4, 10, True), "hurt": (1, 1, False)}, paint_crow, "#3a3448"),
+    "fox": ((18, 16), {"idle": (2, 2, True), "run": (4, 10, True), "hurt": (1, 1, False)}, paint_fox, "#e07a2a"),
+    "rabbit": ((16, 16), {"idle": (2, 2, True), "run": (4, 10, True), "hurt": (1, 1, False)}, paint_rabbit, "#d8c8b8"),
+    "mouse": ((16, 16), {"idle": (2, 2, True), "run": (4, 12, True), "hurt": (1, 1, False)}, paint_mouse, "#9a9aa8"),
     "chick": ((12, 12), {"idle": (2, 3, True), "run": (2, 8, True)}, paint_chick, "#ffd84a"),
     "cow": ((32, 24), {"idle": (2, 1, True), "run": (4, 6, True)}, paint_cow, "#a0582e"),
     "farmer": ((FARMER_W, FARMER_H), {"idle": (4, 3, True), "run": (4, 8, True), "idle_up": (4, 3, True),

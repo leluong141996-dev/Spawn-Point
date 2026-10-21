@@ -448,6 +448,9 @@ class _Assembler:
             place(name, c)
         for i, e in enumerate(b.enemies[:3]):
             self._pest(e, i)
+            pk = farm_art.pest_kind(e.name)
+            if pk:  # crows, foxes, rabbits and mice in the farm's own style
+                self.entities[e.name].update({"farm_kind": pk[0], "farm_color": pk[1], "base": [16, 12]})
             nest = f"{e.name}Nest"
             k = SPEED[e.speed]
             self.entities[nest] = {
