@@ -8,7 +8,7 @@ const SP_NAME := "FarmPlot"
 const SP_HOSTS: Array[String] = ["Area2D"]
 const SP_REQUIRES: Array[String] = []
 const SP_INTERNAL: Array[String] = ["plant", "water", "harvest", "destroy_crop", "state", "is_empty", "is_ripe",
-	"has_crop", "growth"]
+	"has_crop", "growth", "till", "stage", "overnight", "snapshot", "restore", "progress"]
 const SP_CATEGORY := "core"
 
 enum State { EMPTY, GROWING, RIPE }
@@ -122,6 +122,25 @@ func overnight(share: float) -> void:
 			ripened.emit(crop)
 	_watered_today = false
 	wet_left = 0.0
+
+
+## The plot's state as plain data (see [FarmSaveComponent]).
+func snapshot() -> Dictionary:
+	return {"tilled": tilled, "state": state, "crop": crop, "growth": growth, "grow": grow_seconds,
+		"wet": wet_left, "watered": _watered_today}
+
+
+## Puts a saved state back; [param texture] and [param color] are the crop's growth stages and colour.
+func restore(d: Dictionary, texture: Texture2D, color: Color) -> void:
+	tilled = bool(d.get("tilled", tilled))
+	state = int(d.get("state", State.EMPTY)) as State
+	crop = int(d.get("crop", -1))
+	growth = float(d.get("growth", 0.0))
+	grow_seconds = float(d.get("grow", grow_seconds))
+	wet_left = float(d.get("wet", 0.0))
+	_watered_today = bool(d.get("watered", false))
+	crop_texture = texture if state != State.EMPTY else null
+	crop_color = color
 
 
 ## Picks the ripe crop. Returns its index, or -1 when nothing is ripe.

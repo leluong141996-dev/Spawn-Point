@@ -6,7 +6,7 @@ extends Node
 const SP_NAME := "Gatherable"
 const SP_HOSTS: Array[String] = []
 const SP_REQUIRES: Array[String] = []
-const SP_INTERNAL: Array[String] = ["hit", "hits_left"]
+const SP_INTERNAL: Array[String] = ["hit", "hits_left", "remove_quietly"]
 const SP_CATEGORY := "core"
 
 ## Emitted when it breaks, with the item it gave.
@@ -31,6 +31,16 @@ func _ready() -> void:
 	_entity = get_parent() as Node2D
 	_entity.add_to_group(&"gatherable")
 	hits_left = hits
+
+
+## Gone without a sound or an item (a saved farm where it was already chopped): leaves its stump.
+func remove_quietly() -> void:
+	hits_left = 0
+	if leaves != "" and ResourceLoader.exists("res://entities/%s.tscn" % leaves):
+		var stump := (load("res://entities/%s.tscn" % leaves) as PackedScene).instantiate() as Node2D
+		stump.position = _entity.position
+		_entity.get_parent().add_child.call_deferred(stump)
+	_entity.queue_free()
 
 
 ## One hit. Returns the item when this hit breaks it, "" otherwise.

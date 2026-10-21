@@ -9,6 +9,8 @@ signal message_posted(text: String)
 signal second_passed(seconds: int)
 signal game_won
 signal game_lost
+## Emitted just before a full restart reloads the level (a saved game should start over).
+signal restarting
 
 enum Phase { PLAYING, WON, LOST }
 
@@ -106,6 +108,7 @@ func reset_run(level_lives := 3) -> void:
 
 ## Full restart: score, lives and variables reset, level reloads.
 func restart() -> void:
+	restarting.emit()
 	_started = false
 	Engine.time_scale = 1.0
 	get_tree().reload_current_scene()

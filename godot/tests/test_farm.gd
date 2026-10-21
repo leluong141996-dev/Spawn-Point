@@ -262,3 +262,70 @@ func test_a_bed_sleeps_to_the_next_morning_and_seeds_cost_money() -> void:
 	assert_eq(f.interact(), "plant")
 	assert_eq(GameState.score, 10 - f.seed_cost(0))
 	assert_true(plot.has_crop())
+
+
+func test_the_tool_bench_sells_upgrades_that_work() -> void:
+	var f := _farmer()
+	var bench := make_entity("Workbench", "static", SP.TEAM_NEUTRAL, Vector2(20, 20),
+			{"ToolBench": {"offers": "can|Watering can|10;basket|Big basket|5"}}, Vector2(24, 0))
+	await frames(2)
+	assert_eq(f.interact(), "browse", "the first press shows the offer")
+	assert_eq(f.interact(), "browse", "no money: still just looking")
+	GameState.add_score(20)
+	assert_eq(f.interact(), "upgrade")
+	assert_true(f.has_upgrade("can"))
+	assert_eq(GameState.score, 10)
+	bench.queue_free()
+	await frames(2)
+	var plots: Array[FarmPlotComponent] = []
+	for x in [-32, 0, 32]:
+		var p := _plot(Vector2(x, 40), {"water_seconds": 5.0})
+		plots.append(p)
+	await frames(1)
+	for p in plots:
+		p.plant(0, 10.0, Color.ORANGE)
+	(f.get_parent() as Node2D).global_position = Vector2(0, 40)
+	await frames(1)
+	assert_eq(f.interact(), "water")
+	for p in plots:
+		assert_true(p.wet_left > 0.0, "the big can waters the neighbours too")
+
+
+func test_a_farm_save_puts_everything_back() -> void:
+	var f := _farmer()
+	var holder := f.get_parent() as Node2D
+	var days := FarmDaysComponent.new()
+	days.name = "FarmDays"
+	holder.add_child(days)
+	var save := FarmSaveComponent.new()
+	save.name = "FarmSave"
+	save.slot = "test-roundtrip"
+	holder.add_child(save)
+	var plot := _plot(Vector2(200, 0), {"tilled": false})
+	await frames(4)
+	save.clear()
+	plot.till()
+	plot.plant(1, 30.0, Color.ORANGE)
+	plot.growth = 12.0
+	GameState.add_score(37)
+	f.add_upgrade("axe")
+	f.goods_basket = {"Egg": 2}
+	days.day = 2
+	save.save()
+	# mess it all up, then load
+	plot.harvest()
+	plot.tilled = false
+	plot.state = FarmPlotComponent.State.EMPTY
+	GameState.add_score(-GameState.score)
+	f.upgrades.clear()
+	f.goods_basket.clear()
+	days.day = 1
+	assert_true(save.load_save())
+	assert_eq(GameState.score, 37)
+	assert_eq(days.day, 2)
+	assert_true(f.has_upgrade("axe"))
+	assert_eq(f.goods_basket, {"Egg": 2})
+	assert_true(plot.tilled and plot.has_crop() and plot.crop == 1)
+	assert_near(plot.growth, 12.0, 0.01)
+	save.clear()
+	assert_false(save.load_save(), "cleared: nothing to load")

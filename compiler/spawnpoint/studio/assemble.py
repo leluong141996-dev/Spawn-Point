@@ -73,6 +73,11 @@ def contrast(a: str, b: str) -> float:
     return (hi + 0.05) / (lo + 0.05)
 
 
+def farm_slug(title: str) -> str:
+    """A save-file name for a farm game's title ("Sunny Farm" -> "sunny-farm")."""
+    return re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:40] or "farm"
+
+
 def pickup_color(name: str, pal: dict[str, Any]) -> str:
     """Colour named by the pickup (first matching word), unless it blends into the background more than the
     palette's own pickup colour does (sprites keep a dark outline, so light palettes stay readable)."""
@@ -108,6 +113,9 @@ FARM_CROP_COLORS = {"strawberry": "#e83a4a", "potato": "#c8986a", "carrot": "#ff
                     "onion": "#f4ece0", "eggplant": "#8a4ac8", "blueberry": "#4a6ae8", "turnip": "#c84a9a"}
 FARM_DAYS = {"short": 2, "medium": 3, "long": 4}  # days in a farming season
 FARM_START_MONEY = 15  # enough for the first seeds
+# Tool upgrades at the workbench: (key, name, price); see ToolBenchComponent.
+FARM_UPGRADES = (("basket", "Big basket", 30), ("can", "Watering can", 45), ("hoe", "Hoe", 35), ("axe", "Axe", 40),
+                 ("rod", "Fishing rod", 30))
 FARM_GOODS = (("Egg", 6), ("Milk", 14), ("Fish", 10), ("Wood", 3), ("Stone", 4))
 FARM_ISLAND = {"ocean": True, "forest": False, "desert": False}  # an ocean farm is an island, a forest farm a meadow
 FARM_SEASON = {"snow": "winter", "desert": "desert", "lava": "autumn"}  # the theme sets the season (spring otherwise)
@@ -132,6 +140,7 @@ FARM_OBJECTS: dict[str, tuple[str, dict]] = {
     "stump": ("Stump", {"base": (22, 12)}), "flower_bush": ("FlowerBush", {"base": (24, 12)}),
     "hay": ("Hay", {"base": (28, 14)}), "barrel": ("Barrel", {"base": (24, 14)}), "well": ("Well", {"base": (44, 28)}),
     "scarecrow": ("Scarecrow", {"base": (12, 10)}), "signpost": ("Signpost", {"base": (12, 8)}),
+    "workbench": ("Workbench", {"base": (40, 14)}),
     "bed": ("Bed", {"base": (28, 56)}), "fireplace": ("Fireplace", {"base": (60, 20)}), "table": ("Table", {"base": (56, 20)}),
     "chair": ("Chair", {"base": (20, 12)}), "dresser": ("Dresser", {"base": (44, 16)}),
     "potted_plant": ("PottedPlant", {"base": (16, 12)}),
@@ -380,7 +389,8 @@ class _Assembler:
                                                        "acceleration": 2200}, "PlayerInput": {},
                                   "Farmer": {"crops": ";".join(crop_entries), "goods": ";".join(goods), "reach": 46,
                                              "basket_size": 16, "buy_seeds": True},
-                                  "FarmDays": {"days": days, "day_seconds": day_seconds}}
+                                  "FarmDays": {"days": days, "day_seconds": day_seconds},
+                                  "FarmSave": {"slot": f"{farm_slug(b.title or 'farm')}-{self.seed}"}}
         if "dash" in b.player.abilities:
             comps["TopDownMovement"]["dash_speed"] = 600.0
         self.entities["Player"] = {"shape": {"type": "circle", "size": [18, 18], "color": pal["player"]},
@@ -423,6 +433,8 @@ class _Assembler:
                        "components": {}}
                 if kind == "bed":
                     ent["components"]["SleepSpot"] = {}
+                if kind == "workbench":
+                    ent["components"]["ToolBench"] = {"offers": ";".join(f"{k}|{n}|{p}" for k, n, p in FARM_UPGRADES)}
                 if "gather" in spec:
                     item, hits, amount, chips = spec["gather"]
                     ent["components"]["Gatherable"] = {"item": item, "hits": hits, "amount": amount, "chip_color": chips,

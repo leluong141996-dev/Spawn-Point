@@ -8,7 +8,8 @@ extends Node
 const SP_NAME := "FarmAnimal"
 const SP_HOSTS: Array[String] = ["CharacterBody2D"]
 const SP_REQUIRES: Array[String] = []
-const SP_INTERNAL: Array[String] = ["collect", "feed", "is_ready", "is_hungry", "home"]
+const SP_INTERNAL: Array[String] = ["collect", "feed", "is_ready", "is_hungry", "home", "snapshot", "restore",
+	"overnight"]
 const SP_CATEGORY := "core"
 
 ## Emitted when the farmer takes the product.
@@ -143,6 +144,21 @@ func _physics_process(delta: float) -> void:
 	_body.move_and_slide()
 	if _rest <= 0.0 and _body.global_position.distance_to(before) < speed * delta * 0.2:
 		_rest = _rng.randf_range(0.5, 1.5)  # bumped into a fence: think again
+
+
+## The animal's state as plain data (see [FarmSaveComponent]).
+func snapshot() -> Dictionary:
+	return {"hungry": _hungry, "ready": _has_product, "until": _until_ready, "age": _age, "hx": home.x, "hy": home.y}
+
+
+func restore(d: Dictionary) -> void:
+	_hungry = bool(d.get("hungry", _hungry))
+	_has_product = bool(d.get("ready", false))
+	_until_ready = float(d.get("until", product_seconds))
+	_age = float(d.get("age", 0.0))
+	home = Vector2(float(d.get("hx", home.x)), float(d.get("hy", home.y)))
+	_target = home
+	_bubble.visible = _hungry or _has_product
 
 
 ## A night passes: a fed animal has its product ready by morning, and everyone is hungry again.

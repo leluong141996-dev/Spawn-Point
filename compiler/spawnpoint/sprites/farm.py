@@ -708,6 +708,24 @@ def paint_barrel(g: Fig, color: str, anim: str, i: int) -> None:
     _out(g)
 
 
+def paint_workbench(g: Fig, color: str, anim: str, i: int) -> None:
+    g.ellipse(12, 17, 11, 1.6, _c("#2c5a30", 110))
+    g.rect(1, 6, 22, 10, WOOD)  # the top
+    g.rect(1, 6, 22, 6, WOOD_LIGHT)
+    g.rect(1, 10, 22, 10, WOOD_DARK)
+    g.rect(2, 11, 3, 17, WOOD_DARK)  # legs and a shelf
+    g.rect(20, 11, 21, 17, WOOD_DARK)
+    g.rect(2, 14, 21, 14, WOOD)
+    g.rect(4, 3, 11, 5, STONE)  # a saw
+    g.rect(4, 5, 11, 5, STONE_DARK)
+    g.rect(12, 3, 14, 5, _c("#c84a3a"))
+    g.rect(16, 2, 17, 5, WOOD_LIGHT)  # a hammer
+    g.rect(14, 1, 19, 2, STONE_DARK)
+    g.rect(5, 12, 8, 13, _c("#4a7ad0"))  # a watering can on the shelf
+    g.rect(14, 12, 18, 13, _c("#e8c25a"))
+    _out(g)
+
+
 def paint_sign(g: Fig, color: str, anim: str, i: int) -> None:
     g.rect(7, 8, 8, 15, WOOD_DARK)
     g.rect(1, 2, 14, 9, WOOD)
@@ -1378,6 +1396,7 @@ SPRITES: dict[str, tuple[tuple[int, int], dict[str, tuple[int, float, bool]], ob
     "hay": ((16, 16), {"idle": (1, 1, False)}, paint_hay, "#e8c25a"),
     "barrel": ((16, 16), {"idle": (1, 1, False)}, paint_barrel, "#9a5e36"),
     "signpost": ((16, 16), {"idle": (1, 1, False)}, paint_sign, "#9a5e36"),
+    "workbench": ((24, 18), {"idle": (1, 1, False)}, paint_workbench, "#9a5e36"),
     "flower_bush": ((16, 16), {"idle": (1, 1, False)}, paint_flower_bush, "#ff8fb4"),
     "fence_h": ((16, 16), {"idle": (1, 1, False)}, paint_fence_h, "#9a5e36"),
     "fence_v": ((16, 16), {"idle": (1, 1, False)}, paint_fence_v, "#9a5e36"),

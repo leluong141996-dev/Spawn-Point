@@ -161,7 +161,10 @@ water and harvest; feed the hens and the cow, then collect eggs and milk (chicks
 shore (cast, wait for the bite, reel in on the "!"); chop trees and break rocks for wood and stone; carry it all to the
 shipping bin, while crows, foxes, rabbits or mice go for your crops. Step through the farmhouse door for a cozy room
 inside (bed, fireplace, table, rug). Maps vary: the house on either side, the field and the pen swapping places, the
-pond moving around. On a phone, ACT does all of it and a tap on a seed in the bar picks it. The
+pond moving around. The workbench by the house sells tool upgrades (a watering can and a hoe that work a
+3x3 patch, a bigger basket, a sharper axe, a better rod), and the farm saves itself: close the game and it carries on
+where you left it (a won or lost season, or R, starts a fresh one). On a phone, ACT does all of it and a tap on a seed in
+the bar picks it. The
 hotbar shows your seeds and basket. You walk behind trees and the house (the scene is depth-sorted), and only an
 object's footprint blocks you. `spawnpoint overview <project>` saves a picture of the whole map after a short autopilot
 run, like the one above.
@@ -380,7 +383,7 @@ headless smoke test (spawn, scripted input, crash detection) and report `E_RUNTI
 | Game modes | `BubbleBoard` (a complete bubble shooter: bank shots, colour pops, falling clusters, a descending ceiling) |
 | Shooters | `FlightPath` (straight, wave, dive and hover patterns across the screen), `ShmupShip` (auto-fire, power-ups that add shots and spread), `HealthBar` (boss bars), and `WaveSpawner` gates (`autostart`, `endless`, random spread) |
 | Tower defense | `PathFollower` (walks the road to the base), `Base` (loses a life per invader that gets in), `WaveSpawner` ("8 x Goblin every 1.2; ..."), `TowerSlot`, `TowerBuilder` (click a pad, pay in gold), `TowerBrain` (targets the invader furthest along), `GroundPatch` (roads and paths) |
-| Farming | `FarmPlot` (soil that grows a crop only while watered, drawn from its growth stages), `Farmer` (till / plant / water / harvest, buy seeds, feed, collect, fish, chop, sleep, a basket and a tappable hotbar), `FarmAnimal` (wanders, needs feeding, gives eggs or milk, chicks grow up), `FarmDays` (a season of days with day and night), `SleepSpot` (a bed), `Gatherable` (trees and rocks that break into wood and stone), `FishingSpot` (cast, bite, reel in), `Warp` (doorways, e.g. into the farmhouse), `Market` (a stall or a shipping bin that buys the basket), `CropPest` (crows that eat crops) |
+| Farming | `FarmPlot` (soil that grows a crop only while watered, drawn from its growth stages), `Farmer` (till / plant / water / harvest, buy seeds, feed, collect, fish, chop, sleep, a basket and a tappable hotbar), `FarmAnimal` (wanders, needs feeding, gives eggs or milk, chicks grow up), `FarmDays` (a season of days with day and night), `SleepSpot` (a bed), `ToolBench` (tool upgrades), `FarmSave` (keeps the farm between plays), `Gatherable` (trees and rocks that break into wood and stone), `FishingSpot` (cast, bite, reel in), `Warp` (doorways, e.g. into the farmhouse), `Market` (a stall or a shipping bin that buys the basket), `CropPest` (crows that eat crops) |
 | Feel | `Juice` — attached to every entity unless `"juice": "none"` |
 
 Runtime autoloads: `GameState` (score, lives, variables, win/lose), `World` (spawning, rule

@@ -672,15 +672,7 @@
           "doc": "Emitted when it has grown up (just before it is replaced)."
         }
       ],
-      "methods": [
-        {
-          "name": "overnight",
-          "args": [],
-          "default_count": 0,
-          "returns": "Nil",
-          "doc": "A night passes: a fed animal has its product ready by morning, and everyone is hungry again."
-        }
-      ],
+      "methods": [],
       "doc": "A farm animal: wanders around where it was placed, and every [member product_seconds] has something to give (an egg, milk) that a [FarmerComponent] collects with interact. A speech bubble shows when it is ready. With [member needs_food] it first has to be fed (a hay bubble; interact feeds it), and again after each product. A young animal with [member grows_into] turns into that entity after [member grow_seconds]."
     },
     {
@@ -886,42 +878,46 @@
           "doc": "Emitted when a pest eats the crop."
         }
       ],
-      "methods": [
+      "methods": [],
+      "doc": "A patch of soil for farming games. A [FarmerComponent] plants a crop here, waters it and harvests it when ripe. The crop only grows while the soil is wet, and the soil dries after [member water_seconds]. Pests ([CropPestComponent]) can eat what grows here."
+    },
+    {
+      "name": "FarmSave",
+      "class": "FarmSaveComponent",
+      "script": "res://addons/spawn_point/components/farm_save_component.gd",
+      "base": "Node",
+      "hosts": [],
+      "requires": [],
+      "category": "core",
+      "entity_params": [],
+      "params": [
         {
-          "name": "till",
-          "args": [],
-          "default_count": 0,
-          "returns": "bool",
-          "doc": "Turns grass into soil (the hoe). Returns false when it already was soil."
+          "name": "slot",
+          "type": "String",
+          "hint": "",
+          "hint_string": "",
+          "default": "farm",
+          "doc": "Name of the save (one per game)."
         },
         {
-          "name": "overnight",
-          "args": [
-            {
-              "name": "share",
-              "type": "float"
-            }
-          ],
-          "default_count": 0,
-          "returns": "Nil",
-          "doc": "A night passes: a crop that was watered today grows [param share] of its growing time; the soil dries."
-        },
-        {
-          "name": "progress",
-          "args": [],
-          "default_count": 0,
-          "returns": "float",
-          "doc": "Growth as 0..1 (1 when ripe)."
-        },
-        {
-          "name": "stage",
-          "args": [],
-          "default_count": 0,
-          "returns": "int",
-          "doc": "Which picture of the crop to show: 0 seeds .. 4 ripe."
+          "name": "every",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "2.0,600.0,1.0",
+          "default": 15.0,
+          "doc": "Seconds between autosaves."
         }
       ],
-      "doc": "A patch of soil for farming games. A [FarmerComponent] plants a crop here, waters it and harvests it when ripe. The crop only grows while the soil is wet, and the soil dries after [member water_seconds]. Pests ([CropPestComponent]) can eat what grows here."
+      "state": [],
+      "signals": [
+        {
+          "name": "restored",
+          "args": [],
+          "doc": "Emitted after a save was loaded."
+        }
+      ],
+      "methods": [],
+      "doc": "Keeps a farm between plays: the day and the time, the money, the basket, the tools, every plot, the animals and which trees and rocks are gone are written to user:// (the browser's storage on the web) each morning and every [member every] seconds. Opening the game again carries on where it was left; the save is deleted when the season is won or lost (or the player restarts with R), so the next game starts fresh. Put it on the farmer. Bots and recordings (the root's \"sp_autopilot\" mark) neither load nor save, so they always see a fresh farm and leave no save behind."
     },
     {
       "name": "Farmer",
@@ -1002,6 +998,10 @@
         {
           "name": "goods_basket",
           "type": "Dictionary"
+        },
+        {
+          "name": "upgrades",
+          "type": "Dictionary"
         }
       ],
       "signals": [
@@ -1023,23 +1023,10 @@
               "type": "String"
             }
           ],
-          "doc": "Emitted after each action: \"till\", \"plant\", \"water\", \"harvest\", \"feed\", \"collect\", \"chop\", \"gather\", \"cast\" or \"catch\"."
+          "doc": "Emitted after each action: \"till\", \"plant\", \"water\", \"harvest\", \"feed\", \"collect\", \"chop\", \"gather\", \"cast\", \"catch\", \"sleep\", \"browse\" or \"upgrade\"."
         }
       ],
-      "methods": [
-        {
-          "name": "seed_cost",
-          "args": [
-            {
-              "name": "index",
-              "type": "int"
-            }
-          ],
-          "default_count": 0,
-          "returns": "int",
-          "doc": "What a packet of the crop's seeds costs."
-        }
-      ],
+      "methods": [],
       "doc": "The player's farming hands. Press interact (Space / E) next to something: grass where a plot goes is tilled with the hoe, an empty plot gets the selected seed, a growing one gets water, a ripe one is harvested into the basket; a [FarmAnimalComponent] gives its egg or milk; a [GatherableComponent] tree or rock takes a hit (and gives wood or stone when it breaks); at a [FishingSpotComponent] the first press casts and the next one, when a fish bites, reels it in. A hungry animal is fed first. Keys 1-9 choose the seed. Walk into a [MarketComponent] (a stall or a shipping bin) to sell the basket.\n[member crops] is a \";\"-separated list of \"Name|#color|grow seconds|price\", optionally followed by \"|growth stages picture|icon picture\" (res:// paths). [member goods] prices everything else the basket can hold: \"Name|price|icon picture;...\" (eggs, milk, wood, stone)."
     },
     {
@@ -2645,6 +2632,46 @@
       ],
       "methods": [],
       "doc": "Platformer \"jump on their head\" attack: landing on an enemy from above damages it and bounces this entity up. Grants a moment of invincibility so the enemy's contact damage does not trigger in the same frame."
+    },
+    {
+      "name": "ToolBench",
+      "class": "ToolBenchComponent",
+      "script": "res://addons/spawn_point/components/tool_bench_component.gd",
+      "base": "Node",
+      "hosts": [],
+      "requires": [],
+      "category": "core",
+      "entity_params": [],
+      "params": [
+        {
+          "name": "offers",
+          "type": "String",
+          "hint": "",
+          "hint_string": "",
+          "default": "can|Watering can|40;hoe|Hoe|30;basket|Big basket|25;axe|Axe|35;rod|Fishing rod|25",
+          "doc": "Upgrades for sale (see the class description)."
+        }
+      ],
+      "state": [
+        {
+          "name": "offer_list",
+          "type": "Array"
+        }
+      ],
+      "signals": [
+        {
+          "name": "bought",
+          "args": [
+            {
+              "name": "key",
+              "type": "String"
+            }
+          ],
+          "doc": "Emitted after a purchase with the upgrade's key."
+        }
+      ],
+      "methods": [],
+      "doc": "A workbench that sells tool upgrades to a [FarmerComponent]. Interact once to see the next upgrade and its price, again (within a few seconds) to buy it; interacting after that shows the next one.\n[member offers] is a \";\"-separated list of \"key|Name|price\": keys are can (waters a 3x3 patch), hoe (tills a 3x3 patch), basket (8 more room), axe (two hits a swing) and rod (fish stay on the hook longer)."
     },
     {
       "name": "TopDownMovement",

@@ -14,7 +14,7 @@ ART_MONSTERS = ("Skeleton", "Zombie", "Ghost", "Dragon", "Spider", "Snake", "Wol
 ART_PICKUPS = ("Coin", "Gem", "Star", "Key", "Potion", "Scroll", "Chest")
 FARM_LINE = ('Farms: crops are named in English: "dâu tây" = Strawberry, "nho" = Grape, "cà rốt" = Carrot, "bí ngô"/"bí đỏ" = Pumpkin,'
              ' "khoai tây" = Potato, "ngô"/"bắp" = Corn, "lúa" = Wheat, "cà chua" = Tomato, "bắp cải" = Cabbage; pests too:'
-             ' "quạ" = Crow, "cáo" = Fox, "thỏ" = Rabbit, "chuột" = Mouse. The palette sets the season: an island farm ("trên đảo")'
+             ' "quạ" = Crow, "cáo" = Fox, "thỏ" = Rabbit, "chuột" = Rat. The palette sets the season: an island farm ("trên đảo")'
              ' is ocean, a farm in the woods forest, a winter farm ("mùa đông", snow) snow, a desert farm desert, an autumn farm'
              ' ("mùa thu") lava.')
 ART_LINE = (f"Names choose the art, so use concrete nouns: heroes like {', '.join(ART_HEROES)} (a Ranger or Archer has a bow"

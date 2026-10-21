@@ -56,7 +56,7 @@ class CozyFarm:
 # Objects the assembler turns into entities.
 OBJECT_KINDS = ("farmhouse", "coop", "fence_h", "fence_v", "fence_post", "tree_oak", "tree_pine", "tree_blossom",
                 "tree_fruit", "tree_maple", "tree_snowy_pine", "tree_bare", "tree_palm", "cactus", "boulder", "stump",
-                "flower_bush", "hay", "barrel", "well", "scarecrow", "signpost",
+                "flower_bush", "hay", "barrel", "well", "scarecrow", "signpost", "workbench",
                 "bed", "fireplace", "table", "chair", "dresser", "potted_plant")
 # What grows around the farm in each season: (tree kinds, weights), and the small things scattered between them.
 SEASON_TREES = {
@@ -134,6 +134,7 @@ def cozy_farm(seed: int, length: str = "medium", plot_target: int = 12, island: 
     put("signpost", (hx - 1, road - 1))
     put("well", (hx - 4, hy + 2)) if hx - 4 > m else None
     put("barrel", (hx + 4, hy + 2))
+    put("workbench", (hx - 2, hy + 2))
 
     # Two fenced zones: the crop field and the animal pen. One sits above the road to the right of the house
     # (gate at the bottom), the other below the road on the left (gate at the top); which is which varies.

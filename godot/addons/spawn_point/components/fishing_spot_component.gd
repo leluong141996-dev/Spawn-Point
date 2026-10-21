@@ -29,6 +29,7 @@ signal caught(item: String)
 var state := State.IDLE
 var bite_left := 0.0
 var _wait := 0.0
+var _bite_scale := 1.0
 var _entity: Node2D
 var _view: Node2D
 var _t := 0.0
@@ -46,12 +47,13 @@ func _ready() -> void:
 	_entity.add_child.call_deferred(_view)
 
 
-## One press of interact: cast, or reel in. Returns the catch's name on a catch, "cast" on a cast, "" otherwise.
-func use() -> String:
+## One press of interact: cast (a better rod's [param bite_scale] keeps the fish on longer), or reel in. Returns the catch's name on a catch, "cast" on a cast, "" otherwise.
+func use(bite_scale := 1.0) -> String:
 	match state:
 		State.IDLE:
 			state = State.WAITING
 			_wait = _rng.randf_range(min_wait, max_wait)
+			_bite_scale = bite_scale
 			return "cast"
 		State.BITE:
 			state = State.IDLE
@@ -75,7 +77,7 @@ func _physics_process(delta: float) -> void:
 		_wait -= delta
 		if _wait <= 0.0:
 			state = State.BITE
-			bite_left = bite_time
+			bite_left = bite_time * _bite_scale
 			if Sfx.has_sound("blip"):
 				Sfx.play("blip", 0.0, -2.0, 1.8)
 	elif state == State.BITE:

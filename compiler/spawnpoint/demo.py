@@ -55,7 +55,7 @@ SHOWCASE = [
      "Move: arrows / WASD | Dash: Shift | Pick an upgrade: 1 / 2 / 3 or click | Restart: R",
      {"pad": "dpad", "buttons": [["DASH", "ShiftLeft"]], "tap": "Move with the stick - you shoot on your own"}),
     ("sunny_farm.json", "farming",
-     "A cozy island farm over three days: buy seeds, till and grow strawberries, carrots and pumpkins, feed the hens and the cow, fish in the pond, chop wood, sleep in the farmhouse, and sell it all at the shipping bin.",
+     "A cozy island farm over three days: buy seeds, till and grow strawberries, carrots and pumpkins, feed the hens and the cow, fish in the pond, chop wood, sleep in the farmhouse, upgrade your tools, and sell it all at the shipping bin. Your farm is saved as you play.",
      "Move: arrows / WASD | Till, plant, water, harvest, feed, fish, chop, go in, sleep: Space / E | Seed: 1 / 2 / 3 or click it | Shoo crows: X | Restart: R",
      {"pad": "dpad", "buttons": [["ACT", "Space"], ["SHOO", "KeyX"]],
       "tap": "ACT works the field, feeds, fishes and opens doors; tap a seed in the bar to choose it"}),
