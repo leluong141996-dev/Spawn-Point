@@ -18,20 +18,20 @@
     "terrain": [
       "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
       "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
-      "~~.................~~~~~........~~",
-      "~~.................~~~~~........~~",
+      "~~........~~~~~.................~~",
+      "~~........~~~~~.................~~",
       "~~..............................~~",
       "~~..........,,,,,,,,,,..........~~",
-      "~~..........,,,,,,,,,,........~~~~",
-      "~~....:.....,,,,,,,,,,........~~~~",
-      "~~....:.....,,,,,,,,,,........~~~~",
-      "~~~...:..........:............~~~~",
+      "~~~~........,,,,,,,,,,..........~~",
+      "~~~~........,,,,,,,,,,.....:....~~",
+      "~~~~........,,,,,,,,,,.....:....~~",
+      "~~~~............:..........:...~~~",
       "~~~::::::::::::::::::::::::::::~~~",
-      "~~~.....:.....................~~~~",
-      "~~............................~~~~",
-      "~~....................~~......~~~~",
-      "~~...................~~~~.......~~",
-      "~~...................~~~........~~",
+      "~~~~.....................:.....~~~",
+      "~~~~............................~~",
+      "~~~~......~~....................~~",
+      "~~.......~~~~...................~~",
+      "~~........~~~...................~~",
       "~~..............................~~",
       "~~..............................~~",
       "~~..............................~~",
@@ -100,6 +100,10 @@
         "of": "Pumpkin",
         "color": "#ff9a2a"
       },
+      "icon_hay": {
+        "kind": "item_icon",
+        "of": "hay"
+      },
       "icon_egg": {
         "kind": "item_icon",
         "of": "egg"
@@ -134,7 +138,12 @@
           "crops": "Strawberry|#e83a4a|8|4|res://sprites/art_crop_Strawberry.png|res://sprites/art_icon_Strawberry.png;Carrot|#ff8a2a|14|9|res://sprites/art_crop_Carrot.png|res://sprites/art_icon_Carrot.png;Pumpkin|#ff9a2a|24|20|res://sprites/art_crop_Pumpkin.png|res://sprites/art_icon_Pumpkin.png",
           "goods": "Egg|6|res://sprites/art_icon_egg.png;Milk|14|res://sprites/art_icon_milk.png;Fish|10|res://sprites/art_icon_fish.png;Wood|3|res://sprites/art_icon_wood.png;Stone|4|res://sprites/art_icon_stone.png",
           "reach": 46,
-          "basket_size": 16
+          "basket_size": 16,
+          "buy_seeds": true
+        },
+        "FarmDays": {
+          "days": 3,
+          "day_seconds": 75
         },
         "Aim": {
           "mode": "movement"
@@ -194,6 +203,7 @@
         "FarmPlot": {
           "water_seconds": 6.0,
           "size": 30,
+          "growth_rate": 1.0,
           "tilled": false,
           "soil_texture": "res://sprites/art_soil.png",
           "wet_texture": "res://sprites/art_soil_wet.png"
@@ -484,7 +494,9 @@
         28,
         56
       ],
-      "components": {},
+      "components": {
+        "SleepSpot": {}
+      },
       "sprite": {
         "generate": {
           "kind": "bed",
@@ -608,7 +620,7 @@
       "components": {
         "Warp": {
           "to": [
-            208.0,
+            880.0,
             272.0
           ],
           "hint": "Go out"
@@ -650,7 +662,7 @@
       "components": {
         "FishingSpot": {
           "water_dir": [
-            1,
+            -1,
             0
           ],
           "min_wait": 1.5,
@@ -687,6 +699,8 @@
           "product": "Egg",
           "product_seconds": 18,
           "icon": "res://sprites/art_icon_egg.png",
+          "needs_food": true,
+          "food_icon": "res://sprites/art_icon_hay.png",
           "wander_radius": 56.0,
           "speed": 26.0
         }
@@ -711,6 +725,10 @@
           "product": "",
           "product_seconds": 600,
           "icon": "",
+          "needs_food": false,
+          "food_icon": "res://sprites/art_icon_hay.png",
+          "grows_into": "Chicken",
+          "grow_seconds": 75,
           "wander_radius": 56.0,
           "speed": 34.0
         }
@@ -735,6 +753,8 @@
           "product": "Milk",
           "product_seconds": 30,
           "icon": "res://sprites/art_icon_milk.png",
+          "needs_food": true,
+          "food_icon": "res://sprites/art_icon_hay.png",
           "wander_radius": 56.0,
           "speed": 26.0
         }
@@ -766,11 +786,15 @@
           "size_scale": 1.2
         }
       },
+      "base": [
+        16,
+        12
+      ],
       "sprite": {
         "generate": {
-          "kind": "flyer",
-          "color": "#ff004d",
-          "seed": 7
+          "kind": "crow",
+          "seed": 7,
+          "color": "#3a3448"
         }
       }
     },
@@ -800,24 +824,24 @@
     "map": [
       "##################################",
       "##################################",
-      "##........k.l.l.ml.#####o..o..o.##",
-      "##on...............#####........##",
-      "##.........deeeeeeeeeed.....k.o.##",
-      "##o........g..........g...m.....##",
-      "##....a....g.ff.ff.ff.g.o..l..####",
-      "##k...y..Mcg.ff.ff.ff.g......p####",
-      "##..o.P....g...h......gp......####",
-      "###..b.....deeeee.eeeed.......####",
+      "##.o..o..o#####.lm.l.l.k........##",
+      "##........#####...............no##",
+      "##.o.k.....deeeeeeeeeed.........##",
+      "##.....m...g..........g........o##",
+      "####..l..o.g.ff.ff.ff.g....a....##",
+      "####p......g.ff.ff.ff.gcM..y...k##",
+      "####......pg......h...g....P.o..##",
+      "####.......deeee.eeeeed.....b..###",
       "###............................###",
-      "###deeee.eeed.................####",
-      "##lg.......jg..l.......A......####",
-      "##.g.i......g.........##.....o####",
-      "##.g..C.C.C.gm......B####......l##",
-      "##.g........g........###........##",
-      "##.g..D.E...g.k............m.k..##",
-      "##pdeeeeeeeed.........k.l......o##",
-      "##.....o.k.p..k...o.........o...##",
-      "##l.p...........l......p..p...l.##",
+      "####.................deee.eeeed###",
+      "####......A.......l..g........gl##",
+      "####o.....##.........g......i.g.##",
+      "##l......####B......mg.C.C.C..g.##",
+      "##........###........g........g.##",
+      "##..k.m............k.gj..E.D..g.##",
+      "##o......l.k.........deeeeeeeedp##",
+      "##...o.........o...k..p.k.o.....##",
+      "##.l...p..p......l...........p.l##",
       "##################################",
       "##################################",
       "##################################",
@@ -882,9 +906,9 @@
     {
       "on": "Game.ready",
       "do": [
-        "set_var('time_limit', 180)",
         "set_var('score_label', 'MONEY')",
-        "message('Earn $250 before sunset!')"
+        "add_score(15)",
+        "message('Earn $350 in 3 days!')"
       ]
     },
     {
@@ -896,17 +920,17 @@
     },
     {
       "on": "GameState.score_changed",
-      "if": "score >= 250",
+      "if": "score >= 350",
       "do": [
         "message('What a harvest!')",
         "win()"
       ]
     },
     {
-      "on": "GameState.second_passed",
-      "if": "event.seconds >= 180",
+      "on": "Player.FarmDays.season_ended",
+      "if": "score < 350",
       "do": [
-        "message('The sun has set')",
+        "message('The season is over')",
         "lose()"
       ]
     },

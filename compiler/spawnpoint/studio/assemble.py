@@ -106,10 +106,14 @@ FARM_CROP_PAL = {"pickup": "#ff9f1c", "bg": "#4f8a3a"}
 FARM_CROP_COLORS = {"strawberry": "#e83a4a", "potato": "#c8986a", "carrot": "#ff8a2a", "tomato": "#e83a3a",
                     "pumpkin": "#ff9a2a", "corn": "#ffd84a", "cabbage": "#8ad860", "wheat": "#e8c25a",
                     "onion": "#f4ece0", "eggplant": "#8a4ac8", "blueberry": "#4a6ae8", "turnip": "#c84a9a"}
+FARM_DAYS = {"short": 2, "medium": 3, "long": 4}  # days in a farming season
+FARM_START_MONEY = 15  # enough for the first seeds
 FARM_GOODS = (("Egg", 6), ("Milk", 14), ("Fish", 10), ("Wood", 3), ("Stone", 4))
 FARM_ISLAND = {"ocean": True, "forest": False, "desert": False}  # an ocean farm is an island, a forest farm a meadow
 FARM_SEASON = {"snow": "winter", "desert": "desert", "lava": "autumn"}  # the theme sets the season (spring otherwise)
 FARM_TREE_COLORS = {"autumn": {"tree_oak": "#e8922a"}}  # the same tree in another season's colours
+# How the season changes the farming: crops grow slower in winter, the soil dries faster in the desert.
+FARM_SEASON_PLAY = {"spring": (1.0, 1.0), "autumn": (0.9, 1.0), "winter": (0.65, 1.3), "desert": (0.9, 0.6)}
 # object kind -> (entity name, {"base": footprint px, "gather": (item, hits, amount, chip colour)})
 FARM_OBJECTS: dict[str, tuple[str, dict]] = {
     "farmhouse": ("Farmhouse", {"base": (150, 56)}), "coop": ("Coop", {"base": (72, 30)}),
@@ -356,6 +360,10 @@ class _Assembler:
         fm = farmgen.cozy_farm(self.seed, b.length, plot_target={"short": 8, "medium": 12, "long": 16}.get(b.length, 12),
                                island=FARM_ISLAND.get(b.palette), season=season)
         target, minutes = self._farm_target(), self._farm_seconds()
+        days = FARM_DAYS.get(b.length, 3)
+        day_seconds = round(max(55.0, minutes * 1.25 / days))
+        if b.score_target == DEFAULT_SCORE_TARGET:  # a season of several days, and seeds to buy: a bigger goal
+            target = round(target * 1.4 / 10) * 10
         art: dict[str, dict] = {"soil": {"kind": "soil"}, "soil_wet": {"kind": "soil_wet"}}
         crop_entries = []
         for c, (grow, price) in zip(b.crops, FARM_CROPS):
@@ -363,6 +371,7 @@ class _Assembler:
             art[f"crop_{c}"] = {"kind": "crop", "of": c, "color": color}
             art[f"icon_{c}"] = {"kind": "crop_icon", "of": c, "color": color}
             crop_entries.append(f"{c}|{color}|{grow}|{price}|res://sprites/art_crop_{c}.png|res://sprites/art_icon_{c}.png")
+        art["icon_hay"] = {"kind": "item_icon", "of": "hay"}
         goods = []
         for item, price in FARM_GOODS:
             art[f"icon_{item.lower()}"] = {"kind": "item_icon", "of": item.lower()}
@@ -370,7 +379,8 @@ class _Assembler:
         comps: dict[str, dict] = {"TopDownMovement": {"max_speed": round(190 * SPEED[b.player.speed]),
                                                        "acceleration": 2200}, "PlayerInput": {},
                                   "Farmer": {"crops": ";".join(crop_entries), "goods": ";".join(goods), "reach": 46,
-                                             "basket_size": 16}}
+                                             "basket_size": 16, "buy_seeds": True},
+                                  "FarmDays": {"days": days, "day_seconds": day_seconds}}
         if "dash" in b.player.abilities:
             comps["TopDownMovement"]["dash_speed"] = 600.0
         self.entities["Player"] = {"shape": {"type": "circle", "size": [18, 18], "color": pal["player"]},
@@ -383,7 +393,8 @@ class _Assembler:
             self._melee_or_gust(comps)
             comps["Aim"] = {"mode": "movement"}  # the farmer faces where it walks, sword or not
         self.entities["Plot"] = {"body": "area", "juice": "none", "shape": {"type": "none", "size": [30, 30]},
-                                 "components": {"FarmPlot": {"water_seconds": round(7.0 - 0.5 * d, 1), "size": 30,
+                                 "components": {"FarmPlot": {"water_seconds": round((7.0 - 0.5 * d) * FARM_SEASON_PLAY[season][1], 1),
+                                                             "size": 30, "growth_rate": FARM_SEASON_PLAY[season][0],
                                                              "tilled": False,  # the hoe comes first
                                                              "soil_texture": "res://sprites/art_soil.png",
                                                              "wet_texture": "res://sprites/art_soil_wet.png"}}}
@@ -410,6 +421,8 @@ class _Assembler:
                        "farm_color": FARM_TREE_COLORS.get(season, {}).get(kind),
                        "shape": {"type": "rect", "size": list(spec["base"]), "color": spec.get("color", "#9a5e36")},
                        "components": {}}
+                if kind == "bed":
+                    ent["components"]["SleepSpot"] = {}
                 if "gather" in spec:
                     item, hits, amount, chips = spec["gather"]
                     ent["components"]["Gatherable"] = {"item": item, "hits": hits, "amount": amount, "chip_color": chips,
@@ -444,6 +457,8 @@ class _Assembler:
                     "shape": {"type": "circle", "size": list(base), "color": "#f4ece0"},
                     "components": {"FarmAnimal": {"product": product, "product_seconds": round(seconds * (0.8 + 0.1 * d)) if product else 600,
                                                   "icon": f"res://sprites/art_icon_{product.lower()}.png" if product else "",
+                                                  "needs_food": bool(product), "food_icon": "res://sprites/art_icon_hay.png",
+                                                  **({"grows_into": "Chicken", "grow_seconds": 75} if kind == "chick" else {}),
                                                   "wander_radius": 56.0, "speed": 26.0 if kind != "chick" else 34.0}}}
             place(name, c)
         for i, e in enumerate(b.enemies[:3]):
@@ -463,17 +478,17 @@ class _Assembler:
         rows = []
         for y in range(fm.height):
             rows.append("".join(cells.get((x, y), "#" if (x, y) in fm.solid else ".") for x in range(fm.width)).rstrip("."))
-        intro = b.intro or f"Earn ${target} before sunset!"
+        intro = b.intro or f"Earn ${target} in {days} days!"
         if intro in (f"Score {b.score_target} points!", f"Earn ${b.score_target} before sunset!"):
-            intro = f"Earn ${target} before sunset!"  # the default intro follows the real target
+            intro = f"Earn ${target} in {days} days!"  # the default intro follows the real target
         rules = [
-            {"on": "Game.ready", "do": [f"set_var('time_limit', {minutes})", "set_var('score_label', 'MONEY')",
+            {"on": "Game.ready", "do": ["set_var('score_label', 'MONEY')", f"add_score({FARM_START_MONEY})",
                                         f"message({_q(intro)})"]},
             {"on": "GameState.second_passed", "if": "event.seconds == 4",
              "do": ["message('Space: till, plant, water, fish, chop')"]},
             {"on": "GameState.score_changed", "if": f"score >= {target}", "do": ["message('What a harvest!')", "win()"]},
-            {"on": "GameState.second_passed", "if": f"event.seconds >= {minutes}",
-             "do": ["message('The sun has set')", "lose()"]},
+            {"on": "Player.FarmDays.season_ended", "if": f"score < {target}",
+             "do": ["message('The season is over')", "lose()"]},
             {"on": "GameState.second_passed", "if": "event.seconds == 12",
              "do": ["message('Sell crops, eggs, milk and wood at the shipping bin')"]},
         ]

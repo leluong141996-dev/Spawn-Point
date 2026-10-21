@@ -141,6 +141,8 @@ var _path: Array[Vector2] = []
 var _goal := Vector2.INF
 var _chops := 0
 var _catches := 0
+var _last_pos := Vector2.ZERO
+var _still := 0
 var _skip := {}  # instance id -> frame until which the autopilot ignores it (it could not get there)
 
 
@@ -149,6 +151,11 @@ func _farm(p: CharacterBody2D, farmer: FarmerComponent, frame: int) -> void:
 	# tree now and then; sell when the basket is heavy or there is nothing to do; swat crows that come close.
 	# It walks along a path over the level grid, so fences and trees do not stop it.
 	farmer.select(int(frame / 600) % maxi(farmer.crop_list.size(), 1))
+	var can_plant := true
+	if farmer.buy_seeds:  # seeds cost money: plant what we can pay for, or nothing
+		while farmer.selected > 0 and GameState.score < farmer.seed_cost(farmer.selected):
+			farmer.select(farmer.selected - 1)
+		can_plant = GameState.score >= farmer.seed_cost(farmer.selected)
 	if frame % 120 == 20:
 		_blocked = _scan_blocked(p)
 	if _focus == "house":
@@ -170,6 +177,8 @@ func _farm(p: CharacterBody2D, farmer: FarmerComponent, frame: int) -> void:
 	for e in (get_tree().get_nodes_in_group(&"farm_plot") if want_plots else []):
 		var fp := SP.component(e, &"FarmPlot") as FarmPlotComponent
 		var need := 0.0 if fp.is_ripe() else (1.0 if fp.is_empty() else (2.0 if fp.wet_left <= 0.5 else INF))
+		if fp.is_empty() and fp.tilled and not can_plant:
+			need = INF
 		if need == INF or int(_skip.get(e.get_instance_id(), -1)) > frame:
 			continue
 		var score: float = need * 300.0 + (e as Node2D).global_position.distance_to(p.global_position)
@@ -180,7 +189,7 @@ func _farm(p: CharacterBody2D, farmer: FarmerComponent, frame: int) -> void:
 			on_plot = true
 	for e in (get_tree().get_nodes_in_group(&"farm_animal") if want_animals else []):
 		var an := SP.component(e, &"FarmAnimal") as FarmAnimalComponent
-		if an and an.is_ready() and int(_skip.get(e.get_instance_id(), -1)) <= frame:
+		if an and (an.is_ready() or an.is_hungry()) and int(_skip.get(e.get_instance_id(), -1)) <= frame:
 			var score: float = 150.0 + (e as Node2D).global_position.distance_to(p.global_position)
 			if score < best:
 				best = score
@@ -224,7 +233,18 @@ func _farm(p: CharacterBody2D, farmer: FarmerComponent, frame: int) -> void:
 	if target == Vector2.INF:
 		return
 	# Plots can be stood on, so stand right on the one to work (the farmer works the nearest thing).
-	var close := p.global_position.distance_to(target) < (10.0 if on_plot else farmer.reach * 1.1)
+	# (the farmer reaches animals and trees up to 1.25x its reach)
+	var close := p.global_position.distance_to(target) < (10.0 if on_plot else farmer.reach * 1.2)
+	if not close and target_id != 0:  # standing still against something: give up on it for a while
+		if p.global_position.distance_to(_last_pos) > 4.0:
+			_last_pos = p.global_position
+			_still = 0
+		else:
+			_still += 1
+			if _still > 60:
+				_skip[target_id] = frame + 900
+				_still = 0
+				_path.clear()
 	if close:
 		_path.clear()
 		if fishing:  # cast when idle, reel in only on a bite

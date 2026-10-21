@@ -1297,7 +1297,14 @@ def crop_icon(name: str, color: str) -> np.ndarray:
 def item_icon(item: str) -> np.ndarray:
     """16x16 icons for animal products and gathered materials: egg, milk, wood, stone, fish."""
     g = Fig(CELL, CELL)
-    if item == "fish":
+    if item == "hay":
+        g.rect(2, 6, 13, 13, _c("#e8c25a"))
+        g.rect(2, 6, 13, 7, _c("#f8de8a"))
+        g.rect(7, 6, 8, 13, _c("#9a6a2a"))
+        for k in range(5):
+            g.set(3 + k * 2, 3 + (k % 2), _c("#e8c25a"))
+            g.set(3 + k * 2, 4 + (k % 2), _c("#e8c25a"))
+    elif item == "fish":
         g.ellipse(7, 8, 5.4, 3.4, _c("#5aa8e0"))
         g.ellipse(6, 7, 3.4, 1.4, _c("#9ad4f8"))
         g.rect(4, 10, 9, 10, _c("#3a78b0"))
