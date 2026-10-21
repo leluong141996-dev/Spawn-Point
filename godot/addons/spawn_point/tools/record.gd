@@ -25,7 +25,7 @@ func _ready() -> void:
 	await get_tree().physics_frame
 	var player := World.player()
 	var aim := SP.component(player, &"Aim") if player else null
-	if aim:
+	if aim and SP.component(player, &"Farmer") == null:  # a farmer faces where it walks
 		aim.set(&"mode", "nearest_enemy")  # the mouse is not ours to move
 	var shot := 0
 	var ended_at := -1

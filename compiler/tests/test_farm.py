@@ -156,3 +156,10 @@ def test_doorways_stay_invisible():
     g = assemble(_farm_brief(), 2, seed=1)
     for name in ("HouseDoor", "DoorMat"):
         assert "sprite" not in g["entities"][name] and g["entities"][name]["shape"]["color"] == "#00000000"
+
+
+def test_the_farmer_faces_where_it_walks_even_with_a_sword():
+    for abilities in ([], ["sword"]):
+        b, _ = normalize(GameBrief(title="t", genre="farm", crops=["Carrot"], player={"character": "Farmer", "abilities": abilities},
+                                   enemies=[EnemyBrief(name="Crow", archetype="walker", count=2)]))
+        assert assemble(b, 2, seed=1)["entities"]["Player"]["components"]["Aim"]["mode"] == "movement"

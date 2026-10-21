@@ -381,6 +381,7 @@ class _Assembler:
             comps["Hurtbox"] = {}
         if b.enemies:
             self._melee_or_gust(comps)
+            comps["Aim"] = {"mode": "movement"}  # the farmer faces where it walks, sword or not
         self.entities["Plot"] = {"body": "area", "juice": "none", "shape": {"type": "none", "size": [30, 30]},
                                  "components": {"FarmPlot": {"water_seconds": round(7.0 - 0.5 * d, 1), "size": 30,
                                                              "tilled": False,  # the hoe comes first
