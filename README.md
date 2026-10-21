@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/logo.png" width="520" alt="Spawn Point: a sprout growing out of a glowing spawn pad, and the name in gold pixel letters"></p>
+
 # Spawn Point
 
 **Describe a 2D game in one sentence — get a playable, juicy Godot 4 game in seconds.**

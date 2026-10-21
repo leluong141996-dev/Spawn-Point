@@ -127,6 +127,8 @@ def build_site(out: Path, games: list[Game] | None = None, screenshots: bool = T
             share_engine(out, target)
             log(f"  {g.slug}: built (web export {seconds:.1f}s)")
     shutil.copy2(TOUCH_JS, out / "touch.js")  # every game page loads it (before the browser check)
+    from . import logo
+    logo.write(out)  # favicon.ico, logo.png and the icon sizes
     built = [g for g in games if (out / g.slug / "index.html").exists()]
     if screenshots:
         if webcheck.find_chrome() is None:
@@ -205,6 +207,8 @@ def index_html(games: list[Game]) -> str:
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Spawn Point demos</title>
+<link rel="icon" href="favicon.ico">
+<meta property="og:image" content="logo.png">
 <meta name="description" content="Nine Godot 4 games built with Spawn Point: platformers, a sword fighter, tower defense, a space shooter, a bubble shooter, a survivor, a farm. Play in your browser.">
 <meta property="og:title" content="Spawn Point demos: play Godot games in your browser">
 <meta property="og:description" content="A Mario-style platformer, a ninja rescue, a dinosaur-egg shooter, a survivor and an arena, all built from Spawn Point components.">
@@ -243,7 +247,7 @@ footer {{ color:var(--muted); font-size:13px; padding-bottom:40px }}
 </head>
 <body>
 <header>
-  <h1>Spawn<span>Point</span> demos</h1>
+  <h1 class="brand"><img src="logo-icon-64.png" width="48" height="48" alt="" style="image-rendering:pixelated;vertical-align:middle;margin-right:10px">Spawn<span>Point</span> demos</h1>
   <p class="lede">Nine games, nine ways to play, all built by Spawn Point from small JSON game graphs and a
   library of tested Godot 4 components: game feel, cartoon or pixel art and collisions come for free. Click a card to play in
   your browser, no install needed.</p>

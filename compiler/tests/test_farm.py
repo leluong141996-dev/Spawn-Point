@@ -214,3 +214,11 @@ def test_farms_get_music_a_menu_a_shop_and_weather():
     assert player["FarmDays"]["snow"] and player["FarmDays"]["rain_chance"] > 0
     assert "Shop" in ents["ShopStall"]["components"] and "GoldenMelon" in ents["ShopStall"]["components"]["Shop"]["rare_crop"]
     assert ents["WaterSprinkler"]["body"] == "area" and "Sprinkler" in ents["WaterSprinkler"]["components"]
+
+
+def test_the_logo_draws(tmp_path):
+    from spawnpoint import logo
+    ic = logo.icon()
+    assert ic.shape == (32, 32, 4) and (ic[..., 3] == 255).sum() > 900
+    paths = logo.write(tmp_path)
+    assert {p.name for p in paths} >= {"logo.png", "favicon.ico", "logo-icon-256.png"}
