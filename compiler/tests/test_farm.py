@@ -187,3 +187,9 @@ def test_farm_pests_and_animals_use_the_farm_style():
     assert g["entities"]["Crow"]["sprite"]["generate"]["kind"] == "crow"
     chick = g["entities"]["Chick"]["components"]["FarmAnimal"]
     assert chick["grows_into"] == "Chicken" and g["entities"]["Chicken"]["components"]["FarmAnimal"]["needs_food"]
+
+
+def test_farm_animals_and_fish_are_never_pests():
+    b, notes = normalize(GameBrief(title="t", genre="farm", crops=["Corn"],
+                                   enemies=[EnemyBrief(name="Fish", archetype="walker"), EnemyBrief(name="Crow", archetype="walker")]))
+    assert [e.name for e in b.enemies] == ["Crow"] and any("not pests" in n for n in notes)

@@ -130,6 +130,11 @@ def pascal_singular(raw: str, fallback: str) -> str:
     return name if name[:1].isalpha() else fallback
 
 
+# Farm animals and the pond's fish: never pests on a farm (the model sometimes lists them from "nuôi gà, câu cá").
+FARM_NOT_PESTS = {"fish", "fishes", "chicken", "chickens", "hen", "hens", "cow", "cows", "sheep", "pig", "pigs", "horse",
+                  "horses", "goat", "goats", "chick", "chicks", "farmer"}
+
+
 def normalize(brief: GameBrief) -> tuple[GameBrief, list[str]]:
     """Repair typical weak-model mistakes. Returns a new brief and human-readable notes."""
     b = brief.model_copy(deep=True)
@@ -185,6 +190,10 @@ def normalize(brief: GameBrief) -> tuple[GameBrief, list[str]]:
         b.player.abilities = [a for a in b.player.abilities if a in ("dash", "sword")]
         b.crops = [pascal_singular(c, "Carrot") for c in b.crops] or ["Carrot", "Tomato", "Pumpkin"]
         b.crops = list(dict.fromkeys(b.crops))
+        tame = [e for e in b.enemies if set(re.findall(r"[a-z]+", e.name.lower())) & FARM_NOT_PESTS]
+        if tame:  # "nuôi gà, câu cá": the farm's own animals and the fish in the pond are not pests
+            b.enemies = [e for e in b.enemies if e not in tame]
+            notes.append(f"{', '.join(e.name for e in tame)} live on the farm, they are not pests; dropped them")
     elif b.genre == "tower_defense":
         if b.goal != "defend":
             notes.append(f"tower defense is won by surviving every wave; goal '{b.goal}' -> 'defend'")
