@@ -6,10 +6,10 @@ import numpy as np
 import pytest
 
 from spawnpoint.analyze import analyze
-from spawnpoint.sprites import battle, fighters, fx, pixelfont
+from spawnpoint.sprites import battle, fx, pixelfont
 from spawnpoint.sprites import cards as C
 from spawnpoint.studio import genres, prompts
-from spawnpoint.studio.assemble import CARD_CLASSES, assemble, card_fighter, card_icon, natural_color
+from spawnpoint.studio.assemble import CARD_CLASSES, assemble, card_icon, natural_color
 from spawnpoint.studio.brief import CardBrief, EnemyBrief, GameBrief, normalize
 
 
@@ -89,9 +89,8 @@ def test_assembled_battle_data_parses_and_validates(hero_class, manifest):
     assert {"art_frame_attack", "art_ci_sword", "art_ci_crown", "art_fx_slash", "art_card_back", "scenery_ground"} \
         <= set(a.scenery_images)
     assert a.plan["pixel_font"] and a.plan["scenery"]["ground"].endswith("scenery_ground.png")
-    kinds = {n: e["sprite"]["generate"]["kind"] for n, e in g["entities"].items()}
-    assert all(k.startswith("fighter_") for k in kinds.values()), kinds
-    assert g["entities"][b.boss]["sprite"]["generate"].get("size") == 1.5, "the boss is drawn bigger"
+    sizes = {n: e["sprite"]["generate"]["size"] for n, e in g["entities"].items()}
+    assert sizes[b.boss] == 4 and sizes["Player"] == 3, "big pixel portraits, the boss bigger"
 
 
 def test_difficulty_makes_foes_tougher_and_length_adds_floors():
@@ -114,33 +113,8 @@ def test_card_art():
     assert not np.array_equal(C.icon("sword"), C.icon("shield"))
 
 
-def test_foe_names_pick_fighter_bodies_and_natural_colours():
-    assert card_fighter("FireDragon", "brute")[0] == "fighter_dragon"
-    assert card_fighter("StoneGolem", "guard") == ("fighter_treant", ["bulky", "stone"])
-    assert card_fighter("Skeleton", "brute")[0] == "fighter_hero" and "skull" in card_fighter("Skeleton", "brute")[1]
-    assert card_fighter("Wolf", "brute")[0] == "fighter_beast" and card_fighter("Bat", "swarm")[0] == "fighter_flyer"
-    assert card_fighter("Blorp", "swarm")[0] == "fighter_slime", "an unknown name falls back on its archetype"
-    assert "staff" in card_fighter("Goblin", "caster")[1], "a caster gets a staff"
+def test_animals_keep_natural_colours():
     assert natural_color("DireWolf", "#9b5de5") == "#8a8a9a" and natural_color("Slime", "#123456") == "#123456"
-
-
-@pytest.mark.parametrize("kind", list(fighters.FIGHTERS))
-def test_every_fighter_paints_its_animations(kind):
-    fr = fighters.frames(kind, fighters.FIGHTERS[kind][2], ["helmet", "sword"] if kind == "fighter_hero" else [], 1)
-    w, h = fighters.size_of(kind)
-    assert set(fr) == set(fighters.ANIMS)
-    for anim, frames in fr.items():
-        assert len(frames) == fighters.ANIMS[anim][0]
-        for f in frames:
-            assert f.shape == (h, w, 4) and (f[..., 3] > 0).sum() > 400, (kind, anim)
-            assert not f[:, 0, 3].any() and not f[:, -1, 3].any(), "nothing is cut off at the sides"
-    assert not np.array_equal(fr["idle"][0], fr["attack"][1]), "the attack is a different pose"
-
-
-def test_people_features_change_the_picture():
-    plain = fighters.frames("fighter_hero", "#3a78c8", [], 1)["idle"][0]
-    for feats in (["helmet"], ["hat", "robe", "staff"], ["skull"], ["hood", "dagger"]):
-        assert not np.array_equal(plain, fighters.frames("fighter_hero", "#3a78c8", feats, 1)["idle"][0]), feats
 
 
 @pytest.mark.parametrize("theme", list(battle.THEMES))

@@ -1161,8 +1161,9 @@ func _set_portrait() -> void:
 		return
 	var a := AtlasTexture.new()
 	a.atlas = tex
-	var w := tex.get_width()
-	a.region = Rect2(w / 2.0 - 16, 0, 36, 36)  # the head and shoulders
+	var w := float(tex.get_width())
+	var side := minf(w, tex.get_height() * 0.62)
+	a.region = Rect2(round((w - side) / 2.0), 0, round(side), round(side))  # the head and shoulders
 	_portrait.texture = a
 
 
@@ -1290,6 +1291,25 @@ func _card_view(card_name: String, big := false) -> Control:
 	return root
 
 
+## A pulsing gold outline behind a card (the card under the mouse, ready to play).
+func _glow(size: Vector2) -> Control:
+	var g := Panel.new()
+	var sb := _box_style(Color(0, 0, 0, 0), Color("#ffd84a"), 4)
+	sb.expand_margin_left = 5
+	sb.expand_margin_right = 5
+	sb.expand_margin_top = 5
+	sb.expand_margin_bottom = 5
+	g.add_theme_stylebox_override(&"panel", sb)
+	g.size = size
+	g.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	g.visible = false
+	g.show_behind_parent = true
+	var t := g.create_tween().set_loops()
+	t.tween_property(g, ^"modulate:a", 0.45, 0.4)
+	t.tween_property(g, ^"modulate:a", 1.0, 0.4)
+	return g
+
+
 ## The played card flies up toward the fight and fades.
 func _fly_card(index: int, card_name: String) -> void:
 	if _hand_root == null or not _hand_root.is_inside_tree() or pace <= 0.0:
@@ -1346,13 +1366,19 @@ func _refresh_ui() -> void:
 		cv.gui_input.connect(func(e: InputEvent) -> void:
 			if _pressed(e):
 				play_index(idx))
+		var glow := _glow(cv.size)
+		cv.add_child(glow)
+		cv.move_child(glow, 0)
 		cv.mouse_entered.connect(func() -> void:
+			glow.visible = card(hand[idx]).get("cost", 0) <= energy_left
+			Sfx.play("pickup", 0.05, -14.0, 1.6)
 			cv.z_index = 10
 			var t := cv.create_tween().set_parallel(true)
 			t.tween_property(cv, ^"position:y", home.y - 34, 0.08)
 			t.tween_property(cv, ^"scale", Vector2(1.14, 1.14), 0.08)
 			t.tween_property(cv, ^"rotation", 0.0, 0.08))
 		cv.mouse_exited.connect(func() -> void:
+			glow.visible = false
 			cv.z_index = 0
 			var t := cv.create_tween().set_parallel(true)
 			t.tween_property(cv, ^"position:y", home.y, 0.08)

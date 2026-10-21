@@ -242,12 +242,6 @@ CARD_BOSS_INTENTS = "atk:{11},blk:{12}+str:2,atk:{5}x3,weak:1+atk:{8}"
 CARD_MUSIC = {"snow": "winter", "desert": "desert", "lava": "autumn", "night": "autumn", "neon": "autumn"}
 
 
-CARD_CLASS_LOOK = {"warrior": ["helmet", "armor", "shield", "sword"], "mage": ["hat", "staff", "robe"],
-                   "rogue": ["hood", "dagger"]}
-TREANT_WORDS = {"treant", "ent", "tree", "golem", "rock", "stone", "statue", "gargoyle", "titan", "colossus"}
-STONE_WORDS = {"golem", "rock", "stone", "statue", "gargoyle", "titan", "colossus", "robot", "mech", "machine"}
-
-
 # Animals and plants look like themselves whatever the theme's colours (slimes, ghosts and dragons take the theme's).
 NATURAL_COLORS = {"wolf": "#8a8a9a", "fox": "#e8803a", "bear": "#8a5a3a", "boar": "#7a5a4a", "hog": "#7a5a4a",
                   "pig": "#e8a0a0", "rat": "#8a7a7a", "mouse": "#9a8a8a", "cat": "#e8a050", "tiger": "#e8902a",
@@ -259,35 +253,6 @@ NATURAL_COLORS = {"wolf": "#8a8a9a", "fox": "#e8803a", "bear": "#8a5a3a", "boar"
 
 def natural_color(name: str, fallback: str) -> str:
     return next((NATURAL_COLORS[w] for w in _ordered_words(name)[::-1] if w in NATURAL_COLORS), fallback)
-
-
-def card_fighter(name: str, archetype: str | None) -> tuple[str, list[str]]:
-    """The fighter body (sprites/fighters.py) a foe's name asks for, and its features."""
-    words = _words(name)
-    feats = features_for(name)
-    if words & DRAGON_WORDS:
-        return "fighter_dragon", feats
-    if words & (TREANT_WORDS | ROBOT_WORDS):
-        return "fighter_treant", feats + (["stone"] if words & (STONE_WORDS | ROBOT_WORDS) else [])
-    if words & PLANT_WORDS:
-        return "fighter_treant", feats
-    if words & MUSHROOM_WORDS:
-        return "fighter_mushroom", feats
-    if words & (GHOST_WORDS | REAPER_WORDS | FLAME_WORDS):
-        return "fighter_ghost", feats
-    if words & SPIDER_WORDS:
-        return "fighter_spider", feats
-    if words & FLYER_WORDS:
-        return "fighter_flyer", feats
-    if words & (BEAST_WORDS | SNAKE_WORDS | BUG_WORDS | HOPPER_WORDS):
-        return "fighter_beast", feats
-    if words & HUMANOID_WORDS or {"skull", "zombie", "monster", "tusks"} & set(feats):
-        if not {"sword", "staff", "axe", "spear", "bow", "dagger"} & set(feats):
-            feats = feats + (["staff", "robe", "hood"] if archetype == "caster" else ["shield"] if archetype == "guard" else ["sword"])
-        return "fighter_hero", feats
-    return {"brute": ("fighter_beast", ["ears", "tail"]), "guard": ("fighter_treant", ["stone"]),
-            "caster": ("fighter_hero", ["hood", "staff", "robe"]), "swarm": ("fighter_slime", [])}.get(
-        archetype or "", ("fighter_slime", []))
 
 
 def card_icon(name: str, fallback: str) -> str:
@@ -530,30 +495,25 @@ class _Assembler:
         r = list(rows[ground - 1])
         r[6] = "P"
         rows[ground - 1] = "".join(r)
-        if self.layer >= 2:  # big painted fighters (sprites/fighters.py)
-            archetypes = {e.name: e.archetype for e in b.enemies}
+        if self.layer >= 2:  # the chibi pixel sprites, drawn big: these are portraits, not tiny map sprites
             for name, ent in self.entities.items():
-                color = ent["shape"]["color"]
-                if name == "Player":
-                    feats = features_for(b.player.character)
-                    kind, extra = card_fighter(b.player.character, None)
-                    if kind != "fighter_hero" or not feats:
-                        kind, feats = "fighter_hero", feats + CARD_CLASS_LOOK[b.hero_class]
-                    elif not {"sword", "staff", "axe", "spear", "bow", "dagger"} & set(feats):
-                        feats = feats + [w for w in CARD_CLASS_LOOK[b.hero_class] if w in ("sword", "staff", "dagger")]
-                else:
-                    kind, feats = card_fighter(name, archetypes.get(name, "brute"))
-                    color = natural_color(name, color)
-                gen: dict[str, Any] = {"kind": kind, "color": color, "seed": self.seed, "features": feats}
-                if name == b.boss:
-                    if kind == "fighter_hero":
-                        gen["features"] = feats + ["cape", "crown"]  # the boss stands out from its minions
-                    if kind != "fighter_dragon":
-                        gen["size"] = 1.5  # 3 screen pixels per art pixel; the dragon is big already
-                ent["sprite"] = {"generate": gen}
-                del ent["shape"]
+                if name != "Player":
+                    ent["shape"]["color"] = natural_color(name, ent["shape"]["color"])
+            self._sprites()
+            for name, ent in self.entities.items():
+                gen = ent.get("sprite", {}).get("generate")
+                if gen is not None:
+                    gen["size"] = 4 if name == b.boss else 3
+                    if gen["kind"] == "hero" and name != "Player":
+                        gen["features"] = features_for(name)  # a Skeleton has a skull, a Witch her hat and staff
+                        if name == b.boss and "cape" not in gen["features"]:
+                            gen["features"].append("cape")  # the boss stands out from its minions
+                    if name == "Player":
+                        gen["features"] = features_for(b.player.character) or features_for(
+                            {"warrior": "Knight", "mage": "Wizard", "rogue": "Rogue"}[b.hero_class])
         settings: dict[str, Any] = {"tile_size": TILE, "lives": 1, "seed": self.seed, "background": pal["bg"],
-                                    "zoom": 1.0, "pixel_size": 2, "backdrop": b.palette,
+                                    "zoom": 1.0, "pixel_size": 1, "backdrop": b.palette,
+                                    "pixel_palette": palettes.THEME_PALETTE[b.palette],
                                     "art": {**{f"frame_{t}": {"kind": "card_frame", "of": t} for t in ("attack", "skill", "power")},
                                             **{f"ci_{n}": {"kind": "card_icon", "of": n} for n in card_art.ICONS},
                                             **{f"fx_{n}": {"kind": "fx", "of": n} for n in fx_art.EFFECTS},
@@ -1474,7 +1434,7 @@ SPIDER_WORDS = {"spider", "tarantula", "arachnid", "widow"}
 SNAKE_WORDS = {"snake", "serpent", "cobra", "python", "viper", "worm", "eel", "naga"}
 BEAST_WORDS = {"wolf", "fox", "dog", "puppy", "hound", "cat", "kitty", "tiger", "lion", "bear", "boar", "pig", "hog",
                "panther", "jackal", "hyena", "werewolf", "coyote", "leopard", "cougar"}
-PLANT_WORDS = {"plant", "flower", "piranha", "venus", "vine", "sprout", "thorn"}
+PLANT_WORDS = {"plant", "flower", "piranha", "venus", "vine", "sprout", "thorn", "treant", "ent"}
 MUSHROOM_WORDS = {"mushroom", "shroom", "toadstool", "fungus", "funguy", "spore"}
 REAPER_WORDS = {"reaper", "grim", "scythe"}
 FLAME_WORDS = {"flame", "fire", "ember", "blaze", "inferno", "pyro", "lava"}

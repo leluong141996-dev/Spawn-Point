@@ -8,8 +8,9 @@
     "seed": 3,
     "background": "#1d2b53",
     "zoom": 1.0,
-    "pixel_size": 2,
+    "pixel_size": 1,
     "backdrop": "night",
+    "pixel_palette": "sweetie16",
     "art": {
       "frame_attack": {
         "kind": "card_frame",
@@ -168,12 +169,12 @@
       ],
       "sprite": {
         "generate": {
-          "kind": "fighter_hero",
+          "kind": "hero",
           "color": "#ff004d",
           "seed": 3,
+          "size": 3,
           "features": [
-            "skull",
-            "sword"
+            "skull"
           ]
         }
       }
@@ -192,12 +193,10 @@
       ],
       "sprite": {
         "generate": {
-          "kind": "fighter_flyer",
+          "kind": "flyer",
           "color": "#5a4a7a",
           "seed": 3,
-          "features": [
-            "wings"
-          ]
+          "size": 3
         }
       }
     },
@@ -215,9 +214,10 @@
       ],
       "sprite": {
         "generate": {
-          "kind": "fighter_hero",
+          "kind": "hero",
           "color": "#ffa300",
           "seed": 3,
+          "size": 3,
           "features": [
             "hat",
             "staff",
@@ -241,17 +241,16 @@
       ],
       "sprite": {
         "generate": {
-          "kind": "fighter_hero",
+          "kind": "hero",
           "color": "#7e2553",
           "seed": 3,
+          "size": 4,
           "features": [
             "skull",
             "hood",
             "staff",
-            "cape",
-            "crown"
-          ],
-          "size": 1.5
+            "cape"
+          ]
         }
       }
     },
@@ -290,15 +289,15 @@
       },
       "sprite": {
         "generate": {
-          "kind": "fighter_hero",
+          "kind": "hero",
           "color": "#29adff",
           "seed": 3,
           "features": [
             "helmet",
             "shield",
-            "armor",
-            "sword"
-          ]
+            "armor"
+          ],
+          "size": 3
         }
       }
     }

@@ -45,11 +45,6 @@ CAST: list[tuple[str, str, str]] = [
     ("Bed", "bed", "#4a7ad0"), ("Fireplace", "fireplace", "#c8643a"), ("Table", "table", "#9a5e36"),
     ("Workbench", "workbench", "#9a5e36"), ("ShopStall", "shop", "#3a8ad0"), ("Sprinkler", "sprinkler", "#a8a8b8"), ("Crow", "crow", "#3a3448"), ("Fox", "fox", "#e07a2a"), ("Rabbit", "rabbit", "#d8c8b8"), ("Mouse", "mouse", "#9a9aa8"),
     ("Chair", "chair", "#9a5e36"), ("Dresser", "dresser", "#9a5e36"), ("PottedPlant", "potted_plant", "#5cb84a"),
-    # card battle fighters (sprites/fighters.py)
-    ("Knight", "fighter_hero", "#3a78c8"), ("Jelly", "fighter_slime", "#5cd84a"), ("Wolf", "fighter_beast", "#8a8a9a"),
-    ("Bat", "fighter_flyer", "#5a4a7a"), ("Treant", "fighter_treant", "#4a9a4a"), ("Spook", "fighter_ghost", "#b8e8f0"),
-    ("Spider", "fighter_spider", "#4a3a5a"), ("Toadstool", "fighter_mushroom", "#d8402a"),
-    ("Dragon", "fighter_dragon", "#c83a3a"),
 ]
 
 CELL, PAD, LABEL, BG, TILE, TEXT = 96, 10, 14, (36, 40, 52, 255), (52, 58, 74, 255), (220, 224, 232, 255)
