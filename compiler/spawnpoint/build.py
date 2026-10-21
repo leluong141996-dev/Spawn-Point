@@ -143,9 +143,9 @@ def _judge_smoke(report: dict, plan: dict, diags: Diagnostics) -> None:
     if not report.get("player_found"):
         diags.error("E_RUNTIME", "(smoke)", "the player entity was not found when the level ran")
         return
-    if plan["genre"] == "platformer" and not report.get("on_floor_after_1s"):
-        diags.warning("W_SMOKE_FLOOR", "(smoke)", "the player is not standing on a floor after 1 second")
     player = next((e for e in plan["entities"] if any(c["name"] == "PlayerInput" for c in e["components"])), None)
     moves = player is None or any(c["name"] in ("PlatformerMovement", "TopDownMovement") for c in player["components"])
+    if plan["genre"] == "platformer" and moves and not report.get("on_floor_after_1s"):  # a card hero only stands
+        diags.warning("W_SMOKE_FLOOR", "(smoke)", "the player is not standing on a floor after 1 second")
     if moves and report.get("moved_px", 0) < 4:  # a bubble-shooter launcher does not walk
         diags.warning("W_SMOKE_STUCK", "(smoke)", "the player did not move under scripted input (stuck?)")

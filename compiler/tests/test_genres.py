@@ -9,7 +9,8 @@ from spawnpoint.studio.assemble import assemble
 from spawnpoint.studio.brief import GameBrief, normalize
 from spawnpoint.studio.llm import ScriptedModel
 from spawnpoint.studio.orchestrator import create, design_brief, load_session, tweak
-from spawnpoint.studio.prompts import BRIEF_SYSTEM, BRIEF_SYSTEM_V5, FARM_LINE, brief_format, brief_messages, brief_messages_v5
+from spawnpoint.studio.prompts import (BRIEF_SYSTEM, BRIEF_SYSTEM_V5, CARD_LINE, FARM_LINE, brief_format, brief_messages,
+                                      brief_messages_v5)
 
 BRIEFS = {
     "platformer": dict(title="a", genre="platformer", player={"character": "Fox", "abilities": ["stomp", "sword"]},
@@ -78,8 +79,8 @@ def test_v5_prompts_are_much_shorter():
     old = sum(len(m["content"]) for m in brief_messages("a game"))
     new = sum(len(m["content"]) for m in brief_messages_v5("a game"))
     assert new < old * 0.5, (old, new)
-    for g in genres.GENRES:
-        assert g in BRIEF_SYSTEM_V5
+    for g in genres.GENRES:  # card games are introduced by the card line, which only card prompts get
+        assert g in (BRIEF_SYSTEM_V5 if g != "cards" else CARD_LINE)
     assert len(BRIEF_SYSTEM_V5) < len(BRIEF_SYSTEM)
 
 

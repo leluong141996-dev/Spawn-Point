@@ -71,6 +71,11 @@ func _drive(frame: int) -> void:
 	if SP.component(p, &"ShmupShip"):
 		_shmup(p)
 		return
+	var battle := SP.component(p, &"CardBattle") as CardBattleComponent
+	if battle:
+		if frame % 24 == 0:
+			battle.autopilot_step()
+		return
 	var board := SP.component(p, &"BubbleBoard") as BubbleBoardComponent
 	if board:
 		if frame % 42 == 0:

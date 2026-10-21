@@ -104,8 +104,10 @@ class TileStyle(_Model):
 
 class ArtRequest(_Model):
     """An extra picture drawn by the compiler for a component to use (res://sprites/art_<name>.png)."""
-    kind: Literal["crop", "crop_icon", "item_icon", "soil", "soil_wet"]
-    of: str = ""  # the crop name ("Strawberry") or item ("egg", "milk", "wood", "stone", "fish", "hay")
+    kind: Literal["crop", "crop_icon", "item_icon", "soil", "soil_wet", "card_frame", "card_icon"]
+    # the crop name ("Strawberry"), item ("egg", "milk", "wood", "stone", "fish", "hay"), card type ("attack",
+    # "skill", "power") or card icon ("sword", "shield", ... see sprites/cards.py)
+    of: str = ""
     color: str | None = None
 
     _color = field_validator("color")(_check_color)

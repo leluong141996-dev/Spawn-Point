@@ -7,16 +7,17 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-Genre = Literal["platformer", "topdown", "bubble", "farm", "tower_defense", "shmup"]
+Genre = Literal["platformer", "topdown", "bubble", "farm", "tower_defense", "shmup", "cards"]
 Palette = Literal["night", "forest", "desert", "neon", "candy", "ocean", "lava", "snow"]
 Ability = Literal["double_jump", "dash", "stomp", "shoot", "sword"]
-Archetype = Literal["walker", "hopper", "chaser", "shooter", "turret", "drifter", "weaver", "diver", "gunship"]
+Archetype = Literal["walker", "hopper", "chaser", "shooter", "turret", "drifter", "weaver", "diver", "gunship",
+                    "brute", "guard", "caster", "swarm"]
 Speed = Literal["slow", "normal", "fast"]
 DEFAULT_SCORE_TARGET = 100
 
 # Points per defeated enemy, by archetype (the assembler writes them as rules).
 ENEMY_POINTS = {"walker": 5, "hopper": 10, "chaser": 10, "shooter": 25, "turret": 20,
-                "drifter": 5, "weaver": 10, "diver": 15, "gunship": 25}
+                "drifter": 5, "weaver": 10, "diver": 15, "gunship": 25, "brute": 0, "guard": 0, "caster": 0, "swarm": 0}
 
 Goal = Literal["reach_exit", "collect_all", "collect_all_then_exit", "defeat_all", "score_target", "survive",
                "rescue", "clear_board", "defend", "defeat_boss"]
@@ -31,11 +32,17 @@ ARCHETYPES_BY_GENRE: dict[str, tuple[str, ...]] = {
     "tower_defense": ("walker", "hopper", "chaser", "shooter", "turret"),
     # Side-scrolling space shooter: how an enemy flies (straight / sine wave / dives at you / stops and shoots).
     "shmup": ("drifter", "weaver", "diver", "gunship"),
+    # Card game foes, by what they do on their turn: hit hard, block, curse (weak / poison), come in packs.
+    "cards": ("brute", "guard", "caster", "swarm"),
 }
 # What an archetype becomes when it does not exist in the genre.
 ARCHETYPE_FALLBACK = {"topdown": {"walker": "chaser", "hopper": "chaser"},
                       "shmup": {"walker": "drifter", "hopper": "weaver", "chaser": "diver", "shooter": "gunship",
-                                "turret": "gunship"}}
+                                "turret": "gunship"},
+                      "cards": {"walker": "brute", "hopper": "swarm", "chaser": "brute", "shooter": "caster",
+                                "turret": "guard"}}
+# Card kinds: what a card does (the assembler sets the numbers and the cost).
+CardKind = Literal["strike", "heavy", "multi_hit", "sweep", "block", "heal", "draw", "poison", "weaken", "rage"]
 
 
 class _Model(BaseModel):
@@ -64,6 +71,11 @@ class CollectibleBrief(_Model):
     count: int = Field(default=10, ge=0, le=60)
 
 
+class CardBrief(_Model):
+    name: str = Field(max_length=24, description="the card's name, e.g. Fireball, Iron Wave")
+    kind: CardKind = "strike"
+
+
 class GameBrief(_Model):
     title: str = Field(max_length=40)
     genre: Genre
@@ -81,6 +93,8 @@ class GameBrief(_Model):
     boss: str = Field(default="", max_length=24, description="the end boss's name (shmup; empty = no boss)")
     crops: list[str] = Field(default_factory=list, max_length=3, description="what the farm grows (farm)")
     towers: list[str] = Field(default_factory=list, max_length=3, description="towers the player builds (tower_defense)")
+    hero_class: Literal["warrior", "mage", "rogue"] = Field(default="warrior", description="the starting deck (cards)")
+    cards: list[CardBrief] = Field(default_factory=list, max_length=6, description="the game's own cards (cards)")
     art_style: Literal["pixel", "cartoon"] = "pixel"
     length: Literal["short", "medium", "long"] = "medium"
     difficulty: int = Field(default=2, ge=1, le=5)
@@ -180,6 +194,25 @@ def normalize(brief: GameBrief) -> tuple[GameBrief, list[str]]:
             notes.append("a shooter needs enemies; added Drones and Saucers")
         if b.goal == "defeat_boss":
             b.boss = b.boss or "Warship"
+    elif b.genre == "cards":
+        if b.goal != "defeat_boss":
+            notes.append(f"card games are won by beating the boss; goal '{b.goal}' -> 'defeat_boss'")
+            b.goal = "defeat_boss"
+        if b.hazards or b.level_ups or b.player.abilities:
+            notes.append("a card game has no hazards, level-ups or abilities (the cards are the abilities); dropped them")
+        b.hazards, b.level_ups, b.player.abilities = [], False, []
+        b.health_pickups, b.collectible.count = 0, 0
+        if not b.enemies:
+            b.enemies = [EnemyBrief(name="Slime", archetype="swarm"), EnemyBrief(name="Goblin", archetype="brute")]
+            notes.append("a card game needs foes; added Slimes and Goblins")
+        b.boss = b.boss or CARD_BOSS.get(b.palette, "Dragon")
+        cards, seen = [], set()
+        for c in b.cards:
+            name = card_name(c.name)
+            if name and name.lower() not in seen:
+                seen.add(name.lower())
+                cards.append(CardBrief(name=name, kind=c.kind))
+        b.cards = cards
     elif b.genre == "farm":
         if b.goal != "score_target":
             notes.append(f"farms are won by earning money before sunset; goal '{b.goal}' -> 'score_target'")
@@ -214,7 +247,7 @@ def normalize(brief: GameBrief) -> tuple[GameBrief, list[str]]:
     if b.goal == "clear_board" and b.genre != "bubble":
         b.goal = "reach_exit" if b.genre == "platformer" else "score_target"
         notes.append(f"goal 'clear_board' is for bubble shooters; using '{b.goal}'")
-    if b.goal == "defeat_boss" and b.genre != "shmup":
+    if b.goal == "defeat_boss" and b.genre not in ("shmup", "cards"):
         b.goal = "reach_exit" if b.genre == "platformer" else "score_target"
         notes.append(f"goal 'defeat_boss' is for shooters; using '{b.goal}'")
     if b.goal == "rescue" and b.genre != "platformer":
@@ -237,9 +270,12 @@ def normalize(brief: GameBrief) -> tuple[GameBrief, list[str]]:
         b.player.abilities.append("shoot")
         notes.append("level-up games fire on their own; gave the player 'shoot'")
 
-    if b.boss and b.genre != "shmup":
+    if b.boss and b.genre not in ("shmup", "cards"):
         b.boss = ""
-        notes.append("only shooters have a boss; ignored")
+        notes.append("only shooters and card games have a boss; ignored")
+    if b.cards and b.genre != "cards":
+        b.cards = []
+        notes.append("cards are for card games; ignored")
     allowed = ARCHETYPES_BY_GENRE[b.genre]
     enemies = []
     seen_names: set[str] = set()
@@ -258,7 +294,7 @@ def normalize(brief: GameBrief) -> tuple[GameBrief, list[str]]:
         e.name = unique(e.name, "Enemy", "enemy")
         enemies.append(e)
     b.enemies = enemies
-    if b.genre == "shmup" and b.boss:
+    if b.genre in ("shmup", "cards") and b.boss:
         b.boss = unique(b.boss, "Warship", "boss")  # after the enemies, so a clash renames the boss
     if b.genre == "tower_defense":
         b.towers = [unique(t, "ArcherTower", "tower") for t in b.towers]
@@ -300,10 +336,22 @@ def normalize(brief: GameBrief) -> tuple[GameBrief, list[str]]:
     return b, notes
 
 
+CARD_BOSS = {"night": "Vampire", "forest": "Troll", "desert": "Mummy", "neon": "Robot", "candy": "Giant",
+             "ocean": "Kraken", "lava": "Dragon", "snow": "Yeti"}
+
+
+def card_name(raw: str) -> str:
+    """A card's display name: words kept (cards may have spaces), separators the game uses removed, Title Case."""
+    words = re.findall(r"[A-Za-z0-9']+", raw or "")
+    return " ".join(w[:1].upper() + w[1:] for w in words)[:20].strip()
+
+
 def _default_intro(b: GameBrief) -> str:
     c = b.collectible.name
     if b.genre == "farm":
         return f"Earn ${b.score_target} before sunset!"
+    if b.genre == "cards":
+        return f"Fight your way up and defeat the {b.boss}!"
     return {
         "reach_exit": "Reach the exit!",
         "collect_all": f"Collect every {c}!",

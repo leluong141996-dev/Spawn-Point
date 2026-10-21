@@ -41,6 +41,7 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	var p := World.player()
 	var h: HealthComponent = SP.component(p, &"Health") as HealthComponent if p else null
+	_lives.visible = GameState.start_lives > 1  # one life: nothing to count
 	var cur: int = h.current if h else -1
 	if cur != _shown_health:
 		_shown_health = cur
@@ -91,7 +92,7 @@ func _on_lives(lives: int) -> void:
 func _refresh_hearts(h: HealthComponent) -> void:
 	for c in _hearts.get_children():
 		c.queue_free()
-	if h == null:
+	if h == null or h.max_health > 12:  # big HP pools (card games) draw their own bar
 		return
 	for i in h.max_health:
 		var r := ColorRect.new()

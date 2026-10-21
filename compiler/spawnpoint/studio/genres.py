@@ -16,7 +16,7 @@ from typing import Annotated, Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
-from .brief import GameBrief, Palette, Speed
+from .brief import CardKind, GameBrief, Palette, Speed
 
 Length = Literal["short", "medium", "long"]
 ArtStyle = Literal["pixel", "cartoon"]
@@ -78,6 +78,16 @@ class ShmupEnemy(_W):  # drifter: straight, weaver: sine wave, diver: dives at y
     count: int = Field(default=3, ge=0, le=20)
     health: int = Field(default=1, ge=1, le=20)
     speed: Speed = "normal"
+
+
+class CardFoe(_W):  # brute hits hard, guard blocks, caster curses and poisons, swarm comes in packs
+    name: str = Field(max_length=24)
+    archetype: Literal["brute", "guard", "caster", "swarm"]
+
+
+class Card(_W):
+    name: str = Field(max_length=24)
+    kind: CardKind
 
 
 class PlatformerPlayer(_W):
@@ -175,8 +185,19 @@ class ShmupW(_Look):
     juice: Literal["subtle", "normal", "wild"] = "normal"
 
 
+class CardsW(_Look):
+    genre: Literal["cards"]
+    hero: str = Field(default="Hero", max_length=24)
+    hero_class: Literal["warrior", "mage", "rogue"] = "warrior"
+    cards: list[Card] = Field(default_factory=list, max_length=6)
+    enemies: list[CardFoe] = Field(default_factory=list, max_length=4)
+    boss: str = Field(default="", max_length=24)
+    length: Length = "medium"
+    difficulty: int = Field(default=2, ge=1, le=5)
+
+
 WIRE_BY_GENRE: dict[str, type[_Look]] = {"platformer": PlatformerW, "topdown": TopdownW, "bubble": BubbleW, "farm": FarmW,
-                                         "tower_defense": TowerDefenseW, "shmup": ShmupW}
+                                         "tower_defense": TowerDefenseW, "shmup": ShmupW, "cards": CardsW}
 GENRES = tuple(WIRE_BY_GENRE)
 _UNION = TypeAdapter(Annotated[Union[tuple(WIRE_BY_GENRE.values())], Field(discriminator="genre")])  # type: ignore[valid-type]
 
@@ -193,6 +214,8 @@ def to_wire(brief: GameBrief) -> dict:
         d.update(character=brief.player.character, abilities=list(brief.player.abilities))
     elif g == "shmup":
         d.update(ship=brief.player.character, health=brief.player.health, speed=brief.player.speed)
+    elif g == "cards":
+        d.update(hero=brief.player.character)
     return WIRE_BY_GENRE[g].model_validate(d).model_dump()
 
 
@@ -209,6 +232,9 @@ def from_wire(wire: _Look) -> GameBrief:
         d["enemies"] = [{**e, "archetype": "walker"} for e in d["enemies"]]  # invaders all walk the road
     elif g == "shmup":
         d["player"] = {"character": d.pop("ship"), "health": d.pop("health"), "speed": d.pop("speed")}
+    elif g == "cards":
+        d["player"] = {"character": d.pop("hero")}
+        d["goal"] = "defeat_boss"
     return GameBrief.model_validate(d)
 
 

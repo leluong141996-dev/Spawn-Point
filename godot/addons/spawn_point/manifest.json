@@ -87,6 +87,13 @@
       "signals": [],
       "methods": [
         {
+          "name": "play_attack",
+          "args": [],
+          "default_count": 0,
+          "returns": "Nil",
+          "doc": "Shows the attack animation once (also for attacks that are not a Weapon, like a played card)."
+        },
+        {
           "name": "pick_state",
           "args": [],
           "default_count": 0,
@@ -274,6 +281,214 @@
       ],
       "methods": [],
       "doc": "A complete bubble-shooter (\"dinosaur eggs\") board, launched by its entity. Aim with the mouse or left/right, shoot with Space / X / click. Shots bounce off the side walls and stick to the eggs; three or more of one colour pop, and eggs no longer hanging from the ceiling fall for a bonus. Every [member shots_per_drop] shots the ceiling comes down a row. Emits [signal cleared] when the board is empty and [signal overflowed] when an egg reaches the bottom line (wire them to win() and lose() in the rules)."
+    },
+    {
+      "name": "CardBattle",
+      "class": "CardBattleComponent",
+      "script": "res://addons/spawn_point/components/card_battle_component.gd",
+      "base": "Node",
+      "hosts": [],
+      "requires": [
+        "Health"
+      ],
+      "category": "core",
+      "entity_params": [],
+      "params": [
+        {
+          "name": "cards",
+          "type": "String",
+          "hint": "",
+          "hint_string": "",
+          "default": "Strike|1|attack|dmg:6|starter|sword;Defend|1|skill|blk:5|starter|shield",
+          "doc": "The card library (see the class description)."
+        },
+        {
+          "name": "starter",
+          "type": "String",
+          "hint": "",
+          "hint_string": "",
+          "default": "Strike*5,Defend*5",
+          "doc": "The starting deck: card names, \"Name*N\" for copies."
+        },
+        {
+          "name": "foes",
+          "type": "String",
+          "hint": "",
+          "hint_string": "",
+          "default": "Slime|14|normal|atk:6,blk:4+atk:3;Ogre|60|boss|atk:10,str:2,atk:6x2",
+          "doc": "The foes (see the class description)."
+        },
+        {
+          "name": "floors",
+          "type": "int",
+          "hint": "range",
+          "hint_string": "2.0,20.0",
+          "default": 7,
+          "doc": "Floors in the run, the boss's included."
+        },
+        {
+          "name": "energy",
+          "type": "int",
+          "hint": "range",
+          "hint_string": "1.0,10.0",
+          "default": 3,
+          "doc": "Energy each turn."
+        },
+        {
+          "name": "hand_size",
+          "type": "int",
+          "hint": "range",
+          "hint_string": "1.0,10.0",
+          "default": 5,
+          "doc": "Cards drawn each turn."
+        },
+        {
+          "name": "gold_per_fight",
+          "type": "int",
+          "hint": "range",
+          "hint_string": "0.0,1000.0",
+          "default": 12,
+          "doc": "Gold for winning a fight (elites give double)."
+        },
+        {
+          "name": "rest_heal",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,1.0,0.01",
+          "default": 0.3,
+          "doc": "Share of max HP a rest heals."
+        },
+        {
+          "name": "foe_offset",
+          "type": "Vector2",
+          "hint": "",
+          "hint_string": "",
+          "default": "(330.0, 0.0)",
+          "doc": "Where the first foe stands, relative to the hero."
+        },
+        {
+          "name": "foe_gap",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "40.0,400.0,1.0",
+          "default": 130.0,
+          "doc": "Space between foes in px."
+        },
+        {
+          "name": "pace",
+          "type": "float",
+          "hint": "range",
+          "hint_string": "0.0,2.0,0.01",
+          "default": 0.45,
+          "doc": "Seconds between foe moves (0 = instant, for tests)."
+        },
+        {
+          "name": "run_seed",
+          "type": "int",
+          "hint": "range",
+          "hint_string": "0.0,1000000.0",
+          "default": 0,
+          "doc": "Map and draw seed (0 = a new run every time)."
+        }
+      ],
+      "state": [
+        {
+          "name": "phase",
+          "type": "String"
+        },
+        {
+          "name": "floor_index",
+          "type": "int"
+        },
+        {
+          "name": "run_map",
+          "type": "Array"
+        },
+        {
+          "name": "options",
+          "type": "Array"
+        },
+        {
+          "name": "deck",
+          "type": "Array"
+        },
+        {
+          "name": "draw_pile",
+          "type": "Array"
+        },
+        {
+          "name": "hand",
+          "type": "Array"
+        },
+        {
+          "name": "discard",
+          "type": "Array"
+        },
+        {
+          "name": "energy_left",
+          "type": "int"
+        },
+        {
+          "name": "target",
+          "type": "int"
+        },
+        {
+          "name": "hero_st",
+          "type": "Dictionary"
+        },
+        {
+          "name": "foe_list",
+          "type": "Array"
+        },
+        {
+          "name": "spawner",
+          "type": "Callable"
+        }
+      ],
+      "signals": [
+        {
+          "name": "fight_started",
+          "args": [
+            {
+              "name": "kind",
+              "type": "String"
+            }
+          ],
+          "doc": "Emitted when a fight begins; [param kind] is \"fight\", \"elite\" or \"boss\"."
+        },
+        {
+          "name": "fight_won",
+          "args": [
+            {
+              "name": "floor_number",
+              "type": "int"
+            }
+          ],
+          "doc": "Emitted when every foe of a fight is down."
+        },
+        {
+          "name": "won",
+          "args": [],
+          "doc": "Emitted when the boss is defeated."
+        },
+        {
+          "name": "died",
+          "args": [],
+          "doc": "Emitted when the hero falls."
+        },
+        {
+          "name": "card_played",
+          "args": [
+            {
+              "name": "card_name",
+              "type": "String"
+            }
+          ],
+          "doc": "Emitted for every card played."
+        }
+      ],
+      "methods": [],
+      "doc": "A whole deckbuilding run (Slay the Spire style), played by its entity, the hero. The run is a path of floors: pick the next room (fight, elite, rest, treasure), and the last floor is the boss. In a fight you get [member energy] energy and draw [member hand_size] cards each turn; foes show their next move above their heads. Click or tap a card to play it on the selected foe (click a foe to select it), or press 1-9; Tab switches the target, E or Space ends the turn. After a fight you earn gold (the score) and pick one of three new cards. The hero's [HealthComponent] holds its HP. Emits [signal won] when the boss falls (wire it to win()).\nCards: \"Name|cost|type|effects|rarity|icon;...\" where type is attack, skill or power, rarity is starter, common, uncommon or rare, and effects are comma-separated: dmg:N (the target), hits:N (dmg that many times), all:N (every foe), blk:N, draw:N, nrg:N, heal:N, poison:N, weak:N, vuln:N, str:N, exhaust. Foes: \"Type|hp|tier|intent,intent,...\" (tier normal, elite or boss); each intent is atk:N, atk:NxK, blk:N, str:N, weak:N, vuln:N, poison:N or heal:N, joined with + to do several at once (\"blk:6+atk:4\"). Foes repeat their list."
     },
     {
       "name": "ChaseAI",

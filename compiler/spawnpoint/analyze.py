@@ -465,7 +465,11 @@ class _Analyzer:
 
 def _draw_art(req):
     """The picture an ArtRequest asks for, as an RGBA array."""
-    from .sprites import farm
+    from .sprites import cards, farm
+    if req.kind == "card_frame":
+        return cards.card_frame(req.of)
+    if req.kind == "card_icon":
+        return cards.icon(req.of)
     if req.kind == "crop":
         return farm.crop_sheet(req.of, req.color or "#e83a4a")
     if req.kind == "crop_icon":

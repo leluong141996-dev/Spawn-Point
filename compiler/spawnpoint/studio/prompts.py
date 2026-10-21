@@ -176,8 +176,17 @@ The level, platforms and the player are never enemies or pickups.
 FARM_WORDS = re.compile(r"farm|harvest|crop|plant|nông trại|nông trang|trang trại|làm vườn|trồng|thu hoạch|gieo", re.I)
 
 
+CARD_LINE = ('Card games (deckbuilders like Slay the Spire, "game thẻ bài") are genre cards: hero (who you play),'
+             ' hero_class warrior, mage or rogue (the starting deck), cards: up to 6 of {name, kind} with kind strike, heavy,'
+             ' multi_hit, sweep (hits every foe), block, heal, draw, poison, weaken or rage (more damage for the fight);'
+             ' enemies: {name, archetype} where brute hits hard, guard blocks, caster curses and poisons, swarm comes in packs;'
+             ' boss: the last foe.')
+CARD_WORDS = re.compile(r"\bcards?\b|deck|slay the spire|thẻ bài|lá bài|bộ bài|đánh bài", re.I)
+
+
 def brief_messages_v5(prompt: str) -> list[dict]:
     system = BRIEF_SYSTEM_V5 + ("\n" + FARM_LINE if FARM_WORDS.search(prompt) else "")
+    system += "\n" + CARD_LINE if CARD_WORDS.search(prompt) else ""
     return [{"role": "system", "content": system}, {"role": "user", "content": prompt}]
 
 
