@@ -158,13 +158,20 @@ water with lily pads and reeds, buildings, fences, four kinds of tree, chickens 
 directions, and crops with five growth stages (strawberries, carrots, potatoes, pumpkins, corn, wheat, cabbages...,
 picked from the crop's name).
 
-What you do there: plant, water and harvest; collect eggs and milk when an animal has something to give; chop trees and
-break rocks for wood and stone; carry it all to the shipping bin before sunset, while crows go for your crops. The
+What you do there: till the grass with the hoe, then plant, water and harvest; collect eggs and milk when an animal has
+something to give; fish from the pond's shore (cast, wait for the bite, reel in on the "!"); chop trees and break rocks
+for wood and stone; carry it all to the shipping bin before sunset, while crows go for your crops. Step through the
+farmhouse door for a cozy room inside (bed, fireplace, table, rug). The
 hotbar shows your seeds and basket. You walk behind trees and the house (the scene is depth-sorted), and only an
 object's footprint blocks you. `spawnpoint overview <project>` saves a picture of the whole map after a short autopilot
 run, like the one above.
 
-<p align="center"><img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/sunny-farm.gif" width="70%" alt="Sunny Farm: the farmer harvests, sells at the shipping bin and works the field"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/sunny-farm.gif" width="58%" alt="Sunny Farm: the farmer harvests, sells at the shipping bin and works the field"> <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/farm-house.png" width="34%" alt="Inside the farmhouse: bed, dresser, fireplace, table and chairs on a rug"></p>
+
+The theme sets the season: a snowy farm is winter (snow, frozen pond, snowy pines and bare trees), a desert farm has
+sand, palms and cacti, a lava-red one is autumn, the rest is spring.
+
+<p align="center"><img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/farm-seasons.png" width="92%" alt="The same kind of farm in spring, autumn, winter and the desert"></p>
 
 ## Sprites: generated or your own
 
@@ -368,7 +375,7 @@ headless smoke test (spawn, scripted input, crash detection) and report `E_RUNTI
 | Game modes | `BubbleBoard` (a complete bubble shooter: bank shots, colour pops, falling clusters, a descending ceiling) |
 | Shooters | `FlightPath` (straight, wave, dive and hover patterns across the screen), `ShmupShip` (auto-fire, power-ups that add shots and spread), `HealthBar` (boss bars), and `WaveSpawner` gates (`autostart`, `endless`, random spread) |
 | Tower defense | `PathFollower` (walks the road to the base), `Base` (loses a life per invader that gets in), `WaveSpawner` ("8 x Goblin every 1.2; ..."), `TowerSlot`, `TowerBuilder` (click a pad, pay in gold), `TowerBrain` (targets the invader furthest along), `GroundPatch` (roads and paths) |
-| Farming | `FarmPlot` (soil that grows a crop only while watered, drawn from its growth stages), `Farmer` (plant / water / harvest, collect, chop, a basket and a hotbar), `FarmAnimal` (wanders, gives eggs or milk), `Gatherable` (trees and rocks that break into wood and stone), `Market` (a stall or a shipping bin that buys the basket), `CropPest` (crows that eat crops) |
+| Farming | `FarmPlot` (soil that grows a crop only while watered, drawn from its growth stages), `Farmer` (till / plant / water / harvest, collect, fish, chop, a basket and a hotbar), `FarmAnimal` (wanders, gives eggs or milk), `Gatherable` (trees and rocks that break into wood and stone), `FishingSpot` (cast, bite, reel in), `Warp` (doorways, e.g. into the farmhouse), `Market` (a stall or a shipping bin that buys the basket), `CropPest` (crows that eat crops) |
 | Feel | `Juice` — attached to every entity unless `"juice": "none"` |
 
 Runtime autoloads: `GameState` (score, lives, variables, win/lose), `World` (spawning, rule

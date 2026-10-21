@@ -136,6 +136,7 @@ var _blocked := {}  # Vector2i cell -> true, for the farm autopilot's path findi
 var _path: Array[Vector2] = []
 var _goal := Vector2.INF
 var _chops := 0
+var _catches := 0
 var _skip := {}  # instance id -> frame until which the autopilot ignores it (it could not get there)
 
 
@@ -186,7 +187,19 @@ func _farm(p: CharacterBody2D, farmer: FarmerComponent, frame: int) -> void:
 				target = (e as Node2D).global_position
 				target_id = e.get_instance_id()
 				on_plot = false
+	var fishing: FishingSpotComponent = null
+	if frame > 1200 and _catches < 2:  # a little fishing once the farm is running
+		for e in get_tree().get_nodes_in_group(&"fishing_spot"):
+			var score: float = 450.0 + (e as Node2D).global_position.distance_to(p.global_position) * 1.5
+			if score < best:
+				best = score
+				target = (e as Node2D).global_position
+				target_id = e.get_instance_id()
+				on_plot = true  # stand right on the spot
+				fishing = SP.component(e, &"FishingSpot") as FishingSpotComponent
 	if carried >= 8 or (target == Vector2.INF and carried > 0):
+		fishing = null
+		on_plot = false
 		for e in get_tree().get_nodes_in_group(SP.ENTITY_GROUP):
 			if SP.component(e, &"Market"):
 				target = (e as Node2D).global_position
@@ -204,10 +217,14 @@ func _farm(p: CharacterBody2D, farmer: FarmerComponent, frame: int) -> void:
 	var close := p.global_position.distance_to(target) < (10.0 if on_plot else farmer.reach * 1.1)
 	if close:
 		_path.clear()
-		if act and frame % 8 == 0:
+		if fishing:  # cast when idle, reel in only on a bite
+			if fishing.state != FishingSpotComponent.State.WAITING and frame % 8 == 0:
+				if farmer.interact() == "catch":
+					_catches += 1
+		elif act and frame % 8 == 0:
 			if farmer.interact() == "chop":
 				_chops += 1
-		if not act or on_plot:  # walk onto the shipping bin, or right onto the plot
+		if (not act or on_plot) and fishing == null:  # walk onto the shipping bin, or right onto the plot
 			_steer(target - p.global_position)
 		return
 	if _path.is_empty() or _goal.distance_to(target) > 24.0 or frame % 45 == 0:

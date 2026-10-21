@@ -36,8 +36,31 @@ SAND, SAND_DARK = _c("#f0d79a"), _c("#d9b878")
 FLOWERS = [_c("#f8f4ea"), _c("#ffd84a"), _c("#ff8fb4"), _c("#8ab0ff"), _c("#c48ae0")]
 OUTLINE = _c("#2a1e2e")
 
+# The ground in each season: grass (snow, sand...), paths, water and what grows on it.
+SEASONS: dict[str, dict] = {
+    "spring": {"grass": GRASS, "light": GRASS_LIGHT, "dark": GRASS_DARK, "edge": GRASS_EDGE, "tuft": TUFT,
+               "tuft_light": TUFT_LIGHT, "dirt": DIRT, "dirt_light": DIRT_LIGHT, "dirt_dark": DIRT_DARK,
+               "water": WATER, "deep": WATER_DEEP, "shore": WATER_LIGHT, "foam": FOAM, "flowers": FLOWERS,
+               "lilies": True, "mushrooms": True, "tufts": (1, 2, 2, 3)},
+    "autumn": {"grass": _c("#d8973f"), "light": _c("#e0a148"), "dark": _c("#d08d3a"), "edge": _c("#7a3f22"),
+               "tuft": _c("#a8582a"), "tuft_light": _c("#f0b860"), "dirt": _c("#c98a52"), "dirt_light": _c("#dca06a"),
+               "dirt_dark": _c("#a86a3a"), "water": WATER, "deep": WATER_DEEP, "shore": WATER_LIGHT, "foam": FOAM,
+               "flowers": [_c("#ffd84a"), _c("#e85a3a"), _c("#f8f4ea")], "lilies": False, "mushrooms": True,
+               "tufts": (1, 1, 2)},
+    "winter": {"grass": _c("#e8f0f8"), "light": _c("#f2f7fc"), "dark": _c("#e0e9f4"), "edge": _c("#8a9ec0"),
+               "tuft": _c("#b8c8dc"), "tuft_light": _c("#ffffff"), "dirt": _c("#b0a294"), "dirt_light": _c("#c8bcb0"),
+               "dirt_dark": _c("#8e7e70"), "water": _c("#8cc8ec"), "deep": _c("#78b4e0"), "shore": _c("#c4e8fa"),
+               "foam": _c("#f0faff"), "flowers": [], "lilies": False, "mushrooms": False, "tufts": (0, 1)},
+    "desert": {"grass": _c("#ecca8a"), "light": _c("#f0d29a"), "dark": _c("#e4c080"), "edge": _c("#a87a44"),
+               "tuft": _c("#b8a050"), "tuft_light": _c("#d8c070"), "dirt": _c("#c98458"), "dirt_light": _c("#d89a6c"),
+               "dirt_dark": _c("#a8683e"), "water": WATER, "deep": WATER_DEEP, "shore": WATER_LIGHT, "foam": FOAM,
+               "flowers": [_c("#ff8fb4"), _c("#ffd84a")], "lilies": True, "mushrooms": False, "tufts": (0, 0, 1)},
+}
+
 # Terrain characters (one per map cell).
 GRASS_C, PATH_C, WATER_C, FIELD_C, SAND_C = ".", ":", "~", ",", "_"
+VOID_C, FLOOR_C, WALL_C, RUG_C, MAT_C = " ", "F", "W", "R", "M"  # indoors: darkness, floorboards, wall, rug, door mat
+INDOOR = {VOID_C, FLOOR_C, WALL_C, RUG_C, MAT_C}
 
 
 # --- small helpers ------------------------------------------------------------------------------
@@ -115,8 +138,9 @@ def _rng(*key) -> random.Random:
 
 # --- the ground ---------------------------------------------------------------------------------
 
-def terrain_image(rows: list[str], seed: int = 0) -> np.ndarray:
-    """The ground of a farm map, 16 art pixels per cell. Unknown characters count as grass."""
+def terrain_image(rows: list[str], seed: int = 0, season: str = "spring") -> np.ndarray:
+    """The ground of a farm map, 16 art pixels per cell, in a season (see SEASONS). Unknown characters count as grass."""
+    P = SEASONS.get(season, SEASONS["spring"])
     hh, ww = len(rows), max((len(r) for r in rows), default=1)
     grid = np.array([[(r[x] if x < len(r) else GRASS_C) for x in range(ww)] for r in rows])
     H, W = hh * CELL, ww * CELL
@@ -130,12 +154,12 @@ def terrain_image(rows: list[str], seed: int = 0) -> np.ndarray:
     img = np.zeros((H, W, 4), dtype=np.uint8)
 
     # grass: two tones in soft patches, specks of darker green
-    img[:] = GRASS
+    img[:] = P["grass"]
     patches = _noise(H, W, 24, nrng, 6.0)
-    img[patches > 0.60] = GRASS_LIGHT
-    img[patches < 0.36] = GRASS_DARK
+    img[patches > 0.60] = P["light"]
+    img[patches < 0.36] = P["dark"]
     specks = nrng.random((H, W)) < 0.012
-    img[specks & land] = GRASS_DARK
+    img[specks & land] = P["dark"]
 
     # tufts and flowers on plain grass cells (fields stay tidy)
     rnd = _rng("tufts", seed)
@@ -143,10 +167,10 @@ def terrain_image(rows: list[str], seed: int = 0) -> np.ndarray:
         for x in range(ww):
             if grid[y, x] != GRASS_C:
                 continue
-            for _ in range(rnd.choice((1, 2, 2, 3))):
-                _tuft(img, x * CELL + rnd.randint(2, 12), y * CELL + rnd.randint(4, 13), rnd)
-            if rnd.random() < 0.16:
-                col = rnd.choice(FLOWERS)
+            for _ in range(rnd.choice(P["tufts"])):
+                _tuft(img, x * CELL + rnd.randint(2, 12), y * CELL + rnd.randint(4, 13), rnd, P)
+            if P["flowers"] and rnd.random() < 0.16:
+                col = rnd.choice(P["flowers"])
                 for _ in range(rnd.randint(1, 3)):
                     _flower(img, x * CELL + rnd.randint(2, 13), y * CELL + rnd.randint(2, 13), col)
 
@@ -155,23 +179,23 @@ def terrain_image(rows: list[str], seed: int = 0) -> np.ndarray:
     img[sand & (nrng.random((H, W)) < 0.05)] = SAND_DARK
 
     # dirt paths: speckled fill, a darker rim, a dark outline on the grass around them
-    img[path] = DIRT
+    img[path] = P["dirt"]
     dots = nrng.random((H, W))
-    img[path & (dots < 0.035)] = DIRT_LIGHT
-    img[path & (dots > 0.975)] = DIRT_DARK
+    img[path & (dots < 0.035)] = P["dirt_light"]
+    img[path & (dots > 0.975)] = P["dirt_dark"]
     rim = path & (_ring(~path) | _shift(~path, -1, 0))
-    img[rim & ~_shift(~path, 1, 0)] = DIRT_DARK          # shadow under the grass lip on the top and sides
-    img[path & _shift(~path & land, 1, 0)] = DIRT_DARK    # under a grass edge, the dirt is in shade
-    img[_ring(path) & land & ~sand] = GRASS_EDGE
+    img[rim & ~_shift(~path, 1, 0)] = P["dirt_dark"]          # shadow under the grass lip on the top and sides
+    img[path & _shift(~path & land, 1, 0)] = P["dirt_dark"]    # under a grass edge, the dirt is in shade
+    img[_ring(path) & land & ~sand] = P["edge"]
     for y, x in zip(*np.nonzero(path & (dots > 0.993))):  # a few pebbles
         _pebble(img, x, y)
 
     # water: deep middle, light shore line, sparkles; a brown cliff where land drops into it to the south
     dist = _depth(water, 12)
-    img[water] = WATER
+    img[water] = P["water"]
     deep = water & (dist > 9) & (_noise(H, W, 14, nrng, 4.0) > 0.52)
-    img[deep] = WATER_DEEP
-    img[water & (dist <= 2)] = WATER_LIGHT
+    img[deep] = P["deep"]
+    img[water & (dist <= 2)] = P["shore"]
     cliff = np.zeros_like(water)
     for k in range(1, 7):
         cliff |= water & _shift(land, k, 0)
@@ -181,25 +205,93 @@ def terrain_image(rows: list[str], seed: int = 0) -> np.ndarray:
     img[cliff & ~_shift(cliff, -1, 0)] = CLIFF_DARK                  # the bottom of the face
     stripes = cliff & ((np.arange(W)[None, :] + (np.arange(H)[:, None] // 3)) % 7 == 0)
     img[stripes] = CLIFF_DARK
-    img[water & ~cliff & _shift(cliff, 1, 0)] = FOAM                 # foam at the foot of the cliff
-    img[_ring(water) & land & ~cliff] = GRASS_EDGE                   # the grass lip around the water
-    img[_ring(land) & water & ~cliff] = FOAM                         # a thin light line on the water side
+    img[water & ~cliff & _shift(cliff, 1, 0)] = P["foam"]                 # foam at the foot of the cliff
+    img[_ring(water) & land & ~cliff] = P["edge"]                   # the grass lip around the water
+    img[_ring(land) & water & ~cliff] = P["foam"]                         # a thin light line on the water side
     sparkle = water & ~cliff & (dist > 3) & (nrng.random((H, W)) < 0.004)
     for y, x in zip(*np.nonzero(sparkle)):
-        _sparkle(img, x, y)
+        _sparkle(img, x, y, P)
     # lily pads out on the water, reeds along the shore, the odd mushroom in the grass
     rnd = _rng("details", seed)
     for y in range(hh):
         for x in range(ww):
             cx, cy = x * CELL + 8, y * CELL + 8
             if grid[y, x] == WATER_C and 0 < cy < H and 0 < cx < W and water[cy, cx] and not cliff[cy, cx]:
+                if not P["lilies"]:
+                    continue
                 if dist[cy, cx] > 6 and rnd.random() < 0.05:
                     _lily(img, cx + rnd.randint(-3, 3), cy + rnd.randint(-3, 3), rnd)
                 elif 2 < dist[cy, cx] <= 6 and rnd.random() < 0.12:
                     _reeds(img, cx + rnd.randint(-5, 5), cy + rnd.randint(-2, 4))
-            elif grid[y, x] == GRASS_C and rnd.random() < 0.025:
+            elif P["mushrooms"] and grid[y, x] == GRASS_C and rnd.random() < 0.025:
                 _mushroom(img, x * CELL + rnd.randint(3, 12), y * CELL + rnd.randint(5, 13))
+    _indoors(img, grid)
     return img
+
+
+FLOORBOARD, FLOORBOARD_DARK, FLOORBOARD_LIGHT = _c("#b87a48"), _c("#94603a"), _c("#cc8f5a")
+WALLPAPER, WALLPAPER_STRIPE, WAINSCOT, WAINSCOT_DARK = _c("#f0dcb4"), _c("#e4c898"), _c("#9a5e36"), _c("#6e3e24")
+RUG, RUG_EDGE, RUG_PATTERN = _c("#c8503a"), _c("#8a2e24"), _c("#f0c060")
+
+
+def _indoors(img: np.ndarray, grid: np.ndarray) -> None:
+    """Rooms: black outside, floorboards, a papered wall with wood panelling and a window, a rug, a door mat."""
+    hh, ww = grid.shape
+    for y in range(hh):
+        for x in range(ww):
+            ch = grid[y, x]
+            if ch not in INDOOR:
+                continue
+            px, py = x * CELL, y * CELL
+            tile = img[py:py + CELL, px:px + CELL]
+            if ch == VOID_C:
+                tile[:] = _c("#14101c")
+                continue
+            if ch == WALL_C:
+                floorish = (FLOOR_C, RUG_C, MAT_C)
+                below_floor = y + 1 < hh and grid[y + 1, x] in floorish
+                back = below_floor or (y + 2 < hh and grid[y + 1, x] == WALL_C and grid[y + 2, x] in floorish)
+                if not back:  # side walls and the bottom wall: seen from above, a dark wall top
+                    tile[:] = WAINSCOT_DARK
+                    tile[:, :2] = WAINSCOT if x > 0 and grid[y, x - 1] != WALL_C else tile[:, :2]
+                    continue
+                tile[:] = WALLPAPER
+                tile[:, ::4] = WALLPAPER_STRIPE
+                if below_floor:  # the lower half is wood panelling down to the floor
+                    tile[8:] = WAINSCOT
+                    tile[8] = FLOORBOARD_LIGHT
+                    tile[15] = WAINSCOT_DARK
+                    tile[8:, ::5] = WAINSCOT_DARK
+                elif (x * 7) % 4 == 1:  # a window up in the wall
+                    tile[3:13, 3:13] = WAINSCOT
+                    tile[4:12, 4:12] = GLASS
+                    tile[4:12, 8] = WAINSCOT
+                    tile[8, 4:12] = WAINSCOT
+                    tile[5:7, 5:7] = GLASS_LIGHT
+                continue
+            tile[:] = FLOORBOARD  # floorboards with staggered seams
+            for row in range(0, CELL, 4):
+                tile[row] = FLOORBOARD_DARK
+                seam = (row * 3 + x * 5) % CELL
+                tile[row:row + 4, seam] = FLOORBOARD_DARK
+                tile[row + 1, (x * 3 + row) % 7::7] = FLOORBOARD_LIGHT
+            if y > 0 and grid[y - 1, x] == WALL_C:
+                tile[:3] = FLOORBOARD_DARK  # the wall's shadow on the floor
+            if ch == RUG_C:
+                tile[:] = RUG
+                tile[::5, :] = RUG_PATTERN
+                if y > 0 and grid[y - 1, x] != RUG_C:
+                    tile[:2] = RUG_EDGE
+                if y + 1 < hh and grid[y + 1, x] != RUG_C:
+                    tile[-2:] = RUG_EDGE
+                if x > 0 and grid[y, x - 1] != RUG_C:
+                    tile[:, :2] = RUG_EDGE
+                if x + 1 < ww and grid[y, x + 1] != RUG_C:
+                    tile[:, -2:] = RUG_EDGE
+            elif ch == MAT_C:
+                tile[3:13, 1:15] = _c("#6a8a3a")
+                tile[4:12, 2:14] = _c("#8aa848")
+                tile[6:10, 2:14:3] = _c("#6a8a3a")
 
 
 def _lily(img: np.ndarray, x: int, y: int, rnd: random.Random) -> None:
@@ -233,10 +325,10 @@ def _mushroom(img: np.ndarray, x: int, y: int) -> None:
             img[y + dy, x + dx] = col
 
 
-def _tuft(img: np.ndarray, x: int, y: int, rnd: random.Random) -> None:
+def _tuft(img: np.ndarray, x: int, y: int, rnd: random.Random, P: dict) -> None:
     h, w = img.shape[:2]
-    for dx, dy, col in ((0, 0, TUFT), (-1, -1, TUFT), (1, -1, TUFT), (-2, -2, TUFT_LIGHT), (2, -2, TUFT_LIGHT),
-                        (0, -2, TUFT_LIGHT if rnd.random() < 0.5 else TUFT)):
+    t, tl = P["tuft"], P["tuft_light"]
+    for dx, dy, col in ((0, 0, t), (-1, -1, t), (1, -1, t), (-2, -2, tl), (2, -2, tl), (0, -2, tl if rnd.random() < 0.5 else t)):
         if 0 <= y + dy < h and 0 <= x + dx < w:
             img[y + dy, x + dx] = col
 
@@ -257,11 +349,11 @@ def _pebble(img: np.ndarray, x: int, y: int) -> None:
             img[y + dy, x + dx] = col
 
 
-def _sparkle(img: np.ndarray, x: int, y: int) -> None:
+def _sparkle(img: np.ndarray, x: int, y: int, P: dict) -> None:
     h, w = img.shape[:2]
     for dx, dy in ((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)):
         if 0 <= y + dy < h and 0 <= x + dx < w:
-            img[y + dy, x + dx] = FOAM if (dx, dy) == (0, 0) else WATER_LIGHT
+            img[y + dy, x + dx] = P["foam"] if (dx, dy) == (0, 0) else P["shore"]
 
 
 # --- objects, animals and people (painted at art size, shown at 2x) -----------------------------
@@ -459,6 +551,62 @@ def paint_tree(g: Fig, color: str, anim: str, i: int, kind: str = "oak", seed: i
 
 
 FRUIT_COLORS = ["#ff9a2a", "#e83a3a", "#ffd84a"]
+SNOW, SNOW_SHADE = _c("#f8fbff"), _c("#c8d8ec")
+
+
+def paint_snowy_pine(g: Fig, color: str, anim: str, i: int, seed: int = 0) -> None:
+    paint_tree(g, color, anim, i, kind="pine", seed=seed)
+    cx = g.w // 2
+    for y, half in ((4, 4), (10, 7), (17, 10), (24, 12)):  # snow on each tier
+        g.poly([(cx, y - 4), (cx - half + 1, y + 3), (cx + half - 2, y + 3)], SNOW)
+        g.line(cx + 1, y - 2, cx + half - 3, y + 3, SNOW_SHADE)
+    _out(g)
+
+
+def paint_bare_tree(g: Fig, color: str, anim: str, i: int, seed: int = 0) -> None:
+    cx = g.w // 2
+    _trunk(g, cx, 18, 39)
+    for (x0, y0, x1, y1) in ((cx, 20, cx - 9, 8), (cx, 18, cx + 8, 6), (cx - 4, 13, cx - 11, 12), (cx + 4, 12, cx + 12, 13),
+                             (cx, 18, cx + 1, 3), (cx - 6, 10, cx - 5, 4), (cx + 5, 9, cx + 7, 2)):
+        g.line(x0, y0, x1, y1, WOOD, 2 if y0 > 15 else 1)
+    for (x, y) in ((cx - 9, 7), (cx + 8, 5), (cx + 1, 2), (cx - 11, 11), (cx + 12, 12)):
+        g.rect(x - 1, y, x + 1, y, SNOW)
+    _out(g)
+
+
+def paint_palm(g: Fig, color: str, anim: str, i: int, seed: int = 0) -> None:
+    d, b, l = _ramp(color)
+    sway = (0, 1, 0, -1)[i % 4] if anim == "idle" else 0
+    cx = g.w // 2
+    g.ellipse(cx, 39, 7, 2, _c("#2c5a30", 110))
+    for k, y in enumerate(range(12, 39, 3)):  # a curved, ringed trunk
+        x = cx + (12 - y) / 8.0
+        g.rect(x - 2, y, x + 1, y + 2, _c("#b88a50") if k % 2 else _c("#a07440"))
+    top = (cx + 1 + sway, 11)
+    for dx, dy in ((-13, 5), (13, 5), (-10, -3), (10, -3), (-3, -8), (5, 9)):
+        tip = (top[0] + dx, top[1] + dy)
+        g.line(top[0], top[1], tip[0], tip[1], d, 3)
+        g.line(top[0], top[1] - 1, tip[0], tip[1] - 1, b, 2)
+    for fx in (-2, 1):
+        g.ellipse(top[0] + fx, top[1] + 3, 1.6, 1.6, _c("#7a4a2a"))
+    _out(g)
+
+
+def paint_cactus(g: Fig, color: str, anim: str, i: int) -> None:
+    d, b, l = _ramp(color)
+    g.ellipse(8, 23, 6, 1.5, _c("#2c5a30", 110))
+    g.rect(5, 4, 10, 22, b)
+    g.ellipse(7.5, 4, 2.6, 2, b)
+    g.rect(9, 5, 10, 22, d)
+    g.rect(6, 5, 6, 21, l)
+    g.rect(0, 10, 4, 12, b)
+    g.rect(0, 6, 2, 11, b)
+    g.rect(11, 13, 15, 15, b)
+    g.rect(13, 8, 15, 14, d)
+    for y in range(7, 22, 4):
+        g.set(7, y, _c("#f8f0d0"))
+    g.set(8, 2, _c("#ff8fb4"))
+    _out(g)
 
 
 def paint_stump(g: Fig, color: str, anim: str, i: int) -> None:
@@ -581,6 +729,96 @@ def paint_flower_bush(g: Fig, color: str, anim: str, i: int) -> None:
         fx, fy = 2 + rnd.random() * 11, 5 + rnd.random() * 6
         g.set(fx, fy, b)
         g.set(fx + 1, fy, l)
+    _out(g)
+
+
+# furniture ---------------------------------------------------------------------------------------
+
+def paint_bed(g: Fig, color: str, anim: str, i: int) -> None:
+    d, b, l = _ramp(color)
+    g.rect(1, 1, 14, 6, WOOD)  # headboard
+    g.rect(1, 1, 14, 2, WOOD_LIGHT)
+    g.rect(2, 5, 13, 29, _c("#f4ece0"))  # sheet
+    g.rect(3, 6, 12, 10, WHITE)  # pillow
+    g.rect(3, 10, 12, 10, _c("#d8d0c8"))
+    g.rect(2, 12, 13, 28, b)  # blanket
+    g.rect(2, 12, 13, 13, l)
+    g.rect(12, 14, 13, 28, d)
+    for y in (17, 22):
+        g.rect(2, y, 13, y, d)
+    g.rect(1, 28, 14, 31, WOOD_DARK)  # footboard
+    _out(g)
+
+
+def paint_fireplace(g: Fig, color: str, anim: str, i: int) -> None:
+    brick, mortar = _c("#c8643a"), _c("#8a3e24")
+    g.rect(2, 0, 29, 31, brick)
+    for y in range(0, 32, 4):
+        g.rect(2, y, 29, y, mortar)
+        for x in range(2 + (4 if (y // 4) % 2 else 0), 30, 8):
+            g.rect(x, y, x, y + 3, mortar)
+    g.rect(0, 12, 31, 14, WOOD)  # mantel
+    g.rect(0, 12, 31, 12, WOOD_LIGHT)
+    g.rect(7, 17, 24, 31, _c("#2a1e2e"))  # the hearth
+    g.rect(8, 28, 23, 31, _c("#5a3a2a"))
+    k = i % 4
+    flame = (_c("#ffb02e"), _c("#ff6a2a"), _c("#fff0a0"))
+    for n, (fx, h) in enumerate(((11, 7), (15, 9), (19, 6))):
+        hh = h + (0, 1, 0, -1)[(k + n) % 4]
+        g.poly([(fx - 2, 28), (fx + 2, 28), (fx + (n - 1), 28 - hh)], flame[n % 2])
+        g.poly([(fx - 1, 28), (fx + 1, 28), (fx, 28 - hh // 2)], flame[2])
+    g.rect(9, 27, 22, 28, WOOD_DARK)  # logs
+    g.rect(6, 8, 9, 11, _c("#e0c060"))  # a candle and a frame on the mantel
+    g.rect(20, 5, 27, 11, WOOD_DARK)
+    g.rect(21, 6, 26, 10, _c("#8ab0ff"))
+    _out(g)
+
+
+def paint_table(g: Fig, color: str, anim: str, i: int) -> None:
+    g.ellipse(16, 22, 13, 2, _c("#2a1e2e", 70))
+    g.rect(1, 4, 30, 13, WOOD)  # top
+    g.rect(1, 4, 30, 5, WOOD_LIGHT)
+    g.rect(1, 13, 30, 14, WOOD_DARK)
+    g.rect(3, 15, 5, 22, WOOD_DARK)  # legs
+    g.rect(26, 15, 28, 22, WOOD_DARK)
+    g.rect(9, 6, 22, 11, WHITE)  # a cloth, a vase of flowers
+    g.rect(14, 2, 17, 7, _c("#8ab0ff"))
+    g.set(14, 1, _c("#ff8fb4"))
+    g.set(16, 0, _c("#ffd84a"))
+    g.set(17, 1, _c("#ff8fb4"))
+    _out(g)
+
+
+def paint_chair(g: Fig, color: str, anim: str, i: int) -> None:
+    g.rect(3, 0, 12, 9, WOOD)  # back
+    g.rect(4, 1, 11, 2, WOOD_LIGHT)
+    g.rect(5, 4, 10, 7, WOOD_DARK)
+    g.rect(2, 9, 13, 13, WOOD_LIGHT)  # seat
+    g.rect(3, 13, 4, 19, WOOD_DARK)
+    g.rect(11, 13, 12, 19, WOOD_DARK)
+    _out(g)
+
+
+def paint_dresser(g: Fig, color: str, anim: str, i: int) -> None:
+    g.rect(1, 4, 22, 23, WOOD)
+    g.rect(1, 4, 22, 5, WOOD_LIGHT)
+    for y in (8, 14, 20):
+        g.rect(3, y - 2, 20, y + 1, WOOD_DARK)
+        g.rect(4, y - 1, 19, y, WOOD_LIGHT)
+        g.rect(10, y - 1, 13, y - 1, _c("#ffd84a"))
+    g.rect(5, 0, 9, 4, _c("#c84a3a"))  # a jar and a book on top
+    g.rect(13, 1, 19, 4, _c("#4a7ad0"))
+    _out(g)
+
+
+def paint_potted_plant(g: Fig, color: str, anim: str, i: int) -> None:
+    d, b, l = _ramp(color)
+    g.rect(4, 16, 11, 23, _c("#c8643a"))
+    g.rect(3, 15, 12, 17, _c("#e0804a"))
+    for (x0, y0, x1, y1) in ((8, 15, 3, 4), (8, 15, 12, 2), (8, 15, 8, 0), (8, 15, 1, 10), (8, 15, 14, 9)):
+        g.line(x0, y0, x1, y1, d, 2)
+        g.ellipse(x1, y1, 2.4, 1.8, b)
+        g.set(x1 - 1, y1 - 1, l)
     _out(g)
 
 
@@ -957,9 +1195,16 @@ def crop_icon(name: str, color: str) -> np.ndarray:
 
 
 def item_icon(item: str) -> np.ndarray:
-    """16x16 icons for animal products and gathered materials: egg, milk, wood, stone."""
+    """16x16 icons for animal products and gathered materials: egg, milk, wood, stone, fish."""
     g = Fig(CELL, CELL)
-    if item == "egg":
+    if item == "fish":
+        g.ellipse(7, 8, 5.4, 3.4, _c("#5aa8e0"))
+        g.ellipse(6, 7, 3.4, 1.4, _c("#9ad4f8"))
+        g.rect(4, 10, 9, 10, _c("#3a78b0"))
+        g.poly([(11, 8), (15, 4), (15, 12)], _c("#3a78b0"))
+        g.set(4, 7, BLACK)
+        g.rect(7, 5, 9, 5, _c("#3a78b0"))
+    elif item == "egg":
         g.ellipse(8, 9, 4, 5, _c("#f8f0e0"))
         g.ellipse(6.5, 7, 1.4, 1.8, WHITE)
         g.rect(9, 12, 10, 12, _c("#d8c8b0"))
@@ -1007,7 +1252,18 @@ SPRITES: dict[str, tuple[tuple[int, int], dict[str, tuple[int, float, bool]], ob
     "tree_fruit": ((32, 40), {"idle": (4, 2, True)}, _tree("fruit"), "#5cb84a"),
     "tree_blossom": ((32, 40), {"idle": (4, 2, True)}, _tree("blossom"), "#ffa8c8"),
     "tree_pine": ((24, 40), {"idle": (4, 2, True)}, _tree("pine"), "#2f8a5a"),
+    "tree_maple": ((32, 40), {"idle": (4, 2, True)}, _tree("oak"), "#d8402a"),
+    "tree_snowy_pine": ((24, 40), {"idle": (1, 1, False)}, paint_snowy_pine, "#2f7a5a"),
+    "tree_bare": ((32, 40), {"idle": (1, 1, False)}, paint_bare_tree, "#9a5e36"),
+    "tree_palm": ((32, 40), {"idle": (4, 2, True)}, paint_palm, "#4caf50"),
+    "cactus": ((16, 24), {"idle": (1, 1, False)}, paint_cactus, "#5aa048"),
     "well": ((24, 30), {"idle": (1, 1, False)}, paint_well, "#b4472e"),
+    "bed": ((16, 32), {"idle": (1, 1, False)}, paint_bed, "#4a7ad0"),
+    "fireplace": ((32, 32), {"idle": (4, 6, True)}, paint_fireplace, "#c8643a"),
+    "table": ((32, 24), {"idle": (1, 1, False)}, paint_table, "#9a5e36"),
+    "chair": ((16, 20), {"idle": (1, 1, False)}, paint_chair, "#9a5e36"),
+    "dresser": ((24, 24), {"idle": (1, 1, False)}, paint_dresser, "#9a5e36"),
+    "potted_plant": ((16, 24), {"idle": (1, 1, False)}, paint_potted_plant, "#5cb84a"),
     "scarecrow": ((16, 24), {"idle": (4, 2, True)}, paint_scarecrow, "#4a7ad0"),
     "stump": ((16, 16), {"idle": (1, 1, False)}, paint_stump, "#9a5e36"),
     "boulder": ((16, 16), {"idle": (1, 1, False)}, paint_boulder, "#a8a8b8"),

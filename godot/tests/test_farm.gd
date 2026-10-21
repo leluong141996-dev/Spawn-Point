@@ -149,3 +149,48 @@ func test_plots_draw_their_crop_from_its_stages() -> void:
 	assert_eq(plot.stage(), 2)
 	await frames(40)
 	assert_eq(plot.stage(), 4)
+
+
+func test_the_hoe_tills_grass_before_anything_grows() -> void:
+	var f := _farmer()
+	var plot := _plot(Vector2(20, 0), {"tilled": false})
+	await frames(1)
+	assert_false(plot.plant(0, 1.0, Color.ORANGE), "nothing grows in grass")
+	assert_eq(f.interact(), "till")
+	assert_true(plot.tilled)
+	assert_eq(f.interact(), "plant")
+	await frames(70)
+	assert_eq(f.interact(), "harvest")
+	assert_true(plot.tilled and plot.is_empty(), "the soil stays tilled after a harvest")
+
+
+func test_fishing_casts_waits_for_a_bite_and_reels_in() -> void:
+	var f := _farmer()
+	f.goods_list = FarmerComponent.parse_goods("Fish|10")
+	var shore := make_entity("Shore", "area", SP.TEAM_NEUTRAL, Vector2(20, 20),
+			{"FishingSpot": {"min_wait": 0.3, "max_wait": 0.3, "bite_time": 0.5}}, Vector2(20, 0))
+	var spot := SP.component(shore, &"FishingSpot") as FishingSpotComponent
+	await frames(2)
+	assert_eq(f.interact(), "cast")
+	assert_eq(f.interact(), "", "too soon: it gets away")
+	assert_eq(spot.state, FishingSpotComponent.State.IDLE)
+	assert_eq(f.interact(), "cast")
+	await frames(25)
+	assert_eq(spot.state, FishingSpotComponent.State.BITE)
+	assert_eq(f.interact(), "catch")
+	assert_eq(f.goods_basket, {"Fish": 1})
+	assert_eq(f.interact(), "cast")
+	await frames(70)  # the bite comes and goes
+	assert_eq(spot.state, FishingSpotComponent.State.IDLE, "too late: it got away")
+
+
+func test_a_warp_moves_the_player_through_the_doorway() -> void:
+	GameState.reset_run()
+	var p := make_entity("Farmer", "character", SP.TEAM_PLAYER, Vector2(20, 20), {"TopDownMovement": {}}, Vector2(0, 0), true)
+	var door := make_entity("HouseDoor", "area", SP.TEAM_NEUTRAL, Vector2(30, 30), {"Warp": {"to": Vector2(500, 900)}}, Vector2(0, 0))
+	var warp := SP.component(door, &"Warp") as WarpComponent
+	await frames(4)
+	assert_eq(warp.player_inside, p, "the player stands in the doorway")
+	warp.warp(p)
+	assert_eq(p.global_position, Vector2(500, 900))
+	assert_true(warp.player_inside == null)

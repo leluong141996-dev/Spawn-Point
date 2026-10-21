@@ -27,7 +27,7 @@
       "~~....:.....,,,,,,,,,,........~~~~",
       "~~~...:..........:............~~~~",
       "~~~::::::::::::::::::::::::::::~~~",
-      "~~~.....:..............:......~~~~",
+      "~~~.....:.....................~~~~",
       "~~............................~~~~",
       "~~....................~~......~~~~",
       "~~...................~~~~.......~~",
@@ -37,8 +37,31 @@
       "~~..............................~~",
       "~~..............................~~",
       "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
-      "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+      "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
+      "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
+      "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
+      "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
+      "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
+      "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
+      "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
+      "                                  ",
+      "                                  ",
+      "                                  ",
+      "                                  ",
+      "                                  ",
+      "                                  ",
+      "           WWWWWWWWWWW            ",
+      "           WWWWWWWWWWW            ",
+      "           WFFFFFFFFFW            ",
+      "           WFFFFFFFFFW            ",
+      "           WFFFRRRFFFW            ",
+      "           WFFFRRRFFFW            ",
+      "           WFFFFFFFFFW            ",
+      "           WFFFFMFFFFW            ",
+      "           WWWWWWWWWWW            ",
+      "                                  "
     ],
+    "season": "spring",
     "y_sort": true,
     "art": {
       "soil": {
@@ -85,6 +108,10 @@
         "kind": "item_icon",
         "of": "milk"
       },
+      "icon_fish": {
+        "kind": "item_icon",
+        "of": "fish"
+      },
       "icon_wood": {
         "kind": "item_icon",
         "of": "wood"
@@ -105,7 +132,7 @@
         "PlayerInput": {},
         "Farmer": {
           "crops": "Strawberry|#e83a4a|8|4|res://sprites/art_crop_Strawberry.png|res://sprites/art_icon_Strawberry.png;Carrot|#ff8a2a|14|9|res://sprites/art_crop_Carrot.png|res://sprites/art_icon_Carrot.png;Pumpkin|#ff9a2a|24|20|res://sprites/art_crop_Pumpkin.png|res://sprites/art_icon_Pumpkin.png",
-          "goods": "Egg|6|res://sprites/art_icon_egg.png;Milk|14|res://sprites/art_icon_milk.png;Wood|3|res://sprites/art_icon_wood.png;Stone|4|res://sprites/art_icon_stone.png",
+          "goods": "Egg|6|res://sprites/art_icon_egg.png;Milk|14|res://sprites/art_icon_milk.png;Fish|10|res://sprites/art_icon_fish.png;Wood|3|res://sprites/art_icon_wood.png;Stone|4|res://sprites/art_icon_stone.png",
           "reach": 46,
           "basket_size": 16
         },
@@ -167,6 +194,7 @@
         "FarmPlot": {
           "water_seconds": 6.0,
           "size": 30,
+          "tilled": false,
           "soil_texture": "res://sprites/art_soil.png",
           "wet_texture": "res://sprites/art_soil_wet.png"
         }
@@ -449,6 +477,188 @@
         }
       }
     },
+    "Bed": {
+      "body": "static",
+      "juice": "none",
+      "base": [
+        28,
+        56
+      ],
+      "components": {},
+      "sprite": {
+        "generate": {
+          "kind": "bed",
+          "seed": 7,
+          "color": "#4a7ad0"
+        }
+      }
+    },
+    "PottedPlant": {
+      "body": "static",
+      "juice": "none",
+      "base": [
+        16,
+        12
+      ],
+      "components": {},
+      "sprite": {
+        "generate": {
+          "kind": "potted_plant",
+          "seed": 7,
+          "color": "#5cb84a"
+        }
+      }
+    },
+    "Dresser": {
+      "body": "static",
+      "juice": "none",
+      "base": [
+        44,
+        16
+      ],
+      "components": {},
+      "sprite": {
+        "generate": {
+          "kind": "dresser",
+          "seed": 7,
+          "color": "#9a5e36"
+        }
+      }
+    },
+    "Fireplace": {
+      "body": "static",
+      "juice": "none",
+      "base": [
+        60,
+        20
+      ],
+      "components": {},
+      "sprite": {
+        "generate": {
+          "kind": "fireplace",
+          "seed": 7,
+          "color": "#c8643a"
+        }
+      }
+    },
+    "Table": {
+      "body": "static",
+      "juice": "none",
+      "base": [
+        56,
+        20
+      ],
+      "components": {},
+      "sprite": {
+        "generate": {
+          "kind": "table",
+          "seed": 7,
+          "color": "#9a5e36"
+        }
+      }
+    },
+    "Chair": {
+      "body": "static",
+      "juice": "none",
+      "base": [
+        20,
+        12
+      ],
+      "components": {},
+      "sprite": {
+        "generate": {
+          "kind": "chair",
+          "seed": 7,
+          "color": "#9a5e36"
+        }
+      }
+    },
+    "HouseDoor": {
+      "body": "area",
+      "juice": "none",
+      "shape": {
+        "type": "rect",
+        "size": [
+          28,
+          28
+        ],
+        "color": "#00000000"
+      },
+      "components": {
+        "Warp": {
+          "to": [
+            528.0,
+            1296.0
+          ],
+          "hint": "Enter"
+        }
+      }
+    },
+    "DoorMat": {
+      "body": "area",
+      "juice": "none",
+      "shape": {
+        "type": "rect",
+        "size": [
+          28,
+          28
+        ],
+        "color": "#00000000"
+      },
+      "components": {
+        "Warp": {
+          "to": [
+            208.0,
+            272.0
+          ],
+          "hint": "Go out"
+        }
+      }
+    },
+    "Shore": {
+      "body": "area",
+      "juice": "none",
+      "shape": {
+        "type": "none",
+        "size": [
+          24,
+          24
+        ]
+      },
+      "components": {
+        "FishingSpot": {
+          "water_dir": [
+            0,
+            1
+          ],
+          "min_wait": 1.5,
+          "max_wait": 4.5,
+          "bite_time": 1.0
+        }
+      }
+    },
+    "ShoreEast": {
+      "body": "area",
+      "juice": "none",
+      "shape": {
+        "type": "none",
+        "size": [
+          24,
+          24
+        ]
+      },
+      "components": {
+        "FishingSpot": {
+          "water_dir": [
+            1,
+            0
+          ],
+          "min_wait": 1.5,
+          "max_wait": 4.5,
+          "bite_time": 1.0
+        }
+      }
+    },
     "Stump": {
       "body": "static",
       "juice": "none",
@@ -595,19 +805,41 @@
       "##.........deeeeeeeeeed.....k.o.##",
       "##o........g..........g...m.....##",
       "##....a....g.ff.ff.ff.g.o..l..####",
-      "##k......Mcg.ff.ff.ff.g......p####",
+      "##k...y..Mcg.ff.ff.ff.g......p####",
       "##..o.P....g...h......gp......####",
       "###..b.....deeeee.eeeed.......####",
       "###............................###",
       "###deeee.eeed.................####",
-      "##lg.......jg..l..............####",
+      "##lg.......jg..l.......A......####",
       "##.g.i......g.........##.....o####",
-      "##.g..s.s.s.gm.......####......l##",
+      "##.g..C.C.C.gm......B####......l##",
       "##.g........g........###........##",
-      "##.g..t.u...g.k............m.k..##",
+      "##.g..D.E...g.k............m.k..##",
       "##pdeeeeeeeed.........k.l......o##",
       "##.....o.k.p..k...o.........o...##",
       "##l.p...........l......p..p...l.##",
+      "##################################",
+      "##################################",
+      "##################################",
+      "##################################",
+      "##################################",
+      "##################################",
+      "##################################",
+      "##################################",
+      "##################################",
+      "##################################",
+      "##################################",
+      "##################################",
+      "##################################",
+      "##################################",
+      "##################################",
+      "##################################",
+      "############.t.u...v.#############",
+      "############s........#############",
+      "############.........#############",
+      "############..x.w.x..#############",
+      "############.........#############",
+      "############....z...t#############",
       "##################################",
       "##################################"
     ],
@@ -630,9 +862,19 @@
       "m": "FlowerBush",
       "o": "Pine",
       "p": "CherryTree",
-      "s": "Chicken",
-      "t": "Chick",
-      "u": "Cow",
+      "s": "Bed",
+      "t": "PottedPlant",
+      "u": "Dresser",
+      "v": "Fireplace",
+      "w": "Table",
+      "x": "Chair",
+      "y": "HouseDoor",
+      "z": "DoorMat",
+      "A": "Shore",
+      "B": "ShoreEast",
+      "C": "Chicken",
+      "D": "Chick",
+      "E": "Cow",
       "n": "CrowNest"
     }
   },
@@ -649,7 +891,7 @@
       "on": "GameState.second_passed",
       "if": "event.seconds == 4",
       "do": [
-        "message('Space: plant, water, harvest, collect eggs, chop trees')"
+        "message('Space: till, plant, water, fish, chop')"
       ]
     },
     {

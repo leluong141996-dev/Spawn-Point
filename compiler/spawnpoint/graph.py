@@ -132,6 +132,7 @@ class Settings(_Model):
     # A drawn ground for the whole map, one character per cell like the level map: "." grass, ":" dirt path,
     # "~" water, "," tidy grass (fields), "_" sand. Used by farms; replaces the floor and scenery.
     terrain: list[str] | None = None
+    season: Literal["spring", "autumn", "winter", "desert"] = "spring"  # the terrain's colours
     # Draw entities lower on screen in front of the ones above them (top-down games with tall trees and houses).
     y_sort: bool = False
     # Extra pictures for components (crop growth stages, item icons, soil): name -> what to draw.

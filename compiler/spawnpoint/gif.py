@@ -70,6 +70,7 @@ def overview(project: Path, out: Path, seconds: float = 20.0) -> Path:
     for name in ("record.gd", "record.tscn", "overview.gd", "overview.tscn"):
         shutil.copy2(ADDON_DIR / "tools" / name, tools / name)
     out.parent.mkdir(parents=True, exist_ok=True)
+    out.unlink(missing_ok=True)  # an old picture must not pass for a new one
     cmd = [godot.find_binary(), "--path", str(project), "--fixed-fps", "60", OVERVIEW_SCENE, "--", str(out),
            str(int(seconds * 60))]
     proc = subprocess.run(cmd, capture_output=True, text=True, timeout=seconds * 20 + 60)

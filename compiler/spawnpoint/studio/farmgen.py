@@ -34,6 +34,11 @@ class CozyFarm:
     animals: list[Cell]
     objects: list[tuple[str, Cell]] = field(default_factory=list)  # (kind, cell): see OBJECT_KINDS
     nests: list[Cell] = field(default_factory=list)
+    fishing: list[tuple[Cell, Cell]] = field(default_factory=list)  # (shore cell, direction of the water)
+    # Inside the farmhouse: a room below the map (past a strip of sea and darkness, so the camera never shows both).
+    room: tuple[int, int, int, int] | None = None  # x0, y0, x1, y1 of the floor
+    door_mat: Cell | None = None  # stand here inside and press interact to go out
+    outdoor_height: int = 0  # rows of the farm itself (the room comes after)
 
     def blocked(self) -> set[Cell]:
         """Cells nobody can walk through: water, the edge, and solid objects' cells."""
@@ -50,11 +55,27 @@ class CozyFarm:
 
 # Objects the assembler turns into entities.
 OBJECT_KINDS = ("farmhouse", "coop", "fence_h", "fence_v", "fence_post", "tree_oak", "tree_pine", "tree_blossom",
-                "tree_fruit", "boulder", "stump", "flower_bush", "hay", "barrel", "well", "scarecrow", "signpost")
+                "tree_fruit", "tree_maple", "tree_snowy_pine", "tree_bare", "tree_palm", "cactus", "boulder", "stump",
+                "flower_bush", "hay", "barrel", "well", "scarecrow", "signpost",
+                "bed", "fireplace", "table", "chair", "dresser", "potted_plant")
+# What grows around the farm in each season: (tree kinds, weights), and the small things scattered between them.
+SEASON_TREES = {
+    "spring": (["tree_oak", "tree_pine", "tree_fruit", "tree_blossom"], [4, 3, 2, 2]),
+    "autumn": (["tree_oak", "tree_maple", "tree_pine", "tree_fruit"], [4, 3, 2, 1]),
+    "winter": (["tree_snowy_pine", "tree_bare"], [5, 3]),
+    "desert": (["tree_palm", "cactus"], [3, 4]),
+}
+SEASON_SMALL = {"spring": ["boulder", "boulder", "stump", "flower_bush", "flower_bush"],
+                "autumn": ["boulder", "boulder", "stump", "stump", "flower_bush"],
+                "winter": ["boulder", "boulder", "stump"],
+                "desert": ["boulder", "boulder", "boulder", "cactus"]}
 
 
-def cozy_farm(seed: int, length: str = "medium", plot_target: int = 12, island: bool | None = None) -> CozyFarm:
-    """`island` forces water all round (True) or a meadow (False); None lets the seed choose."""
+def cozy_farm(seed: int, length: str = "medium", plot_target: int = 12, island: bool | None = None,
+              season: str = "spring") -> CozyFarm:
+    """`island` forces water all round (True) or a meadow (False); None lets the seed choose. `season` picks the
+    trees (see SEASON_TREES); the ground's colours are the terrain painter's business."""
+    trees_of, weights = SEASON_TREES.get(season, SEASON_TREES["spring"])
     w, h = FARM_MAPS.get(length, FARM_MAPS["medium"])
     rng = random.Random(f"cozyfarm:{seed}")
     pick = rng.random() < 0.6
@@ -176,9 +197,12 @@ def cozy_farm(seed: int, length: str = "medium", plot_target: int = 12, island: 
         for y in range(ly0 - 1, ly0 + lh + 1):
             taken.add((x, y))
 
-    # paths along the road edges get a few branches toward the pond
-    for y in range(road + 1, ly0 - 1):
-        path((lx0 + lw // 2, y))
+    # fishing spots: shore cells on the pond's north and west sides (the bobber lands on the water)
+    pond = {(x, y) for x in range(lx0, lx0 + lw) for y in range(ly0, ly0 + lh) if grid[y][x] == "~"}
+    fishing: list[tuple[Cell, Cell]] = []
+    for c, d in (((lx0 + lw // 2, ly0 - 1), (0, 1)), ((lx0 - 1, ly0 + lh // 2), (1, 0))):
+        if (c[0] + d[0], c[1] + d[1]) in pond and grid[c[1]][c[0]] != "~":
+            fishing.append((c, d))
 
     # trees, rocks, bushes and stumps on the free land, thicker toward the edges
     solid = {(x, y) for y in range(h) for x in range(w) if grid[y][x] == "~" or x in (0, w - 1) or y in (0, h - 1)}
@@ -197,11 +221,11 @@ def cozy_farm(seed: int, length: str = "medium", plot_target: int = 12, island: 
             if any(abs(x - t[0]) < 2 and abs(y - t[1]) < 2 for t in trees):
                 continue
             if rng.random() < chance:
-                kind = rng.choices(["tree_oak", "tree_pine", "tree_fruit", "tree_blossom"], [4, 3, 2, 2])[0]
+                kind = rng.choices(trees_of, weights)[0]
                 trees.append(c)
                 put(kind, c)
             elif rng.random() < 0.05:
-                put(rng.choice(["boulder", "boulder", "stump", "flower_bush", "flower_bush"]), c)
+                put(rng.choice(SEASON_SMALL.get(season, SEASON_SMALL["spring"])), c)
     if not island:  # woods all round a meadow: the outer ring is solid
         for y in range(h):
             for x in range(w):
@@ -212,9 +236,44 @@ def cozy_farm(seed: int, length: str = "medium", plot_target: int = 12, island: 
     nests = [c for c in ((m + 1, m + 1), (w - m - 2, m + 1), (m + 1, h - m - 2), (w - m - 2, h - m - 2))]
     terrain = ["".join(r) for r in grid]
     farm = CozyFarm(w, h, island, terrain, solid, player, door, bin_cell, plots, (px0, py0, px0 + pw - 1, py0 + ph - 1),
-                    animals, objects, nests)
+                    animals, objects, nests, fishing)
     _clear_paths(farm)
+    _add_interior(farm)
     return farm
+
+
+SEA_GAP, DARK_GAP = 6, 6  # rows of sea, then darkness, between the farm and the room
+ROOM_W, ROOM_H = 11, 9
+
+
+def _add_interior(farm: CozyFarm) -> None:
+    """The farmhouse's inside: back wall with windows, floorboards, a rug, bed, dresser, fireplace, table and
+    chairs, a door mat. Laid out below the map; the house's door and the mat are linked by warps."""
+    w = farm.width
+    x0, y0 = (w - ROOM_W) // 2, farm.height + SEA_GAP + DARK_GAP
+    rows = [list("~" * w) for _ in range(SEA_GAP)] + [list(" " * w) for _ in range(DARK_GAP + ROOM_H + 1)]
+    for dy in range(ROOM_H):
+        for dx in range(ROOM_W):
+            edge = dy < 2 or dy == ROOM_H - 1 or dx in (0, ROOM_W - 1)
+            rows[SEA_GAP + DARK_GAP + dy][x0 + dx] = "W" if edge else "F"
+    cx = x0 + ROOM_W // 2
+    for dy in (4, 5):
+        for dx in (-1, 0, 1):
+            rows[SEA_GAP + DARK_GAP + dy][cx + dx] = "R"
+    mat = (cx, y0 + ROOM_H - 2)
+    rows[SEA_GAP + DARK_GAP + ROOM_H - 2][cx] = "M"
+    farm.terrain = farm.terrain + ["".join(r) for r in rows]
+    for dy, r in enumerate(rows):
+        for x, ch in enumerate(r):
+            if ch in "~ W":
+                farm.solid.add((x, farm.height + dy))
+    farm.objects += [("bed", (x0 + 1, y0 + 3)), ("potted_plant", (x0 + 2, y0 + 2)), ("dresser", (x0 + 4, y0 + 2)),
+                     ("fireplace", (x0 + ROOM_W - 3, y0 + 2)), ("table", (cx, y0 + 5)), ("chair", (cx - 2, y0 + 5)),
+                     ("chair", (cx + 2, y0 + 5)), ("potted_plant", (x0 + ROOM_W - 2, y0 + ROOM_H - 2))]
+    farm.room = (x0 + 1, y0 + 2, x0 + ROOM_W - 2, y0 + ROOM_H - 2)
+    farm.outdoor_height = farm.height
+    farm.door_mat = mat
+    farm.height += SEA_GAP + DARK_GAP + ROOM_H + 1
 
 
 def _fence(objects: list[tuple[str, Cell]], x0: int, y0: int, x1: int, y1: int, gate: Cell) -> None:
@@ -234,7 +293,7 @@ def _fence(objects: list[tuple[str, Cell]], x0: int, y0: int, x1: int, y1: int, 
 def _clear_paths(farm: CozyFarm) -> None:
     """Nothing stands on a path or on the cells everyone needs to reach."""
     keep = {(x, y) for y, row in enumerate(farm.terrain) for x, ch in enumerate(row) if ch == ":"}
-    keep |= {farm.player, farm.bin, farm.door}
+    keep |= {farm.player, farm.bin, farm.door} | {c for c, _ in farm.fishing}
     farm.objects = [(k, c) for k, c in farm.objects if c not in keep or k == "farmhouse"]
 
 

@@ -39,7 +39,7 @@ def test_islands_have_water_all_round_and_meadows_do_not():
     assert kinds == {True, False}, "both kinds of map turn up"
     for s in range(20):
         fm = farmgen.cozy_farm(s)
-        edge = fm.terrain[0] + fm.terrain[-1]
+        edge = fm.terrain[0] + fm.terrain[fm.outdoor_height - 1]
         assert (set(edge) == {"~"}) == fm.island
         assert all(c in fm.solid for c in ((0, 0), (fm.width - 1, fm.height - 1)))
 
@@ -107,7 +107,7 @@ def test_assembled_farm_uses_the_cozy_map(manifest):
     assert ents["Farmhouse"]["base"] and ents["Farmhouse"]["body"] == "static"
     assert all("farm_kind" not in e for e in ents.values())
     a = analyze(g, manifest)
-    assert a.ok, a.diagnostics.render()
+    assert a.ok, [str(x) for x in a.diagnostics]
     assert a.plan["scenery"] == {"ground": "res://sprites/scenery_ground.png", "pixel": 2} and a.plan["y_sort"]
     assert {"scenery_ground", "art_crop_Strawberry", "art_soil", "art_icon_milk"} <= set(a.scenery_images)
     house = next(e for e in a.plan["entities"] if e["name"] == "Farmhouse")
@@ -119,7 +119,7 @@ def test_placeholder_farm_layers_still_compile(manifest, layer):
     g = assemble(_farm_brief(), layer, seed=5)
     assert all("sprite" not in e and "farm_kind" not in e for e in g["entities"].values())
     a = analyze(g, manifest)
-    assert a.ok, a.diagnostics.render()
+    assert a.ok, [str(x) for x in a.diagnostics]
 
 
 def test_ocean_farms_are_islands_and_forest_farms_are_meadows():
@@ -133,3 +133,26 @@ def test_only_farm_prompts_get_the_farm_vocabulary():
     assert brief_messages_v5("a ninja platformer with slimes")[0]["content"] == BRIEF_SYSTEM_V5
     for p in ("game nông trại trên đảo, trồng dâu tây", "a farming game with pumpkins", "thu hoạch cà rốt"):
         assert FARM_LINE in brief_messages_v5(p)[0]["content"], p
+
+
+
+@pytest.mark.parametrize("seed", range(6))
+def test_the_farmhouse_has_a_room_inside(seed):
+    fm = farmgen.cozy_farm(seed)
+    x0, y0, x1, y1 = fm.room
+    assert y0 > fm.outdoor_height + farmgen.SEA_GAP, "past the sea and the darkness"
+    inside = farmgen.reachable(fm, fm.door_mat)
+    assert fm.player not in inside, "only the warps connect the house and the farm"
+    furniture = [c for k, c in fm.objects if k in ("bed", "fireplace", "table", "dresser")]
+    assert len(furniture) == 4 and all(x0 <= c[0] <= x1 and y0 <= c[1] <= y1 for c in furniture)
+    assert sum(1 for y in range(y0, y1 + 1) for x in range(x0, x1 + 1) if (x, y) in inside) >= 20, "room to walk"
+    g = assemble(_farm_brief(), 2, seed=seed)
+    warps = {n: e["components"]["Warp"] for n, e in g["entities"].items() if "Warp" in e["components"]}
+    assert set(warps) == {"HouseDoor", "DoorMat"}
+    assert warps["HouseDoor"]["to"][1] > fm.outdoor_height * 32 and warps["DoorMat"]["to"][1] < fm.outdoor_height * 32
+
+
+def test_doorways_stay_invisible():
+    g = assemble(_farm_brief(), 2, seed=1)
+    for name in ("HouseDoor", "DoorMat"):
+        assert "sprite" not in g["entities"][name] and g["entities"][name]["shape"]["color"] == "#00000000"

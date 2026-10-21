@@ -40,7 +40,10 @@ CAST: list[tuple[str, str, str]] = [
     ("Barrel", "barrel", "#9a5e36"), ("Signpost", "signpost", "#9a5e36"), ("FlowerBush", "flower_bush", "#ff8fb4"),
     ("FenceH", "fence_h", "#9a5e36"), ("FenceV", "fence_v", "#9a5e36"), ("FencePost", "fence_post", "#9a5e36"),
     ("Chicken", "chicken", "#f4ece0"), ("Chick", "chick", "#ffd84a"), ("Cow", "cow", "#a0582e"),
-    ("Farmer", "farmer", "#e8503a"),
+    ("Farmer", "farmer", "#e8503a"), ("Maple", "tree_maple", "#d8402a"), ("SnowyPine", "tree_snowy_pine", "#2f7a5a"),
+    ("BareTree", "tree_bare", "#9a5e36"), ("Palm", "tree_palm", "#4caf50"), ("Cactus", "cactus", "#5aa048"),
+    ("Bed", "bed", "#4a7ad0"), ("Fireplace", "fireplace", "#c8643a"), ("Table", "table", "#9a5e36"),
+    ("Chair", "chair", "#9a5e36"), ("Dresser", "dresser", "#9a5e36"), ("PottedPlant", "potted_plant", "#5cb84a"),
 ]
 
 CELL, PAD, LABEL, BG, TILE, TEXT = 96, 10, 14, (36, 40, 52, 255), (52, 58, 74, 255), (220, 224, 232, 255)

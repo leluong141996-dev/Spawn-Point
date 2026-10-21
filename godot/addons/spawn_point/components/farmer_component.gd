@@ -1,8 +1,9 @@
 class_name FarmerComponent
 extends Node
-## The player's farming hands. Press interact (Space / E) next to something: an empty plot gets the selected
-## seed, a growing one gets water, a ripe one is harvested into the basket; a [FarmAnimalComponent] gives its egg
-## or milk; a [GatherableComponent] tree or rock takes a hit (and gives wood or stone when it breaks).
+## The player's farming hands. Press interact (Space / E) next to something: grass where a plot goes is tilled
+## with the hoe, an empty plot gets the selected seed, a growing one gets water, a ripe one is harvested into the basket; a [FarmAnimalComponent] gives its egg
+## or milk; a [GatherableComponent] tree or rock takes a hit (and gives wood or stone when it breaks); at a
+## [FishingSpotComponent] the first press casts and the next one, when a fish bites, reels it in.
 ## Keys 1-9 choose the seed. Walk into a [MarketComponent] (a stall or a shipping bin) to sell the basket.
 ##
 ## [member crops] is a ";"-separated list of "Name|#color|grow seconds|price", optionally followed by
@@ -18,7 +19,7 @@ const SP_CATEGORY := "core"
 
 ## Emitted after a sale with the money earned.
 signal sold(amount: int)
-## Emitted after each action: "plant", "water", "harvest", "collect", "chop" or "gather".
+## Emitted after each action: "till", "plant", "water", "harvest", "collect", "chop", "gather", "cast" or "catch".
 signal acted(action: String)
 
 ## The crops on offer (see the class description).
@@ -126,8 +127,9 @@ func nearest_plot() -> FarmPlotComponent:
 func nearest_target() -> Node:
 	var best: Node = null
 	var best_score := INF
-	for group in [&"farm_plot", &"farm_animal", &"gatherable"]:
-		var comp_name: StringName = {&"farm_plot": &"FarmPlot", &"farm_animal": &"FarmAnimal", &"gatherable": &"Gatherable"}[group]
+	for group in [&"farm_plot", &"farm_animal", &"gatherable", &"fishing_spot"]:
+		var comp_name: StringName = {&"farm_plot": &"FarmPlot", &"farm_animal": &"FarmAnimal", &"gatherable": &"Gatherable",
+			&"fishing_spot": &"FishingSpot"}[group]
 		var limit := reach if group == &"farm_plot" else reach * 1.25  # animals and trees are bigger than a plot
 		for e in _entity.get_tree().get_nodes_in_group(group):
 			var d := (e as Node2D).global_position.distance_to(_entity.global_position)
@@ -156,6 +158,13 @@ func interact() -> String:
 		if item != "":
 			add_goods(item, 1, (target.get_parent() as Node2D).global_position)
 			action = "collect"
+	elif target is FishingSpotComponent:
+		var fish := (target as FishingSpotComponent).use()
+		if fish == "cast":
+			action = "cast"
+		elif fish != "":
+			add_goods(fish, 1, (target as FishingSpotComponent).bobber_position())
+			action = "catch"
 	elif target is GatherableComponent:
 		var g := target as GatherableComponent
 		var where := (g.get_parent() as Node2D).global_position
@@ -166,7 +175,7 @@ func interact() -> String:
 	if action != "":
 		if Sfx.has_sound("blip"):
 			Sfx.play("blip", 0.1, -4.0, {"plant": 0.9, "water": 1.2, "harvest": 1.5, "collect": 1.7, "chop": 0.7,
-				"gather": 1.3}[action])
+				"gather": 1.3, "till": 0.6, "cast": 1.0, "catch": 1.8}[action])
 		acted.emit(action)
 	return action
 
@@ -174,6 +183,8 @@ func interact() -> String:
 func _work_plot(plot: FarmPlotComponent) -> String:
 	if crop_list.is_empty():
 		return ""
+	if plot.till():
+		return "till"
 	if plot.is_ripe():
 		if _full():
 			GameState.message("Basket full - sell at the market!")

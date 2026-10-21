@@ -138,7 +138,7 @@ class _Analyzer:
             self.scenery_images[f"art_{name}"] = sc.to_image(_draw_art(req))
         if s.terrain:  # a drawn ground for the whole map (farms)
             from .sprites import farm
-            self.scenery_images["scenery_ground"] = sc.to_image(farm.terrain_image(s.terrain, s.seed))
+            self.scenery_images["scenery_ground"] = sc.to_image(farm.terrain_image(s.terrain, s.seed, s.season))
             return {"ground": "res://sprites/scenery_ground.png", "pixel": 2}
         if s.scenery == "space":  # scrolling stars for shooters, in any art style
             sky, stars = sc.space(background, s.pixel_palette if s.art_style == "pixel" else None, s.seed)

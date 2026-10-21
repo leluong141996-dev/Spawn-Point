@@ -13,6 +13,8 @@ const SP_CATEGORY := "core"
 
 enum State { EMPTY, GROWING, RIPE }
 
+## Emitted when the hoe turns the grass into soil.
+signal tilled_soil()
 ## Emitted when something is planted; [param crop] is its index in the farmer's crop list.
 signal planted(crop: int)
 ## Emitted when the crop is ripe.
@@ -26,6 +28,8 @@ signal eaten(crop: int)
 @export_range(1.0, 120.0, 0.5) var water_seconds: float = 6.0
 ## Size of the soil patch in px.
 @export_range(16.0, 128.0, 1.0) var size: float = 30.0
+## Starts as tilled soil; off, it is grass until a [FarmerComponent] works it with the hoe.
+@export var tilled: bool = true
 ## Picture of dry tilled soil (res:// path); empty draws plain soil.
 @export var soil_texture: String = ""
 ## Picture of watered soil (res:// path).
@@ -60,6 +64,16 @@ func _ready() -> void:
 		_wet = load(wet_texture) as Texture2D
 
 
+## Turns grass into soil (the hoe). Returns false when it already was soil.
+func till() -> bool:
+	if tilled:
+		return false
+	tilled = true
+	FX.burst(_entity.global_position, Color("#9a6238"), 8, 90.0, 0.35, 3.0, 260.0)
+	tilled_soil.emit()
+	return true
+
+
 func is_empty() -> bool:
 	return state == State.EMPTY
 
@@ -75,7 +89,7 @@ func has_crop() -> bool:
 ## Plants crop [param index] that ripens after [param seconds] of wet growth. [param texture] holds the crop's
 ## growth stages (optional; without it the crop is drawn as shapes in [param color]).
 func plant(index: int, seconds: float, color: Color, texture: Texture2D = null) -> bool:
-	if state != State.EMPTY:
+	if state != State.EMPTY or not tilled:
 		return false
 	state = State.GROWING
 	crop = index
@@ -185,6 +199,15 @@ func _on_draw() -> void:
 
 func _draw_textured() -> void:
 	var t := 32.0  # one 16 px art tile at 2x
+	if not tilled:  # grass for now: a faint mark where the hoe goes
+		var c := Color(1, 1, 1, 0.22 + 0.08 * sin(_sway * 3.0))
+		for k in 4:
+			var a := Vector2(-12, -12).rotated(k * PI / 2.0)
+			var b := Vector2(-12, -6).rotated(k * PI / 2.0)
+			var d := Vector2(-6, -12).rotated(k * PI / 2.0)
+			_view.draw_line(a, b, c, 2.0)
+			_view.draw_line(a, d, c, 2.0)
+		return
 	var soil := _wet if wet_left > 0.0 and _wet else _soil
 	_view.draw_texture_rect(soil, Rect2(-t / 2, -t / 2, t, t), false)
 	if state == State.EMPTY:
