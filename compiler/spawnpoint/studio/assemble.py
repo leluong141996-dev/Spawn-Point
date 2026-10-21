@@ -112,7 +112,13 @@ FARM_CROP_COLORS = {"strawberry": "#e83a4a", "potato": "#c8986a", "carrot": "#ff
                     "pumpkin": "#ff9a2a", "corn": "#ffd84a", "cabbage": "#8ad860", "wheat": "#e8c25a",
                     "onion": "#f4ece0", "eggplant": "#8a4ac8", "blueberry": "#4a6ae8", "turnip": "#c84a9a"}
 FARM_DAYS = {"short": 2, "medium": 3, "long": 4}  # days in a farming season
+FARM_RAIN = {"spring": 0.35, "autumn": 0.4, "winter": 0.35, "desert": 0.05}  # chance of a rainy (or snowy) day
 FARM_START_MONEY = 15  # enough for the first seeds
+# For sale at the shop stall (key, name, price; see ShopComponent), and the rare crop it sells
+# (name, colour, grow seconds, price).
+FARM_SHOP = (("chicken", "Chicken", 40), ("cow", "Cow", 90), ("seeds", "Golden melon seeds", 60),
+             ("sprinkler", "Sprinkler", 55))
+FARM_RARE_CROP = ("GoldenMelon", "#ffd84a", 30, 45)
 # Tool upgrades at the workbench: (key, name, price); see ToolBenchComponent.
 FARM_UPGRADES = (("basket", "Big basket", 30), ("can", "Watering can", 45), ("hoe", "Hoe", 35), ("axe", "Axe", 40),
                  ("rod", "Fishing rod", 30))
@@ -141,6 +147,7 @@ FARM_OBJECTS: dict[str, tuple[str, dict]] = {
     "hay": ("Hay", {"base": (28, 14)}), "barrel": ("Barrel", {"base": (24, 14)}), "well": ("Well", {"base": (44, 28)}),
     "scarecrow": ("Scarecrow", {"base": (12, 10)}), "signpost": ("Signpost", {"base": (12, 8)}),
     "workbench": ("Workbench", {"base": (40, 14)}),
+    "shop": ("ShopStall", {"base": (56, 18)}), "sprinkler": ("WaterSprinkler", {"base": (12, 8)}),
     "bed": ("Bed", {"base": (28, 56)}), "fireplace": ("Fireplace", {"base": (60, 20)}), "table": ("Table", {"base": (56, 20)}),
     "chair": ("Chair", {"base": (20, 12)}), "dresser": ("Dresser", {"base": (44, 16)}),
     "potted_plant": ("PottedPlant", {"base": (16, 12)}),
@@ -381,6 +388,11 @@ class _Assembler:
             art[f"icon_{c}"] = {"kind": "crop_icon", "of": c, "color": color}
             crop_entries.append(f"{c}|{color}|{grow}|{price}|res://sprites/art_crop_{c}.png|res://sprites/art_icon_{c}.png")
         art["icon_hay"] = {"kind": "item_icon", "of": "hay"}
+        rare = FARM_RARE_CROP  # sold at the shop stall
+        art[f"crop_{rare[0]}"] = {"kind": "crop", "of": rare[0], "color": rare[1]}
+        art[f"icon_{rare[0]}"] = {"kind": "crop_icon", "of": rare[0], "color": rare[1]}
+        rare_entry = (f"{rare[0]}|{rare[1]}|{rare[2]}|{rare[3]}|res://sprites/art_crop_{rare[0]}.png"
+                      f"|res://sprites/art_icon_{rare[0]}.png")
         goods = []
         for item, price in FARM_GOODS:
             art[f"icon_{item.lower()}"] = {"kind": "item_icon", "of": item.lower()}
@@ -389,8 +401,11 @@ class _Assembler:
                                                        "acceleration": 2200}, "PlayerInput": {},
                                   "Farmer": {"crops": ";".join(crop_entries), "goods": ";".join(goods), "reach": 46,
                                              "basket_size": 16, "buy_seeds": True},
-                                  "FarmDays": {"days": days, "day_seconds": day_seconds},
-                                  "FarmSave": {"slot": f"{farm_slug(b.title or 'farm')}-{self.seed}"}}
+                                  "FarmDays": {"days": days, "day_seconds": day_seconds, "weather_seed": self.seed,
+                                               "rain_chance": FARM_RAIN[season], "snow": season == "winter"},
+                                  "FarmSave": {"slot": f"{farm_slug(b.title or 'farm')}-{self.seed}"},
+                                  "GameMenu": {"title": b.title or "My Farm",
+                                               "subtitle": f"Earn ${target} in {days} days. Space works the farm, P pauses."}}
         if "dash" in b.player.abilities:
             comps["TopDownMovement"]["dash_speed"] = 600.0
         self.entities["Player"] = {"shape": {"type": "circle", "size": [18, 18], "color": pal["player"]},
@@ -433,6 +448,12 @@ class _Assembler:
                        "components": {}}
                 if kind == "bed":
                     ent["components"]["SleepSpot"] = {}
+                if kind == "sprinkler":  # waits hidden in the field until bought
+                    ent["body"] = "area"
+                    ent["components"]["Sprinkler"] = {"radius": 52}
+                if kind == "shop":
+                    ent["components"]["Shop"] = {"offers": ";".join(f"{k}|{n}|{p}" for k, n, p in FARM_SHOP),
+                                                 "rare_crop": rare_entry}
                 if kind == "workbench":
                     ent["components"]["ToolBench"] = {"offers": ";".join(f"{k}|{n}|{p}" for k, n, p in FARM_UPGRADES)}
                 if "gather" in spec:
@@ -520,7 +541,7 @@ class _Assembler:
                 "settings": {"tile_size": TILE, "lives": 1, "seed": self.seed, "zoom": 1.6,
                              "background": "#3aa0e8" if fm.island else "#4f8a3a",
                              "tile_style": "flat", "tiles": {"solid": {"color": "#00000000", "top": "#00000000"}},
-                             "terrain": fm.terrain, "season": season, "y_sort": True, "art": art},
+                             "terrain": fm.terrain, "season": season, "music": season, "y_sort": True, "art": art},
                 "entities": self.entities, "level": {"map": rows, "legend": legend}, "rules": self.rules}
 
     def _farm_target(self) -> int:

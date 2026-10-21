@@ -8,7 +8,7 @@ extends Node
 const SP_NAME := "FarmDays"
 const SP_HOSTS: Array[String] = []
 const SP_REQUIRES: Array[String] = []
-const SP_INTERNAL: Array[String] = ["sleep", "next_day", "day", "clock", "time_of_day"]
+const SP_INTERNAL: Array[String] = ["sleep", "next_day", "day", "clock", "time_of_day", "weather", "weather_for"]
 const SP_CATEGORY := "core"
 
 ## Emitted each morning with the day number (1 on the first).
@@ -22,9 +22,17 @@ signal season_ended()
 @export_range(10.0, 1200.0, 1.0) var day_seconds: float = 90.0
 ## How much of a crop's growing time one night adds (watered crops only).
 @export_range(0.0, 1.0, 0.05) var overnight_growth: float = 0.5
+## Chance that a day (after the first) is rainy: rain waters every crop all day.
+@export_range(0.0, 1.0, 0.05) var rain_chance: float = 0.3
+## Snow instead of rain (winter farms): it looks lovely and waters nothing.
+@export var snow: bool = false
+## Seeds the weather, so a farm has the same weather every time it is played.
+@export var weather_seed: int = 0
 
 var day := 1
 var clock := 0.0  # seconds into the day
+var weather := "sunny"  # "sunny", "rain" or "snow"
+var _sky: Node2D
 var _over := false
 var _tint: CanvasModulate
 var _layer: CanvasLayer
@@ -50,7 +58,26 @@ func _ready() -> void:
 	_layer.add_child(_label)
 	add_child.call_deferred(_layer)
 	get_tree().current_scene.add_child.call_deferred(_tint)
+	_sky = Node2D.new()
+	_sky.name = "Weather"
+	_sky.draw.connect(_draw_weather)
+	var sky_layer := CanvasLayer.new()
+	sky_layer.layer = 5
+	sky_layer.add_child(_sky)
+	add_child.call_deferred(sky_layer)
+	weather = weather_for(day)
 	(func() -> void: day_started.emit(day)).call_deferred()
+
+
+## The weather of day [param d]: the first day is always sunny.
+func weather_for(d: int) -> String:
+	if d <= 1:
+		return "sunny"
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(weather_seed * 131 + d)
+	if rng.randf() >= rain_chance:
+		return "sunny"
+	return "snow" if snow else "rain"
 
 
 ## Fraction of the day gone, 0 at 6:00 and 1 at 22:00.
@@ -62,6 +89,11 @@ func _physics_process(delta: float) -> void:
 	if _over or _sleeping or not GameState.is_playing():
 		return
 	clock += delta
+	if weather == "rain":  # the rain keeps every crop watered
+		for e in get_tree().get_nodes_in_group(&"farm_plot"):
+			var plot := SP.component(e, &"FarmPlot") as FarmPlotComponent
+			if plot and plot.has_crop():
+				plot.rain()
 	if clock >= day_seconds * 1.08:  # a little past 22:00 the farmer drops off where they stand
 		GameState.message("You fell asleep in the fields...")
 		sleep()
@@ -76,11 +108,18 @@ func _process(_delta: float) -> void:
 		c = Color.WHITE.lerp(Color(1.0, 0.82, 0.66), clampf((f - 0.62) / 0.2, 0.0, 1.0))  # golden evening
 		if f > 0.85:
 			c = c.lerp(Color(0.42, 0.46, 0.72), clampf((f - 0.85) / 0.15, 0.0, 1.0))  # night
+	if weather == "rain":
+		c = c * Color(0.78, 0.82, 0.92)
+	elif weather == "snow":
+		c = c * Color(0.92, 0.94, 1.0)
 	if _tint:
 		_tint.color = c
+	if _sky and weather != "sunny":
+		_sky.queue_redraw()
 	var minutes := int(6 * 60 + f * 16 * 60)
 	if _label:
-		_label.text = "Day %d/%d  %02d:%02d" % [day, days, minutes / 60, (minutes % 60) / 10 * 10]
+		var w := {"rain": "  Rain", "snow": "  Snow"}.get(weather, "")
+		_label.text = "Day %d/%d  %02d:%02d%s" % [day, days, minutes / 60, (minutes % 60) / 10 * 10, w]
 
 
 ## Ends the day (the screen dips to black); the next one starts in the morning, or the season ends.
@@ -119,5 +158,29 @@ func next_day() -> void:
 		var animal := SP.component(e, &"FarmAnimal") as FarmAnimalComponent
 		if animal:
 			animal.overnight()
-	GameState.message("Day %d - good morning!" % day)
+	weather = weather_for(day)
+	match weather:
+		"rain":
+			GameState.message("Day %d - rain today: the crops water themselves" % day)
+		"snow":
+			GameState.message("Day %d - it's snowing!" % day)
+		_:
+			GameState.message("Day %d - good morning!" % day)
 	day_started.emit(day)
+
+
+func _draw_weather() -> void:
+	if weather == "sunny":
+		return
+	var vp := _sky.get_viewport_rect().size
+	var t := Time.get_ticks_msec() / 1000.0
+	if weather == "rain":
+		for i in 90:
+			var x := fmod(i * 97.0 + t * 120.0, vp.x + 40.0) - 20.0
+			var y := fmod(i * 61.0 + t * 520.0, vp.y + 40.0) - 20.0
+			_sky.draw_line(Vector2(x, y), Vector2(x - 4, y + 12), Color(0.75, 0.85, 1.0, 0.55), 1.5)
+	else:
+		for i in 70:
+			var x := fmod(i * 83.0 + sin(t + i) * 20.0 + t * 15.0, vp.x)
+			var y := fmod(i * 47.0 + t * 45.0, vp.y)
+			_sky.draw_rect(Rect2(x, y, 3, 3), Color(1, 1, 1, 0.8))

@@ -62,6 +62,7 @@
       "                                  "
     ],
     "season": "spring",
+    "music": "spring",
     "y_sort": true,
     "art": {
       "soil": {
@@ -104,6 +105,16 @@
         "kind": "item_icon",
         "of": "hay"
       },
+      "crop_GoldenMelon": {
+        "kind": "crop",
+        "of": "GoldenMelon",
+        "color": "#ffd84a"
+      },
+      "icon_GoldenMelon": {
+        "kind": "crop_icon",
+        "of": "GoldenMelon",
+        "color": "#ffd84a"
+      },
       "icon_egg": {
         "kind": "item_icon",
         "of": "egg"
@@ -143,10 +154,17 @@
         },
         "FarmDays": {
           "days": 3,
-          "day_seconds": 75
+          "day_seconds": 75,
+          "weather_seed": 7,
+          "rain_chance": 0.35,
+          "snow": false
         },
         "FarmSave": {
           "slot": "sunny-farm-7"
+        },
+        "GameMenu": {
+          "title": "Sunny Farm",
+          "subtitle": "Earn $350 in 3 days. Space works the farm, P pauses."
         },
         "Aim": {
           "mode": "movement"
@@ -302,6 +320,27 @@
         }
       }
     },
+    "ShopStall": {
+      "body": "static",
+      "juice": "none",
+      "base": [
+        56,
+        18
+      ],
+      "components": {
+        "Shop": {
+          "offers": "chicken|Chicken|40;cow|Cow|90;seeds|Golden melon seeds|60;sprinkler|Sprinkler|55",
+          "rare_crop": "GoldenMelon|#ffd84a|30|45|res://sprites/art_crop_GoldenMelon.png|res://sprites/art_icon_GoldenMelon.png"
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "shop",
+          "seed": 7,
+          "color": "#3a8ad0"
+        }
+      }
+    },
     "FencePost": {
       "body": "static",
       "juice": "none",
@@ -363,6 +402,26 @@
           "kind": "scarecrow",
           "seed": 7,
           "color": "#4a7ad0"
+        }
+      }
+    },
+    "WaterSprinkler": {
+      "body": "area",
+      "juice": "none",
+      "base": [
+        12,
+        8
+      ],
+      "components": {
+        "Sprinkler": {
+          "radius": 52
+        }
+      },
+      "sprite": {
+        "generate": {
+          "kind": "sprinkler",
+          "seed": 7,
+          "color": "#a8a8b8"
         }
       }
     },
@@ -847,24 +906,24 @@
     "map": [
       "##################################",
       "##################################",
-      "##.p..p..p#####.mo.m.m.l........##",
-      "##........#####...............np##",
-      "##.p.l.....egggggggggge.........##",
-      "##.....o...h..........h........p##",
-      "####..m..p.h.ff.ff.ff.h....a....##",
-      "####s......h.ff.ff.ff.hcM..z.d.l##",
-      "####......sh......i...h....P.p..##",
-      "####.......egggg.ggggge.....b..###",
+      "##.t..t..t#####.ps.p.p.o........##",
+      "##........#####...............nt##",
+      "##.t.o.....ghhhhhhhhhhg.........##",
+      "##.....s...i..........i........t##",
+      "####..p..t.i.ffkffkff.i....a....##",
+      "####u......i.ff.ff.ff.icM..B.d.o##",
+      "####......ui......j...i....P.t..##",
+      "####.......ghhhh.hhhhhg..e..b..###",
       "###............................###",
-      "####.................eggg.gggge###",
-      "####......B.......m..h........hm##",
-      "####p.....##.........h......j.h.##",
-      "##m......####C......oh.D.D.D..h.##",
-      "##........###........h........h.##",
-      "##..l.o............l.hk..F.E..h.##",
-      "##p......m.l.........egggggggges##",
-      "##...p.........p...l..s.l.p.....##",
-      "##.m...s..s......m...........s.m##",
+      "####.................ghhh.hhhhg###",
+      "####......D.......p..i........ip##",
+      "####t.....##.........i......l.i.##",
+      "##p......####E......si.F.F.F..i.##",
+      "##........###........i........i.##",
+      "##..o.s............o.im..H.G..i.##",
+      "##t......p.o.........ghhhhhhhhgu##",
+      "##...t.........t...o..u.o.t.....##",
+      "##.p...u..u......p...........u.p##",
       "##################################",
       "##################################",
       "##################################",
@@ -881,12 +940,12 @@
       "##################################",
       "##################################",
       "##################################",
-      "############.u.v...w.#############",
-      "############t........#############",
+      "############.w.x...y.#############",
+      "############v........#############",
       "############.........#############",
-      "############..y.x.y..#############",
+      "############..A.z.A..#############",
       "############.........#############",
-      "############....A...u#############",
+      "############....C...w#############",
       "##################################",
       "##################################"
     ],
@@ -899,30 +958,32 @@
       "b": "Signpost",
       "c": "Barrel",
       "d": "Workbench",
-      "e": "FencePost",
-      "g": "FenceH",
-      "h": "FenceV",
-      "i": "Scarecrow",
-      "j": "Coop",
-      "k": "Hay",
-      "l": "AppleTree",
-      "m": "Oak",
-      "o": "FlowerBush",
-      "p": "Pine",
-      "s": "CherryTree",
-      "t": "Bed",
-      "u": "PottedPlant",
-      "v": "Dresser",
-      "w": "Fireplace",
-      "x": "Table",
-      "y": "Chair",
-      "z": "HouseDoor",
-      "A": "DoorMat",
-      "B": "Shore",
-      "C": "ShoreEast",
-      "D": "Chicken",
-      "E": "Chick",
-      "F": "Cow",
+      "e": "ShopStall",
+      "g": "FencePost",
+      "h": "FenceH",
+      "i": "FenceV",
+      "j": "Scarecrow",
+      "k": "WaterSprinkler",
+      "l": "Coop",
+      "m": "Hay",
+      "o": "AppleTree",
+      "p": "Oak",
+      "s": "FlowerBush",
+      "t": "Pine",
+      "u": "CherryTree",
+      "v": "Bed",
+      "w": "PottedPlant",
+      "x": "Dresser",
+      "y": "Fireplace",
+      "z": "Table",
+      "A": "Chair",
+      "B": "HouseDoor",
+      "C": "DoorMat",
+      "D": "Shore",
+      "E": "ShoreEast",
+      "F": "Chicken",
+      "G": "Chick",
+      "H": "Cow",
       "n": "CrowNest"
     }
   },

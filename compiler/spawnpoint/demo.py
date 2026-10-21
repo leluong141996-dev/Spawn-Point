@@ -55,9 +55,9 @@ SHOWCASE = [
      "Move: arrows / WASD | Dash: Shift | Pick an upgrade: 1 / 2 / 3 or click | Restart: R",
      {"pad": "dpad", "buttons": [["DASH", "ShiftLeft"]], "tap": "Move with the stick - you shoot on your own"}),
     ("sunny_farm.json", "farming",
-     "A cozy island farm over three days: buy seeds, till and grow strawberries, carrots and pumpkins, feed the hens and the cow, fish in the pond, chop wood, sleep in the farmhouse, upgrade your tools, and sell it all at the shipping bin. Your farm is saved as you play.",
-     "Move: arrows / WASD | Till, plant, water, harvest, feed, fish, chop, go in, sleep: Space / E | Seed: 1 / 2 / 3 or click it | Shoo crows: X | Restart: R",
-     {"pad": "dpad", "buttons": [["ACT", "Space"], ["SHOO", "KeyX"]],
+     "A cozy island farm over three days: buy seeds, till and grow strawberries, carrots and pumpkins, feed the hens and the cow, fish in the pond, chop wood, sleep in the farmhouse, upgrade your tools, buy hens and sprinklers, and sell it all at the shipping bin. Rainy days water the crops; your farm is saved as you play.",
+     "Move: arrows / WASD | Till, plant, water, harvest, feed, fish, chop, shop, go in, sleep: Space / E | Seed: 1 / 2 / 3 or click it | Shoo crows: X | Pause: P | Restart: R",
+     {"pad": "dpad", "buttons": [["ACT", "Space"], ["SHOO", "KeyX"], ["II", "KeyP"]],
       "tap": "ACT works the field, feeds, fishes and opens doors; tap a seed in the bar to choose it"}),
     ("pixel_arena.json", "arena shooter",
      "A top-down arena: blast through robots and turrets, then reach the portal.",
@@ -127,6 +127,8 @@ def build_site(out: Path, games: list[Game] | None = None, screenshots: bool = T
             share_engine(out, target)
             log(f"  {g.slug}: built (web export {seconds:.1f}s)")
     shutil.copy2(TOUCH_JS, out / "touch.js")  # every game page loads it (before the browser check)
+    from . import logo
+    logo.write(out)  # favicon.ico, logo.png and the icon sizes
     built = [g for g in games if (out / g.slug / "index.html").exists()]
     if screenshots:
         if webcheck.find_chrome() is None:
@@ -205,6 +207,8 @@ def index_html(games: list[Game]) -> str:
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Spawn Point demos</title>
+<link rel="icon" href="favicon.ico">
+<meta property="og:image" content="logo.png">
 <meta name="description" content="Nine Godot 4 games built with Spawn Point: platformers, a sword fighter, tower defense, a space shooter, a bubble shooter, a survivor, a farm. Play in your browser.">
 <meta property="og:title" content="Spawn Point demos: play Godot games in your browser">
 <meta property="og:description" content="A Mario-style platformer, a ninja rescue, a dinosaur-egg shooter, a survivor and an arena, all built from Spawn Point components.">
@@ -243,7 +247,7 @@ footer {{ color:var(--muted); font-size:13px; padding-bottom:40px }}
 </head>
 <body>
 <header>
-  <h1>Spawn<span>Point</span> demos</h1>
+  <h1 class="brand"><img src="logo-icon-64.png" width="48" height="48" alt="" style="image-rendering:pixelated;vertical-align:middle;margin-right:10px">Spawn<span>Point</span> demos</h1>
   <p class="lede">Nine games, nine ways to play, all built by Spawn Point from small JSON game graphs and a
   library of tested Godot 4 components: game feel, cartoon or pixel art and collisions come for free. Click a card to play in
   your browser, no install needed.</p>

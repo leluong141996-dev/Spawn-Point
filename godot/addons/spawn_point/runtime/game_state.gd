@@ -109,6 +109,7 @@ func reset_run(level_lives := 3) -> void:
 ## Full restart: score, lives and variables reset, level reloads.
 func restart() -> void:
 	restarting.emit()
+	get_tree().paused = false  # a restart from a pause menu
 	_started = false
 	Engine.time_scale = 1.0
 	get_tree().reload_current_scene()

@@ -193,3 +193,32 @@ def test_farm_animals_and_fish_are_never_pests():
     b, notes = normalize(GameBrief(title="t", genre="farm", crops=["Corn"],
                                    enemies=[EnemyBrief(name="Fish", archetype="walker"), EnemyBrief(name="Crow", archetype="walker")]))
     assert [e.name for e in b.enemies] == ["Crow"] and any("not pests" in n for n in notes)
+
+
+@pytest.mark.parametrize("season", ["spring", "autumn", "winter", "desert"])
+def test_each_season_has_its_own_tune(season, tmp_path):
+    from spawnpoint import music
+    a = np.asarray(music.compose(season, 3))
+    assert 10 * music.RATE < len(a) < 30 * music.RATE, "a loop of a quarter to half a minute"
+    assert 0.05 < np.abs(a).mean() and np.abs(a).max() <= 0.61, "audible, never clipping"
+    assert np.array_equal(a, np.asarray(music.compose(season, 3)))
+    assert not np.array_equal(a[: music.RATE], np.asarray(music.compose("spring" if season != "spring" else "winter", 3))[: music.RATE])
+    wav = music.write(tmp_path, season, 3)
+    assert wav.read_bytes()[:4] == b"RIFF"
+
+
+def test_farms_get_music_a_menu_a_shop_and_weather():
+    g = assemble(_farm_brief(palette="snow"), 2, seed=2)
+    ents, player = g["entities"], g["entities"]["Player"]["components"]
+    assert g["settings"]["music"] == "winter" and "GameMenu" in player
+    assert player["FarmDays"]["snow"] and player["FarmDays"]["rain_chance"] > 0
+    assert "Shop" in ents["ShopStall"]["components"] and "GoldenMelon" in ents["ShopStall"]["components"]["Shop"]["rare_crop"]
+    assert ents["WaterSprinkler"]["body"] == "area" and "Sprinkler" in ents["WaterSprinkler"]["components"]
+
+
+def test_the_logo_draws(tmp_path):
+    from spawnpoint import logo
+    ic = logo.icon()
+    assert ic.shape == (32, 32, 4) and (ic[..., 3] == 255).sum() > 900
+    paths = logo.write(tmp_path)
+    assert {p.name for p in paths} >= {"logo.png", "favicon.ico", "logo-icon-256.png"}

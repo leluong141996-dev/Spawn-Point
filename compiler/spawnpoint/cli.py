@@ -97,6 +97,9 @@ def main(argv: list[str] | None = None) -> int:
     gf.add_argument("--focus", default="", choices=["", "field", "animals", "fish", "house"],
                     help="farms: show one activity")
 
+    lg = sub.add_parser("logo", help="write the Spawn Point pixel-art logo (icons, wordmark, favicon)")
+    lg.add_argument("-o", "--out", type=Path, default=Path("logo"))
+
     ov = sub.add_parser("overview", help="save one picture of a built project's whole map (needs a display)")
     ov.add_argument("project", type=Path)
     ov.add_argument("-o", "--out", type=Path, help="output file (default: <project>/overview.png)")
@@ -150,7 +153,7 @@ def main(argv: list[str] | None = None) -> int:
         return {"validate": _validate, "build": _build, "run": _run, "components": _components,
                 "manifest": _manifest, "create": studio_cli.create, "tweak": studio_cli.tweak,
                 "serve": studio_cli.serve, "dataset": studio_cli.dataset, "playtest": studio_cli.playtest, "studio": studio_cli.studio,
-                "sprites": _sprites, "gif": _gif, "overview": _overview, "llm": _llm, "examples": _examples,
+                "sprites": _sprites, "gif": _gif, "overview": _overview, "logo": _logo, "llm": _llm, "examples": _examples,
                 "demo": _demo}[args.cmd](args)
     except godot.GodotError as e:
         print(f"error: {e}", file=sys.stderr)
@@ -261,6 +264,14 @@ def _gif(args) -> int:
     out = args.out or args.project / "demo.gif"
     path = record_gif(args.project.resolve(), out.resolve(), args.seconds, args.fps, args.width, args.skip, args.focus)
     print(f"Wrote {out} ({path.stat().st_size / 1e6:.1f} MB)")
+    return 0
+
+
+def _logo(args) -> int:
+    from .logo import write
+
+    for path in write(args.out):
+        print(f"Wrote {path}")
     return 0
 
 

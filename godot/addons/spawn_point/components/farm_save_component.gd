@@ -96,9 +96,19 @@ func snapshot() -> Dictionary:
 		"day": days.day if days else 1, "clock": days.clock if days else 0.0,
 		"basket": basket, "goods": farmer.goods_basket.duplicate() if farmer else {},
 		"upgrades": farmer.upgrades.keys() if farmer else [], "selected": farmer.selected if farmer else 0,
+		"extra_crops": farmer.extra_crops.duplicate() if farmer else [],
+		"sprinklers": _active_sprinklers(),
 		"plots": plots, "animals": animals, "standing": standing,
 		"x": _entity.global_position.x, "y": _entity.global_position.y,
 	}
+
+
+func _active_sprinklers() -> Array:
+	var out := []
+	for e in get_tree().get_nodes_in_group(&"sprinkler"):
+		if (SP.component(e, &"Sprinkler") as SprinklerComponent).active:
+			out.append(_key(e))
+	return out
 
 
 func save() -> void:
@@ -135,6 +145,8 @@ func load_save() -> bool:
 			farmer.goods_basket[g] = int(data.goods[g])
 		for k in data.upgrades:
 			farmer.add_upgrade(String(k))
+		for c in data.get("extra_crops", []):
+			farmer.add_crop(String(c))
 		farmer.select(int(data.selected))
 	_entity.global_position = Vector2(float(data.x), float(data.y))
 	for e in get_tree().get_nodes_in_group(&"farm_plot"):
@@ -152,6 +164,12 @@ func load_save() -> bool:
 	for e in get_tree().get_nodes_in_group(&"gatherable"):
 		if not standing.has(_key(e)):
 			(SP.component(e, &"Gatherable") as GatherableComponent).remove_quietly()
+	var on := {}
+	for k in data.get("sprinklers", []):
+		on[String(k)] = true
+	for e in get_tree().get_nodes_in_group(&"sprinkler"):
+		if on.has(_key(e)):
+			(SP.component(e, &"Sprinkler") as SprinklerComponent).activate()
 	_restore_animals(data.animals)
 	GameState.message("Welcome back - day %d" % (days.day if days else 1))
 	restored.emit()

@@ -48,7 +48,7 @@ class CozyFarm:
                 out |= {(c[0] + dx, c[1] + dy) for dx in range(-2, 3) for dy in range(-1, 1)}
             elif kind == "coop":
                 out |= {(c[0] + dx, c[1]) for dx in (-1, 0, 1)}
-            elif kind not in ("flower_bush",):
+            elif kind not in ("flower_bush", "sprinkler"):
                 out.add(c)
         return out
 
@@ -56,7 +56,7 @@ class CozyFarm:
 # Objects the assembler turns into entities.
 OBJECT_KINDS = ("farmhouse", "coop", "fence_h", "fence_v", "fence_post", "tree_oak", "tree_pine", "tree_blossom",
                 "tree_fruit", "tree_maple", "tree_snowy_pine", "tree_bare", "tree_palm", "cactus", "boulder", "stump",
-                "flower_bush", "hay", "barrel", "well", "scarecrow", "signpost", "workbench",
+                "flower_bush", "hay", "barrel", "well", "scarecrow", "signpost", "workbench", "shop", "sprinkler",
                 "bed", "fireplace", "table", "chair", "dresser", "potted_plant")
 # What grows around the farm in each season: (tree kinds, weights), and the small things scattered between them.
 SEASON_TREES = {
@@ -135,6 +135,7 @@ def cozy_farm(seed: int, length: str = "medium", plot_target: int = 12, island: 
     put("well", (hx - 4, hy + 2)) if hx - 4 > m else None
     put("barrel", (hx + 4, hy + 2))
     put("workbench", (hx - 2, hy + 2))
+    put("shop", (hx + 2, road - 1))
 
     # Two fenced zones: the crop field and the animal pen. One sits above the road to the right of the house
     # (gate at the bottom), the other below the road on the left (gate at the top); which is which varies.
@@ -186,6 +187,11 @@ def cozy_farm(seed: int, length: str = "medium", plot_target: int = 12, island: 
     scare = (fx0 + 3 if groups_x > 1 else fx0 + fw - 1, fy0 + fh - 1 if field_above else fy0)
     if scare not in plots:
         put("scarecrow", scare)
+    for gy in range(groups_y):  # sprinklers wait in the gaps between plot groups (bought at the shop)
+        for gx in range(1, groups_x):
+            c = (fx0 + gx * 3, fy0 + 1 + gy * 3)
+            if all(o != c for _, o in objects):
+                objects.append(("sprinkler", c))
 
     px0, py0 = zone(pw, ph, not field_above)
     clear(px0, py0, pw, ph)

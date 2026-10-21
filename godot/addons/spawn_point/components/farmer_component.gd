@@ -15,7 +15,7 @@ const SP_HOSTS: Array[String] = []
 const SP_REQUIRES: Array[String] = []
 const SP_INTERNAL: Array[String] = ["parse_crops", "parse_goods", "interact", "select", "sell", "nearest_plot",
 	"basket_value", "crop_list", "basket", "goods_basket", "add_goods", "nearest_target", "upgrades", "has_upgrade",
-	"add_upgrade", "seed_cost"]
+	"add_upgrade", "seed_cost", "add_crop", "extra_crops"]
 const SP_CATEGORY := "core"
 
 ## Emitted after a sale with the money earned.
@@ -42,6 +42,7 @@ var goods_list: Array[Dictionary] = []
 var selected := 0
 var basket := {}  # crop index -> count
 var goods_basket := {}  # goods name -> count
+var extra_crops: Array[String] = []  # crop entries bought at a shop (see add_crop)
 var upgrades := {}  # tool key ("can", "hoe", "basket", "axe", "rod") -> true, from a ToolBenchComponent
 
 var _entity: Node2D
@@ -132,9 +133,9 @@ func nearest_plot() -> FarmPlotComponent:
 func nearest_target() -> Node:
 	var best: Node = null
 	var best_score := INF
-	for group in [&"farm_plot", &"farm_animal", &"gatherable", &"fishing_spot", &"sleep_spot", &"tool_bench"]:
+	for group in [&"farm_plot", &"farm_animal", &"gatherable", &"fishing_spot", &"sleep_spot", &"tool_bench", &"shop"]:
 		var comp_name: StringName = {&"farm_plot": &"FarmPlot", &"farm_animal": &"FarmAnimal", &"gatherable": &"Gatherable",
-			&"fishing_spot": &"FishingSpot", &"sleep_spot": &"SleepSpot", &"tool_bench": &"ToolBench"}[group]
+			&"fishing_spot": &"FishingSpot", &"sleep_spot": &"SleepSpot", &"tool_bench": &"ToolBench", &"shop": &"Shop"}[group]
 		var limit := reach if group == &"farm_plot" else reach * 1.25  # animals and trees are bigger than a plot
 		for e in _entity.get_tree().get_nodes_in_group(group):
 			var d := (e as Node2D).global_position.distance_to(_entity.global_position)
@@ -167,6 +168,8 @@ func interact() -> String:
 			if item != "":
 				add_goods(item, 1, (target.get_parent() as Node2D).global_position)
 				action = "collect"
+	elif target is ShopComponent:
+		action = (target as ShopComponent).use(self)
 	elif target is ToolBenchComponent:
 		action = (target as ToolBenchComponent).use(self)
 	elif target is SleepSpotComponent:
@@ -191,7 +194,7 @@ func interact() -> String:
 	if action != "":
 		if Sfx.has_sound("blip"):
 			Sfx.play("blip", 0.1, -4.0, {"plant": 0.9, "water": 1.2, "harvest": 1.5, "collect": 1.7, "chop": 0.7,
-				"gather": 1.3, "till": 0.6, "cast": 1.0, "catch": 1.8, "feed": 1.4, "sleep": 0.5, "browse": 1.1, "upgrade": 2.0}[action])
+				"gather": 1.3, "till": 0.6, "cast": 1.0, "catch": 1.8, "feed": 1.4, "sleep": 0.5, "browse": 1.1, "upgrade": 2.0, "buy": 2.0}[action])
 		acted.emit(action)
 	return action
 
@@ -241,6 +244,23 @@ func _plots_around(plot: FarmPlotComponent) -> Array[FarmPlotComponent]:
 		if d.length() > 1.0 and absf(d.x) < 40.0 and absf(d.y) < 40.0:
 			out.append(SP.component(e, &"FarmPlot") as FarmPlotComponent)
 	return out
+
+
+## Adds a crop to the seed list (bought at a shop): "Name|#color|seconds|price|stages|icon".
+func add_crop(entry: String) -> void:
+	if entry == "" or extra_crops.has(entry):
+		return
+	var parsed := parse_crops(entry)
+	if parsed.is_empty():
+		return
+	extra_crops.append(entry)
+	crop_list.append(parsed[0])
+	if not _slots.is_empty():  # rebuild the hotbar with the new seed in it
+		for s_ in _slots:
+			(s_.panel as Node).get_parent().get_parent().queue_free()
+			break
+		_slots.clear()
+		_build_hotbar()
 
 
 func has_upgrade(key: String) -> bool:

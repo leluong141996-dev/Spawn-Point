@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from . import godot, manifest as manifest_mod, project, sfx
+from . import godot, manifest as manifest_mod, music, project, sfx
 from .analyze import Analysis, analyze
 from .diagnostics import Diagnostics
 from .manifest import Manifest
@@ -68,6 +68,8 @@ def build(data: Any, out_dir: Path, *, manifest: Manifest | None = None, smoke: 
     project.write(out_dir, data, plan, analysis.rules_source, feature, analysis.sprites, analysis.tiles_image,
                   analysis.scenery_images)
     sfx.write_all(out_dir / "sfx", seed=analysis.graph.settings.seed)
+    if analysis.graph.settings.music != "none":
+        music.write(out_dir / "sfx", analysis.graph.settings.music, analysis.graph.settings.seed)
     timings["write"] = time.perf_counter() - t
 
     log: list[str] = []

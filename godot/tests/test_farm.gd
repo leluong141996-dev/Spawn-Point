@@ -329,3 +329,53 @@ func test_a_farm_save_puts_everything_back() -> void:
 	assert_near(plot.growth, 12.0, 0.01)
 	save.clear()
 	assert_false(save.load_save(), "cleared: nothing to load")
+
+
+func test_rainy_days_water_every_crop() -> void:
+	GameState.reset_run()
+	var holder := make_entity("Season", "area", SP.TEAM_NEUTRAL, Vector2(8, 8),
+			{"FarmDays": {"days": 5, "day_seconds": 60.0, "rain_chance": 1.0}})
+	var days := SP.component(holder, &"FarmDays") as FarmDaysComponent
+	var plot := _plot(Vector2(200, 0), {"water_seconds": 0.1})
+	await frames(2)
+	assert_eq(days.weather, "sunny", "the first day is always sunny")
+	plot.plant(0, 100.0, Color.ORANGE)
+	days.next_day()
+	assert_eq(days.weather, "rain")
+	await frames(10)
+	assert_true(plot.wet_left > 0.0, "the rain waters it")
+	assert_eq(days.weather_for(3), days.weather_for(3), "the same farm has the same weather")
+
+
+func test_the_shop_sells_animals_seeds_and_sprinklers() -> void:
+	var f := _farmer()
+	var shop := make_entity("ShopStall", "static", SP.TEAM_NEUTRAL, Vector2(20, 20),
+			{"Shop": {"offers": "seeds|Golden melon seeds|5;sprinkler|Sprinkler|5", "rare_crop": "GoldenMelon|#ffd84a|30|45"}},
+			Vector2(24, 0))
+	var spr := make_entity("WaterSprinkler", "area", SP.TEAM_NEUTRAL, Vector2(12, 12), {"Sprinkler": {"radius": 50.0}}, Vector2(300, 0))
+	var plot := _plot(Vector2(330, 0), {"water_seconds": 0.5})
+	await frames(2)
+	plot.plant(0, 100.0, Color.ORANGE)
+	GameState.add_score(20)
+	var crops_before := f.crop_list.size()
+	assert_eq(f.interact(), "browse")
+	assert_eq(f.interact(), "buy")
+	assert_eq(f.crop_list.size(), crops_before + 1, "the rare seed is in the bar")
+	assert_eq(f.interact(), "browse")
+	assert_eq(f.interact(), "buy")
+	var s := SP.component(spr, &"Sprinkler") as SprinklerComponent
+	assert_true(s.active)
+	assert_true(plot.wet_left > 0.0, "a new sprinkler waters right away")
+	assert_eq(GameState.score, 10)
+	shop.queue_free()
+
+
+func test_the_game_menu_steps_aside_for_headless_runs() -> void:
+	GameState.reset_run()
+	var p := make_entity("Farmer", "character", SP.TEAM_PLAYER, Vector2(20, 20), {"GameMenu": {"music": false}}, Vector2.ZERO, true)
+	var menu := SP.component(p, &"GameMenu") as GameMenuComponent
+	var started := []
+	menu.started.connect(func() -> void: started.append(true))
+	await frames(8)
+	assert_eq(started, [true], "no title screen without a display")
+	assert_false(get_tree().paused)

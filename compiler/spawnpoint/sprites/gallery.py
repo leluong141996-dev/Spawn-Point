@@ -43,7 +43,7 @@ CAST: list[tuple[str, str, str]] = [
     ("Farmer", "farmer", "#e8503a"), ("Maple", "tree_maple", "#d8402a"), ("SnowyPine", "tree_snowy_pine", "#2f7a5a"),
     ("BareTree", "tree_bare", "#9a5e36"), ("Palm", "tree_palm", "#4caf50"), ("Cactus", "cactus", "#5aa048"),
     ("Bed", "bed", "#4a7ad0"), ("Fireplace", "fireplace", "#c8643a"), ("Table", "table", "#9a5e36"),
-    ("Workbench", "workbench", "#9a5e36"), ("Crow", "crow", "#3a3448"), ("Fox", "fox", "#e07a2a"), ("Rabbit", "rabbit", "#d8c8b8"), ("Mouse", "mouse", "#9a9aa8"),
+    ("Workbench", "workbench", "#9a5e36"), ("ShopStall", "shop", "#3a8ad0"), ("Sprinkler", "sprinkler", "#a8a8b8"), ("Crow", "crow", "#3a3448"), ("Fox", "fox", "#e07a2a"), ("Rabbit", "rabbit", "#d8c8b8"), ("Mouse", "mouse", "#9a9aa8"),
     ("Chair", "chair", "#9a5e36"), ("Dresser", "dresser", "#9a5e36"), ("PottedPlant", "potted_plant", "#5cb84a"),
 ]
 
