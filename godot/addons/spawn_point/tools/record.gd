@@ -19,7 +19,8 @@ func _ready() -> void:
 	var total := int(args[1]) if args.size() > 1 else 360
 	var step := int(args[2]) if args.size() > 2 else 3
 	var skip := int(args[3]) if args.size() > 3 else 0  # frames played before recording starts
-	_focus = args[4] if args.size() > 4 else ""  # farm clips: "field", "animals", "fish" or "house"
+	_focus = args[4] if args.size() > 4 and args[4] != "-" else ""  # farm clips: "field", "animals", "fish" or "house"
+	var clean := args.size() > 5 and args[5] == "clean"  # no HUD in the frames (covers, banners)
 	DirAccess.make_dir_recursive_absolute(out_dir)
 	add_child((load(LEVEL) as PackedScene).instantiate())
 	await get_tree().physics_frame
@@ -38,11 +39,20 @@ func _ready() -> void:
 			elif frame - ended_at > 90 and frame >= skip:  # keep 1.5 s of the end screen, then stop
 				break
 		if frame >= skip and (frame - skip) % step == 0:
+			if clean:
+				_hide_layers(get_tree().root)
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png("%s/frame_%04d.png" % [out_dir, shot])
 			shot += 1
 	print("SPAWNPOINT_RECORD_SCORE %d lives %d phase %d" % [GameState.score, GameState.lives, GameState.phase])
 	get_tree().quit(0)
+
+
+func _hide_layers(node: Node) -> void:
+	for c in node.get_children():
+		if c is CanvasLayer and (c as CanvasLayer).layer > 0 and (c as CanvasLayer).layer != 5:  # keep weather
+			(c as CanvasLayer).visible = false
+		_hide_layers(c)
 
 
 func _drive(frame: int) -> void:

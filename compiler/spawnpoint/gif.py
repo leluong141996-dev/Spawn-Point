@@ -18,7 +18,8 @@ from .manifest import ADDON_DIR
 RECORD_SCENE = "res://addons/spawn_point/tools/record.tscn"
 
 
-def record_frames(project: Path, out_dir: Path, seconds: float, fps: int, skip: float = 0.0, focus: str = "") -> list[Path]:
+def record_frames(project: Path, out_dir: Path, seconds: float, fps: int, skip: float = 0.0, focus: str = "",
+                  clean: bool = False) -> list[Path]:
     # Projects built before the recorder existed get the current tool copied in.
     tools = project / "addons" / "spawn_point" / "tools"
     for name in ("record.gd", "record.tscn"):
@@ -26,7 +27,7 @@ def record_frames(project: Path, out_dir: Path, seconds: float, fps: int, skip: 
     step = max(1, round(60 / fps))
     total = int(seconds * 60)
     cmd = [godot.find_binary(), "--path", str(project), "--fixed-fps", "60", RECORD_SCENE,
-           "--", str(out_dir), str(total), str(step), str(int(skip * 60)), focus]
+           "--", str(out_dir), str(total), str(step), str(int(skip * 60)), focus or "-", "clean" if clean else ""]
     proc = subprocess.run(cmd, capture_output=True, text=True, timeout=(seconds + skip) * 20 + 60)
     frames = sorted(out_dir.glob("frame_*.png"))
     if not frames:
@@ -54,11 +55,11 @@ def make_gif(frames: list[Path], out: Path, fps: int, width: int, colors: int = 
 
 
 def record_gif(project: Path, out: Path, seconds: float = 8.0, fps: int = 20, width: int = 640,
-               skip: float = 0.0, focus: str = "") -> Path:
+               skip: float = 0.0, focus: str = "", clean: bool = False) -> Path:
     """`skip`: seconds of autopilot play before the clip starts (survivor games get busy later). `focus` (farms):
-    what the autopilot does: "field", "animals", "fish" or "house"; empty for a bit of everything."""
+    what the autopilot does: "field", "animals", "fish" or "house"; empty for a bit of everything. `clean` hides the HUD."""
     with tempfile.TemporaryDirectory() as tmp:
-        frames = record_frames(project, Path(tmp), seconds, fps, skip, focus)
+        frames = record_frames(project, Path(tmp), seconds, fps, skip, focus, clean)
         return make_gif(frames, out, fps, width)
 
 

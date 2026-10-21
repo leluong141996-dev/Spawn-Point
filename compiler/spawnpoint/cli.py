@@ -96,6 +96,7 @@ def main(argv: list[str] | None = None) -> int:
     gf.add_argument("--skip", type=float, default=0.0, help="seconds of play before the clip starts")
     gf.add_argument("--focus", default="", choices=["", "field", "animals", "fish", "house"],
                     help="farms: show one activity")
+    gf.add_argument("--clean", action="store_true", help="hide the HUD (for covers and banners)")
 
     lg = sub.add_parser("logo", help="write the Spawn Point pixel-art logo (icons, wordmark, favicon)")
     lg.add_argument("-o", "--out", type=Path, default=Path("logo"))
@@ -262,7 +263,8 @@ def _gif(args) -> int:
     from .gif import record_gif
 
     out = args.out or args.project / "demo.gif"
-    path = record_gif(args.project.resolve(), out.resolve(), args.seconds, args.fps, args.width, args.skip, args.focus)
+    path = record_gif(args.project.resolve(), out.resolve(), args.seconds, args.fps, args.width, args.skip, args.focus,
+                      args.clean)
     print(f"Wrote {out} ({path.stat().st_size / 1e6:.1f} MB)")
     return 0
 
