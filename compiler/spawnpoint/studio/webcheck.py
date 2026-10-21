@@ -111,13 +111,8 @@ def check(url: str, seconds: float = 12.0, size: tuple[int, int] = (960, 540), k
     result = WebCheck()
     # Chrome's helper processes can outlive the main one for a moment and keep writing to the profile.
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as profile:
-        proc = subprocess.Popen(
-            [chrome, "--headless=new", "--no-sandbox", f"--user-data-dir={profile}", "--remote-debugging-port=0",
-             "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--autoplay-policy=no-user-gesture-required",
-             f"--window-size={size[0]},{size[1]}", "about:blank"],
-            stderr=subprocess.PIPE, stdout=subprocess.DEVNULL, text=True, start_new_session=True)
+        proc, ws_url = _launch(chrome, profile, size)
         try:
-            ws_url = _devtools_url(proc)
             port = re.match(r"ws://[^:]+:(\d+)", ws_url).group(1)
             targets = json.loads(urllib.request.urlopen(f"http://127.0.0.1:{port}/json/list", timeout=10).read())
             page = next(t for t in targets if t.get("type") == "page")
@@ -193,6 +188,25 @@ def _stop(proc: subprocess.Popen) -> None:
             time.sleep(0.05)
 
 
+def _launch(chrome: str, profile: str, size: tuple[int, int], tries: int = 3) -> tuple[subprocess.Popen, str]:
+    """Start headless Chrome and wait for its DevTools endpoint. On a busy CI machine Chrome sometimes fails to
+    come up, so a failed start is retried a couple of times before giving up."""
+    for attempt in range(tries):
+        proc = subprocess.Popen(
+            [chrome, "--headless=new", "--no-sandbox", f"--user-data-dir={profile}", "--remote-debugging-port=0",
+             "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--autoplay-policy=no-user-gesture-required",
+             f"--window-size={size[0]},{size[1]}", "about:blank"],
+            stderr=subprocess.PIPE, stdout=subprocess.DEVNULL, text=True, start_new_session=True)
+        try:
+            return proc, _devtools_url(proc)
+        except RuntimeError:
+            _stop(proc)
+            if attempt == tries - 1:
+                raise
+            time.sleep(1.0 + attempt)
+    raise RuntimeError("Chrome did not start")
+
+
 def _devtools_url(proc: subprocess.Popen) -> str:
     deadline = time.time() + 20
     while time.time() < deadline:
@@ -200,6 +214,8 @@ def _devtools_url(proc: subprocess.Popen) -> str:
         m = re.search(r"DevTools listening on (ws://\S+)", line)
         if m:
             return m.group(1)
+        if line == "" and proc.poll() is not None:  # Chrome quit: no point waiting out the clock
+            break
     raise RuntimeError("Chrome did not start its DevTools endpoint")
 
 
