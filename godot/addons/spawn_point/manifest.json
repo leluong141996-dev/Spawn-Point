@@ -375,6 +375,22 @@
           "doc": "Space between foes in px."
         },
         {
+          "name": "starter_relic",
+          "type": "String",
+          "hint": "",
+          "hint_string": "",
+          "default": "",
+          "doc": "The relic the hero starts with (see SPCardContent.RELICS; empty for none)."
+        },
+        {
+          "name": "theme",
+          "type": "String",
+          "hint": "",
+          "hint_string": "",
+          "default": "",
+          "doc": "The backdrop's theme, for drifting leaves, snow, embers... (a palette name; empty for none)."
+        },
+        {
           "name": "hero_name",
           "type": "String",
           "hint": "",
@@ -413,7 +429,19 @@
           "type": "Array"
         },
         {
+          "name": "room",
+          "type": "int"
+        },
+        {
           "name": "options",
+          "type": "Array"
+        },
+        {
+          "name": "relics",
+          "type": "Array"
+        },
+        {
+          "name": "potions",
           "type": "Array"
         },
         {

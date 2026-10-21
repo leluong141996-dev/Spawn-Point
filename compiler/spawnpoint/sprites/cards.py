@@ -7,6 +7,8 @@ from code like the rest of the pixel art. Cards are shown at 2 or 3 screen pixel
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 
 from .chibi import Fig
@@ -296,9 +298,125 @@ def _crown(g: Fig) -> None:
     g.set(8, 3, GOLD_LIGHT)
 
 
+def _question(g: Fig) -> None:
+    g.ellipse(8, 8, 7, 7, PURPLE)
+    g.ellipse(7, 7, 5.5, 5.5, _c("#b070e0"))
+    for x, y in ((6, 4), (7, 3), (8, 3), (9, 3), (10, 4), (10, 5), (9, 6), (8, 7), (8, 8)):
+        g.rect(x, y, x, y, WHITE)
+    g.rect(8, 10, 8, 11, WHITE)
+
+
+def _bag(g: Fig) -> None:
+    g.ellipse(8, 10, 6, 5, _c("#b47a48"))
+    g.rect(6, 3, 10, 6, _c("#b47a48"))
+    g.rect(5, 5, 11, 6, WOOD_DARK)
+    g.ellipse(6, 9, 1.6, 1.6, _c("#d8a070"))
+    g.ellipse(9, 11, 2.2, 2.2, GOLD)
+    g.set(9, 11, GOLD_DARK)
+
+
+def _hammer(g: Fig) -> None:
+    g.line(4, 14, 10, 7, WOOD, 2)
+    g.rect(7, 2, 14, 6, STEEL_DARK)
+    g.rect(7, 2, 14, 3, STEEL)
+    g.rect(13, 2, 14, 6, STEEL_LIGHT)
+
+
+def _potion(g: Fig) -> None:
+    """A white-liquid bottle: the game tints it with the potion's colour."""
+    g.rect(6, 1, 9, 3, _c("#b07a48"))
+    g.rect(6, 4, 9, 6, _c("#d8eef8"))
+    g.ellipse(8, 11, 5.5, 4.8, _c("#d8eef8"))
+    g.ellipse(8, 12, 4.4, 3.6, _c("#f8f8f8"))
+    g.rect(5, 9, 5, 10, WHITE)
+
+
+def _blood(g: Fig) -> None:
+    g.poly([(8, 1), (13, 9), (3, 9)], RED)
+    g.ellipse(8, 10, 5, 5, RED)
+    g.ellipse(8, 11, 3, 3, RED_DARK)
+    g.ellipse(6.5, 8.5, 1.2, 1.6, RED_LIGHT)
+
+
+def _lantern(g: Fig) -> None:
+    g.rect(7, 1, 8, 2, STEEL_DARK)
+    g.rect(4, 3, 11, 4, STEEL_DARK)
+    g.rect(5, 5, 10, 12, _c("#ffe080"))
+    g.rect(7, 6, 8, 10, _c("#fff8c0"))
+    g.rect(4, 13, 11, 14, STEEL_DARK)
+    g.rect(4, 5, 4, 12, STEEL_DARK)
+    g.rect(11, 5, 11, 12, STEEL_DARK)
+
+
+def _ring_icon(g: Fig) -> None:
+    g.ellipse(8, 9, 6, 6, GOLD)
+    g.ellipse(8, 9, 3.6, 3.6, (0, 0, 0, 0))
+    g.ellipse(8, 3.5, 2.6, 2.4, GREEN)
+    g.set(7, 3, GREEN_LIGHT)
+
+
+def _anchor(g: Fig) -> None:
+    g.ellipse(8, 3, 2.2, 2.2, STEEL)
+    g.ellipse(8, 3, 1, 1, (0, 0, 0, 0))
+    g.rect(7, 5, 8, 13, STEEL)
+    g.rect(4, 6, 11, 7, STEEL)
+    g.line(2, 10, 7, 14, STEEL, 2)
+    g.line(13, 10, 8, 14, STEEL, 2)
+
+
+def _vajra(g: Fig) -> None:
+    g.rect(7, 4, 8, 12, GOLD)
+    g.ellipse(7.5, 8, 2.5, 2, GOLD_DARK)
+    for y in (2, 14):
+        g.line(4, y, 7, y + (2 if y == 2 else -2), GOLD)
+        g.line(11, y, 8, y + (2 if y == 2 else -2), GOLD)
+        g.set(7, y, GOLD_LIGHT)
+
+
+def _marbles(g: Fig) -> None:
+    g.ellipse(8, 10, 6, 5, _c("#7a5a9a"))
+    g.rect(6, 4, 10, 6, _c("#7a5a9a"))
+    for (x, y, c) in ((5, 2, BLUE), (9, 1, RED), (11, 3, GREEN)):
+        g.ellipse(x, y + 1, 1.8, 1.8, c)
+
+
+def _stone(g: Fig) -> None:
+    g.ellipse(8, 9, 6.5, 5, _c("#9aa0b0"))
+    g.ellipse(6.5, 7.5, 3, 1.8, _c("#c8ccd8"))
+    g.set(11, 11, _c("#6a7080"))
+
+
+def _idol(g: Fig) -> None:
+    g.ellipse(8, 5, 3.6, 3.6, GOLD)
+    g.rect(5, 8, 11, 14, GOLD)
+    g.rect(4, 13, 12, 14, GOLD_DARK)
+    g.set(7, 5, INK)
+    g.set(9, 5, INK)
+    g.ellipse(6, 4, 1, 1, GOLD_LIGHT)
+
+
+def _flower(g: Fig) -> None:
+    g.rect(7, 9, 8, 15, GREEN_DARK)
+    g.ellipse(5, 12, 2.4, 1.4, GREEN)
+    for a in range(5):
+        g.ellipse(8 + 3.4 * math.cos(a * 1.257), 6 + 3.4 * math.sin(a * 1.257), 2.4, 2.4, _c("#ff8fc8"))
+    g.ellipse(8, 6, 2, 2, YELLOW)
+
+
+def _vial(g: Fig) -> None:
+    g.rect(6, 1, 9, 2, _c("#b07a48"))
+    g.rect(6, 3, 9, 13, _c("#d8eef8"))
+    g.rect(6, 7, 9, 13, RED)
+    g.rect(6, 7, 6, 13, RED_LIGHT)
+    g.ellipse(7.5, 13, 2, 1.5, RED_DARK)
+
+
 ICONS = {"sword": _sword, "axe": _axe, "dagger": _dagger, "shield": _shield, "bow": _bow, "staff": _staff,
          "fire": _fire, "ice": _ice, "bolt": _bolt, "drop": _drop, "skull": _skull, "heart": _heart, "flex": _flex,
-         "book": _book, "wind": _wind, "star": _star, "campfire": _campfire, "chest": _chest, "crown": _crown, "crack": _crack, "coin": _coin}
+         "book": _book, "wind": _wind, "star": _star, "campfire": _campfire, "chest": _chest, "crown": _crown, "crack": _crack, "coin": _coin,
+         "question": _question, "bag": _bag, "hammer": _hammer, "potion": _potion, "blood": _blood, "lantern": _lantern,
+         "ring": _ring_icon, "anchor": _anchor, "vajra": _vajra, "marbles": _marbles, "stone": _stone, "idol": _idol,
+         "flower": _flower, "vial": _vial}
 
 
 def icon(name: str) -> np.ndarray:

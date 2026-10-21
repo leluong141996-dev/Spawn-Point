@@ -235,6 +235,7 @@ CARD_ICON_WORDS = (({"fire", "flame", "burn", "blaze", "inferno", "meteor", "emb
                    ({"rage", "fury", "strength", "power", "roar", "might", "berserk"}, "flex"),
                    ({"star", "light", "holy", "smite", "divine"}, "star"))
 CARD_FLOORS = {"short": 5, "medium": 7, "long": 9}
+CARD_STARTER_RELIC = {"warrior": "burning_blood", "mage": "lantern", "rogue": "snake_ring"}  # see card_content.gd
 # Foe archetype -> (base HP, intents with {n} placeholders scaled by difficulty).
 CARD_FOES = {"brute": (22, "atk:{8},atk:{12},str:2+atk:{5}"), "guard": (26, "blk:{8}+atk:{5},atk:{8},blk:{12}"),
              "caster": (18, "weak:1+atk:{4},poison:3,atk:{9},vuln:1+atk:{4}"), "swarm": (11, "atk:{5},atk:{3}x2")}
@@ -448,7 +449,7 @@ class _Assembler:
         """A deckbuilder: the hero on the left of a side-view stage, foes spawned on the right for each fight."""
         b, pal, d = self.b, self.pal, self.b.difficulty
         cls = CARD_CLASSES[b.hero_class]
-        k_hp, k_dmg = 0.8 + 0.1 * d, 0.9 + 0.05 * d  # harder foes: tougher first, then hitting harder
+        k_hp, k_dmg = 0.92 + 0.1 * d, 0.97 + 0.05 * d  # harder foes: tougher first, then hitting harder
         cards: dict[str, tuple] = {}
         strike, block = cls["strike"], cls["block"]
         own = list(b.cards)
@@ -478,11 +479,12 @@ class _Assembler:
             hp, intents = CARD_FOES.get(e.archetype, CARD_FOES["brute"])
             foes.append(f"{e.name}|{round(hp * k_hp)}|normal|{scaled(intents)}")
             self._card_foe(e.name, pal["enemies"][i % len(pal["enemies"])])
-        foes.append(f"{b.boss}|{round(85 + 12 * (d - 2))}|boss|{scaled(CARD_BOSS_INTENTS)}")
+        foes.append(f"{b.boss}|{round(100 + 14 * (d - 2))}|boss|{scaled(CARD_BOSS_INTENTS)}")
         self._card_foe(b.boss, pal["enemies"][-1], boss=True)
         floors = CARD_FLOORS[b.length]
-        battle = {"cards": library, "hero_name": b.player.character, "foe_offset": [300, 0], "foe_gap": 160, "starter": f"{strike[0]}*5,{block[0]}*4,{sig[0]}", "foes": ";".join(foes),
-                  "floors": floors, "run_seed": self.seed, "gold_per_fight": 12}
+        battle = {"cards": library, "hero_name": b.player.character, "theme": b.palette, "foe_offset": [300, 0], "foe_gap": 160, "starter": f"{strike[0]}*5,{block[0]}*4,{sig[0]}", "foes": ";".join(foes),
+                  "floors": floors, "run_seed": self.seed, "gold_per_fight": 15,
+                  "starter_relic": CARD_STARTER_RELIC[b.hero_class]}
         hero_hp = 70 - 3 * (d - 2)
         comps = {"PlayerInput": {}, "Health": {"max_health": hero_hp, "invincibility_time": 0.0}, "CardBattle": battle}
         if self.layer >= 2:

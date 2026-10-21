@@ -17,7 +17,7 @@ const SP_NAME := "CardBattle"
 const SP_HOSTS: Array[String] = []
 const SP_REQUIRES: Array[String] = ["Health"]
 const SP_INTERNAL: Array[String] = ["play_index", "end_turn", "choose", "skip_reward", "autopilot_step", "card",
-	"card_text", "foes_alive", "hand", "phase", "intent_of", "deal", "begin_fight", "set_target"]
+	"card_text", "foes_alive", "hand", "phase", "intent_of", "deal", "begin_fight", "set_target", "use_potion", "view_deck"]
 const SP_CATEGORY := "core"
 
 ## Emitted when a fight begins; [param kind] is "fight", "elite" or "boss".
@@ -51,6 +51,10 @@ signal card_played(card_name: String)
 @export var foe_offset: Vector2 = Vector2(330, 0)
 ## Space between foes in px.
 @export_range(40.0, 400.0, 1.0) var foe_gap: float = 130.0
+## The relic the hero starts with (see SPCardContent.RELICS; empty for none).
+@export var starter_relic: String = ""
+## The backdrop's theme, for drifting leaves, snow, embers... (a palette name; empty for none).
+@export var theme: String = ""
 ## The hero's name on its panel.
 @export var hero_name: String = "Hero"
 ## Seconds between foe moves (0 = instant, for tests).
@@ -59,8 +63,10 @@ signal card_played(card_name: String)
 @export_range(0, 1000000) var run_seed: int = 0
 
 const STATUS_KEYS := ["block", "poison", "weak", "vuln", "str"]
-const NODE_ICON := {"fight": "sword", "elite": "skull", "rest": "campfire", "treasure": "chest", "boss": "crown"}
-const NODE_NAME := {"fight": "Fight", "elite": "Elite", "rest": "Rest", "treasure": "Treasure", "boss": "Boss"}
+const NODE_ICON := {"fight": "sword", "elite": "skull", "rest": "campfire", "treasure": "chest", "boss": "crown",
+	"event": "question", "shop": "bag"}
+const NODE_NAME := {"fight": "Fight", "elite": "Elite", "rest": "Rest", "treasure": "Treasure", "boss": "Boss",
+	"event": "Unknown", "shop": "Shop"}
 const TYPE_COLOR := {"attack": Color("#b8503a"), "skill": Color("#3a8a7a"), "power": Color("#8a4ab8")}
 const ICON_FX := {"sword": "slash", "axe": "slash", "dagger": "slash", "bow": "slash", "wind": "slash", "fire": "fire",
 	"ice": "ice", "bolt": "bolt", "star": "bolt", "drop": "poison", "staff": "curse", "skull": "curse", "crack": "curse",
@@ -70,10 +76,13 @@ const STATUS_COLOR := {"str": Color("#ffb03a"), "poison": Color("#7cf05a"), "wea
 const INK := Color("#1d1a33")
 const GOLD := Color("#ffec27")
 
-var phase := "map"  # map, fight, foe_turn, reward, rest, done
+var phase := "map"  # map, fight, foe_turn, won_fight, reward, rest, shop, event, notice, pick, done
 var floor_index := -1
-var run_map: Array = []  # per floor: an Array of node kinds
-var options: Array = []  # what the current panel offers (node kinds or card names)
+var run_map: Array = []  # per floor: an Array of rooms {kind, lane, next: [room indices on the next floor]}
+var room := -1  # the room taken on the current floor
+var options: Array = []  # what the open panel offers (rooms, cards, choices, shop items)
+var relics: Array[String] = []
+var potions: Array[String] = []
 var deck: Array[String] = []
 var draw_pile: Array[String] = []
 var hand: Array[String] = []
@@ -90,6 +99,15 @@ var _library := {}  # name -> {name, cost, type, fx, rarity, icon}
 var _foe_types: Array[Dictionary] = []
 var _rng := RandomNumberGenerator.new()
 var _fight_kind := "fight"
+var _turn := 0
+var _shop_cards: Array = []
+var _shop_relic := ""
+var _shop_potion := ""
+var _shop_removed := false
+var _event := {}
+var _pick_from := ""
+var _pick_mode := ""
+var _pick_cost := 0
 var _busy := false
 var _view: Node2D
 var _ui: CanvasLayer
@@ -104,13 +122,16 @@ var _portrait: TextureRect
 var _hero_bar: Control
 var _gold_label: Label
 var _floor_label: Label
-var _panel_map: HBoxContainer
+var _panel_body: VBoxContainer
+var _belt: HBoxContainer
+var _path: Array[int] = []  # the room taken on each floor so far
 var _font: Font
 var _font_plain: Font
 var _deal_next := false
+var _vignette: Control
+var _vignette_tween: Tween
 var _panel: Control
 var _panel_title: Label
-var _panel_row: HBoxContainer
 var _panel_hint: Label
 var _tex := {}
 
@@ -131,6 +152,8 @@ func _ready() -> void:
 			if _library.has(parts[0]):
 				deck.append(parts[0])
 	_make_map()
+	if SPCardContent.RELICS.has(starter_relic):
+		relics.append(starter_relic)
 	for k in STATUS_KEYS:
 		hero_st[k] = 0
 	if _health:
@@ -143,6 +166,7 @@ func _ready() -> void:
 	_view.z_index = 30
 	_view.draw.connect(_draw_world)
 	_entity.get_parent().add_child.call_deferred(_view)
+	_start_ambient.call_deferred()
 	_build_ui()
 	_open_map.call_deferred()
 
@@ -234,34 +258,69 @@ func _targeted(c: Dictionary) -> bool:
 
 
 # --- the run --------------------------------------------------------------------------------
+# The map is a graph of rooms: floors left to right, each room on one of LANES lanes, linked to the rooms on
+# the next floor one lane up, level or down. You walk one link per floor; the boss waits on the last floor.
+
+const LANES := 4
 
 func _make_map() -> void:
 	run_map.clear()
-	for i in floors:
-		if i == floors - 1:
-			run_map.append(["boss"])
-		elif i == 0:
-			run_map.append(["fight"])
-		elif i == floors - 2:
-			run_map.append(["rest", "treasure"] if _rng.randf() < 0.5 else ["rest", "elite"])
+	for f in floors:
+		var nodes: Array = []
+		if f == floors - 1:
+			nodes.append({"kind": "boss", "lane": 1.5, "next": []})
 		else:
-			var a := _pick_node(i)
-			var b := _pick_node(i)
-			var tries := 0
-			while b == a and tries < 8:
-				b = _pick_node(i)
-				tries += 1
-			run_map.append([a, b] if a != b else [a])
+			var lanes := [0, 1, 2, 3]
+			lanes.shuffle()
+			var count := 3 if _rng.randf() < 0.5 else 2
+			var picked := lanes.slice(0, count)
+			picked.sort()
+			for lane: int in picked:
+				nodes.append({"kind": _room_kind(f), "lane": float(lane), "next": []})
+		run_map.append(nodes)
+	for f in floors - 1:
+		var here: Array = run_map[f]
+		var there: Array = run_map[f + 1]
+		for i in here.size():
+			for j in there.size():
+				if absf(float(here[i]["lane"]) - float(there[j]["lane"])) <= 1.01 or there.size() == 1:
+					here[i]["next"].append(j)
+			if here[i]["next"].is_empty():  # no neighbour: link the closest room
+				here[i]["next"].append(_closest(there, float(here[i]["lane"])))
+		for j in there.size():  # every room can be reached
+			var reached := false
+			for n: Dictionary in here:
+				if j in n["next"]:
+					reached = true
+			if not reached:
+				here[_closest(here, float(there[j]["lane"]))]["next"].append(j)
+	room = -1
 
 
-func _pick_node(i: int) -> String:
-	var r := _rng.randf()
-	if i >= 2 and r < 0.18:
-		return "elite"
-	if i >= 2 and r < 0.36:
+func _closest(nodes: Array, lane: float) -> int:
+	var best := 0
+	for k in nodes.size():
+		if absf(float(nodes[k]["lane"]) - lane) < absf(float(nodes[best]["lane"]) - lane):
+			best = k
+	return best
+
+
+func _room_kind(f: int) -> String:
+	if f == 0:
+		return "fight"
+	if f == floors - 2:
 		return "rest"
-	if r < 0.5:
+	if f == floors / 2 and f < floors - 2:
 		return "treasure"
+	var r := _rng.randf()
+	if f >= 2 and r < 0.14:
+		return "elite"
+	if f >= 2 and r < 0.24:
+		return "shop"
+	if f >= 3 and r < 0.32:
+		return "rest"
+	if r < 0.52:
+		return "event"
 	return "fight"
 
 
@@ -272,35 +331,43 @@ func _open_map() -> void:
 	if floor_index >= run_map.size():
 		return
 	phase = "map"
-	options = run_map[floor_index].duplicate()
-	if options.size() == 1 and options[0] in ["fight", "boss"] and floor_index == 0:
-		choose(0)
-		return
-	_show_panel("Floor %d of %d: where next?" % [floor_index + 1, floors],
-		"Click a room, or press 1-%d" % options.size() if options.size() > 1 else "Click to go on, or press 1")
+	options = []
+	if floor_index == 0:
+		for j in run_map[0].size():
+			options.append(j)
+	else:
+		options = run_map[floor_index - 1][room]["next"].duplicate()
+		options.sort()
+	_show_map()
 
 
-## Picks option [param i] of the open panel (a room on the map, or a reward card).
+## Picks option [param i] of what is open: a room on the map, a reward card, a choice at a rest site, in a shop
+## or an event, or a card of the deck.
 func choose(i: int) -> void:
 	if i < 0 or i >= options.size() or _busy:
 		return
 	match phase:
 		"map":
-			var kind: String = options[i]
+			room = options[i]
+			_path.append(room)
+			var kind: String = run_map[floor_index][room]["kind"]
 			_hide_panel()
-			if kind == "rest":
-				var amount := int(round(_health.max_health * rest_heal))
-				_health.heal(amount)
-				_pop(_entity, "+%d" % amount, Color("#7cf07c"))
-				_play_fx("heal", _entity)
-				GameState.message("You rest by the fire (+%d HP)" % amount)
-				Sfx.play("pickup")
-				_open_map.call_deferred()
-			elif kind == "treasure":
-				GameState.add_score(gold_per_fight)
-				_offer_cards("Treasure! Take a card", true)
-			else:
-				begin_fight(kind)
+			match kind:
+				"rest":
+					_open_rest()
+				"treasure":
+					var relic := _random_relic()
+					_gain_relic(relic)
+					_add_gold(1.5)
+					_show_choices("Treasure!", "You found %s: %s" % [SPCardContent.RELICS[relic]["name"],
+						SPCardContent.RELICS[relic]["text"]], ["Go on"])
+					phase = "notice"
+				"shop":
+					_open_shop()
+				"event":
+					_open_event()
+				_:
+					begin_fight(kind)
 		"reward":
 			var picked: String = options[i]
 			deck.append(picked)
@@ -308,35 +375,344 @@ func choose(i: int) -> void:
 			Sfx.play("pickup")
 			_hide_panel()
 			_open_map.call_deferred()
+		"rest":
+			if i == 0:
+				var amount := int(round(_health.max_health * rest_heal))
+				_health.heal(amount)
+				_pop(_entity, "+%d" % amount, Color("#7cf07c"))
+				_play_fx("heal", _entity)
+				Sfx.play("pickup")
+				_hide_panel()
+				_open_map.call_deferred()
+			else:
+				_open_pick("upgrade", "Smith: choose a card to upgrade")
+		"shop":
+			_buy(i)
+		"event":
+			_resolve_event(i)
+		"notice":
+			_hide_panel()
+			_open_map.call_deferred()
+		"pick":
+			_picked(i)
 
 
 func skip_reward() -> void:
-	if phase == "reward":
-		_hide_panel()
-		_open_map.call_deferred()
+	match phase:
+		"reward", "notice":
+			_hide_panel()
+			_open_map.call_deferred()
+		"shop":
+			_hide_panel()
+			_open_map.call_deferred()
+		"pick":
+			_cancel_pick()
 
 
-func _offer_cards(title: String, better: bool) -> void:
-	phase = "reward"
+func _add_gold(times: float) -> int:
+	var amount := int(round(gold_per_fight * times * _rng.randf_range(0.85, 1.15) * (1.25 if "idol" in relics else 1.0)))
+	GameState.add_score(amount)
+	return amount
+
+
+func _card_pool(rare_only := false) -> Array[String]:
 	var pool: Array[String] = []
 	for n: String in _library:
-		if _library[n]["rarity"] != "starter":
+		var c: Dictionary = _library[n]
+		if c["rarity"] != "starter" and not c.get("upgraded", false) and (not rare_only or c["rarity"] == "rare"):
 			pool.append(n)
-	options = []
+	return pool
+
+
+func _roll_cards(count: int, better: bool) -> Array:
+	var pool := _card_pool()
+	var out: Array = []
 	var tries := 0
-	while options.size() < mini(3, pool.size()) and tries < 60:
+	while out.size() < mini(count, pool.size()) and tries < 80:
 		tries += 1
 		var n: String = pool[_rng.randi() % pool.size()]
 		var rarity: String = _library[n]["rarity"]
 		var keep := 1.0 if rarity == "common" else (0.55 if rarity == "uncommon" else 0.25)
 		if better:
 			keep = minf(1.0, keep * 1.8)
-		if n not in options and _rng.randf() < keep:
-			options.append(n)
+		if n not in out and _rng.randf() < keep:
+			out.append(n)
+	return out
+
+
+func _offer_cards(title: String, better: bool, lines := "") -> void:
+	phase = "reward"
+	options = _roll_cards(3, better)
 	if options.is_empty():
 		_open_map.call_deferred()
 		return
-	_show_panel(title, "Click a card or press 1-%d; S skips" % options.size(), true)
+	_show_cards(title, (lines + "\n" if lines != "" else "") + "Take a card (click or 1-%d), or skip (S)" % options.size(),
+		options, true)
+
+
+# --- rest, shop, events, deck picks ----------------------------------------------------------
+
+func _open_rest() -> void:
+	phase = "rest"
+	options = ["rest", "smith"]
+	var amount := int(round(_health.max_health * rest_heal))
+	_show_choices("Rest Site", "The fire crackles. Rest, or improve a card.",
+		["Rest (+%d HP)" % amount, "Smith (upgrade a card)"], ["campfire", "hammer"])
+
+
+func _upgradable() -> Array[String]:
+	var out: Array[String] = []
+	for n in deck:
+		if not card(n).get("upgraded", false) and n not in out:
+			out.append(n)
+	return out
+
+
+## The upgraded card's name; its library entry is made on first use.
+func _upgraded(card_name: String) -> String:
+	var up_name := card_name + "+"
+	if not _library.has(up_name):
+		_library[up_name] = SPCardContent.upgrade(_library[card_name])
+	return up_name
+
+
+func _price(what: String) -> int:
+	return int(round(gold_per_fight * float(SPCardContent.PRICE[what])))
+
+
+func _open_shop() -> void:
+	phase = "shop"
+	_shop_cards = _roll_cards(5, true)
+	var owned := relics
+	var free := SPCardContent.RELICS.keys().filter(func(r: String) -> bool: return r not in owned)
+	_shop_relic = free[_rng.randi() % free.size()] if not free.is_empty() else ""
+	_shop_potion = SPCardContent.POTIONS.keys()[_rng.randi() % SPCardContent.POTIONS.size()]
+	_shop_removed = false
+	_refresh_shop()
+
+
+func _shop_items() -> Array:
+	var items: Array = []
+	for n: String in _shop_cards:
+		items.append(["card", n, _price(card(n)["rarity"])])
+	if _shop_relic != "":
+		items.append(["relic", _shop_relic, _price("relic")])
+	if _shop_potion != "":
+		items.append(["potion", _shop_potion, _price("potion")])
+	if not _shop_removed:
+		items.append(["remove", "", _price("remove")])
+	return items
+
+
+func _refresh_shop() -> void:
+	options = _shop_items()
+	_show_shop()
+
+
+func _buy(i: int) -> void:
+	var item: Array = options[i]
+	if GameState.score < item[2]:
+		GameState.message("Not enough gold")
+		return
+	match item[0]:
+		"card":
+			GameState.add_score(-item[2])
+			deck.append(item[1])
+			_shop_cards.erase(item[1])
+		"relic":
+			GameState.add_score(-item[2])
+			_gain_relic(item[1])
+			_shop_relic = ""
+		"potion":
+			if potions.size() >= SPCardContent.MAX_POTIONS:
+				GameState.message("Your potion belt is full")
+				return
+			GameState.add_score(-item[2])
+			potions.append(item[1])
+			_shop_potion = ""
+		"remove":
+			_open_pick("remove", "Choose a card to remove (%d gold)" % item[2], item[2])
+			return
+	Sfx.play("pickup")
+	_refresh_shop()
+
+
+func _open_event() -> void:
+	phase = "event"
+	_event = SPCardContent.EVENTS[_rng.randi() % SPCardContent.EVENTS.size()]
+	options = _event["choices"]
+	var labels: Array = []
+	for c: Dictionary in options:
+		labels.append(c["label"])
+	_show_choices(_event["title"], _event["text"], labels)
+
+
+func _resolve_event(i: int) -> void:
+	var pick_after := ""
+	var lines: PackedStringArray = []
+	for o: Array in options[i]["outcome"]:
+		match o[0]:
+			"gold":
+				lines.append("+%d gold" % _add_gold(o[1]))
+			"hp":
+				if o[1] < 0:
+					_health.damage(-o[1])
+					lines.append("%d HP" % o[1])
+				else:
+					_health.heal(o[1])
+			"heal_pct":
+				var amount := int(round(_health.max_health * o[1] / 100.0))
+				_health.heal(amount)
+				_play_fx("heal", _entity)
+				lines.append("+%d HP" % amount)
+			"max_hp":
+				_health.max_health += o[1]
+				_health.heal(o[1])
+				lines.append("+%d max HP" % o[1])
+			"relic":
+				var r := _random_relic()
+				_gain_relic(r)
+				lines.append("Relic: %s" % SPCardContent.RELICS[r]["name"])
+			"potion":
+				if potions.size() < SPCardContent.MAX_POTIONS:
+					var p: String = SPCardContent.POTIONS.keys()[_rng.randi() % SPCardContent.POTIONS.size()]
+					potions.append(p)
+					lines.append("Potion: %s" % SPCardContent.POTIONS[p]["name"])
+			"rare_card":
+				var pool := _card_pool(true)
+				if pool.is_empty():
+					pool = _card_pool()
+				if not pool.is_empty():
+					var n: String = pool[_rng.randi() % pool.size()]
+					deck.append(n)
+					lines.append("New card: %s" % n)
+			"remove", "upgrade":
+				pick_after = o[0]
+	if phase == "done":
+		return
+	_refresh_ui()
+	if pick_after == "remove":
+		_open_pick("remove", "Choose a card to remove")
+	elif pick_after == "upgrade":
+		_open_pick("upgrade", "Choose a card to upgrade")
+	else:
+		phase = "notice"
+		options = ["go"]
+		_show_choices(_event["title"], " ".join(lines) if not lines.is_empty() else "Nothing happens.", ["Go on"])
+
+
+## Shows the deck to pick a card from: "upgrade", "remove" or "view".
+func _open_pick(mode: String, title: String, cost := 0) -> void:
+	_pick_from = phase
+	_pick_mode = mode
+	_pick_cost = cost
+	phase = "pick"
+	options = (_upgradable() if mode == "upgrade" else deck.duplicate()) as Array
+	if mode != "view" and options.is_empty():
+		_cancel_pick()
+		return
+	_show_cards(title, "Click a card%s" % ("" if mode == "view" else ", or S to cancel"), options, false, true)
+
+
+func _picked(i: int) -> void:
+	var n: String = options[i]
+	match _pick_mode:
+		"upgrade":
+			var at := deck.find(n)
+			deck[at] = _upgraded(n)
+			_play_fx("buff", _entity)
+			GameState.message("%s upgraded" % n)
+		"remove":
+			deck.erase(n)
+			if _pick_cost > 0:
+				GameState.add_score(-_pick_cost)
+				_shop_removed = true
+			GameState.message("%s removed" % n)
+		"view":
+			_cancel_pick()
+			return
+	Sfx.play("pickup")
+	if _pick_from == "shop":
+		phase = "shop"
+		_refresh_shop()
+	else:
+		_hide_panel()
+		_open_map.call_deferred()
+
+
+func _cancel_pick() -> void:
+	phase = _pick_from
+	match _pick_from:
+		"shop":
+			_refresh_shop()
+		"rest":
+			_open_rest()
+		"map":
+			_show_map()
+		"fight", "foe_turn":
+			_hide_panel()
+			_refresh_ui()
+		_:
+			_hide_panel()
+			_open_map.call_deferred()
+
+
+## Opens the deck to look at (the Deck button).
+func view_deck() -> void:
+	if phase in ["pick", "done"] or _busy:
+		return
+	_open_pick("view", "Your deck (%d cards)" % deck.size())
+
+
+# --- relics and potions ----------------------------------------------------------------------
+
+func _random_relic() -> String:
+	var free: Array = SPCardContent.RELICS.keys().filter(func(r: String) -> bool: return r not in relics)
+	if free.is_empty():
+		return relics[0] if not relics.is_empty() else "anchor"
+	return free[_rng.randi() % free.size()]
+
+
+func _gain_relic(r: String) -> void:
+	if r not in relics:
+		relics.append(r)
+		GameState.message("Relic: %s" % SPCardContent.RELICS[r]["name"])
+	_refresh_ui()
+
+
+## Drinks the potion in slot [param i] (in a fight; aimed ones hit the selected foe).
+func use_potion(i: int) -> bool:
+	if phase != "fight" or _busy or i < 0 or i >= potions.size():
+		return false
+	var p: String = potions[i]
+	var alive := foes_alive()
+	if SPCardContent.POTIONS[p]["target"] and alive.is_empty():
+		return false
+	potions.remove_at(i)
+	var foe: Dictionary = alive[clampi(target, 0, alive.size() - 1)] if not alive.is_empty() else {}
+	match p:
+		"fire":
+			_play_fx("fire", foe["node"])
+			deal({}, foe["node"], foe["st"], 20)
+		"poison":
+			foe["st"]["poison"] += 6
+			_play_fx("poison", foe["node"])
+		"block":
+			hero_st["block"] += 12
+			_play_fx("shield", _entity)
+		"energy":
+			energy_left += 2
+		"strength":
+			hero_st["str"] += 2
+			_play_fx("buff", _entity)
+		"heal":
+			_health.heal(15)
+			_play_fx("heal", _entity)
+		"swift":
+			_draw_cards(3)
+	Sfx.play("pickup", 0.05, -4.0, 1.3)
+	_after_action()
+	return true
 
 
 # --- fights ---------------------------------------------------------------------------------
@@ -391,9 +767,19 @@ func begin_fight(kind: String) -> void:
 	discard.clear()
 	for k in STATUS_KEYS:
 		hero_st[k] = 0
+	_turn = 0
+	if "anchor" in relics:
+		hero_st["block"] = 10
+	if "vajra" in relics:
+		hero_st["str"] = 1
+	if "marbles" in relics:
+		for f in foe_list:
+			f["st"]["vuln"] = 1
+	if "vial" in relics:
+		_health.heal(2)
 	fight_started.emit(kind)
 	if kind == "boss":
-		GameState.message("The %s appears!" % picks[0]["type"])
+		_boss_intro(picks[0]["type"])
 	_start_turn()
 
 
@@ -433,14 +819,17 @@ func set_target(i: int) -> void:
 
 func _start_turn() -> void:
 	phase = "fight"
-	hero_st["block"] = 0
+	_turn += 1
+	if _turn > 1 or "anchor" not in relics:
+		hero_st["block"] = 0
 	if hero_st["poison"] > 0:
 		_lose_hp(_entity, hero_st, hero_st["poison"], Color("#7cf07c"))
 		hero_st["poison"] -= 1
 		if phase == "done":
 			return
-	energy_left = energy
-	_draw_cards(hand_size)
+	energy_left = energy + (1 if _turn == 1 and "lantern" in relics else 0) + (1 if _turn % 3 == 0 and "flower" in relics else 0)
+	_draw_cards(hand_size + (2 if _turn == 1 and "snake_ring" in relics else 0))
+	_banner("Your Turn", GOLD, 0.35)
 	_deal_next = true
 	_refresh_ui()
 
@@ -493,6 +882,7 @@ func play_index(i: int) -> bool:
 					_play_fx(hit_fx if hit_fx != "slash" else "hit", f["node"])
 					deal(hero_st, f["node"], f["st"], v)
 			"blk":
+				v += 1 if "stone" in relics else 0
 				hero_st["block"] += v
 				_pop(_entity, "+%d" % v, Color("#9ee8ff"), "shield")
 				_play_fx("shield", _entity)
@@ -548,6 +938,9 @@ func _lose_hp(node: Node, _st: Dictionary, amount: int, color: Color) -> void:
 		return
 	h.damage(amount)
 	_pop(node, str(amount) + ("!" if amount >= 10 else ""), color, "", 0.05, 1.0, amount >= 10)
+	if amount >= 15 and pace > 0.0:  # a big hit: a flash and a moment's freeze
+		_flash(0.35)
+		FX.hitstop(0.06)
 	FX.shake(0.12 + minf(amount, 20) * 0.012)
 	Sfx.play("hit")
 
@@ -571,19 +964,32 @@ func _fight_over() -> void:
 	if pace > 0.0:
 		await get_tree().create_timer(pace * 2.0).timeout
 	fight_won.emit(floor_index + 1)
+	_banner("Victory!", GOLD, 0.6)
+	if "burning_blood" in relics:
+		_health.heal(6)
+		_play_fx("heal", _entity)
 	if _fight_kind == "boss":
 		phase = "done"
-		GameState.add_score(gold_per_fight * 3)
+		_add_gold(3)
 		won.emit()
 		return
-	GameState.add_score(gold_per_fight * (2 if _fight_kind == "elite" else 1))
-	_offer_cards("Victory! Take a card", _fight_kind == "elite")
+	var lines: PackedStringArray = ["+%d gold" % _add_gold(2.0 if _fight_kind == "elite" else 1.0)]
+	if potions.size() < SPCardContent.MAX_POTIONS and _rng.randf() < 0.4:
+		var p: String = SPCardContent.POTIONS.keys()[_rng.randi() % SPCardContent.POTIONS.size()]
+		potions.append(p)
+		lines.append("Potion: %s" % SPCardContent.POTIONS[p]["name"])
+	if _fight_kind == "elite":
+		var r := _random_relic()
+		_gain_relic(r)
+		lines.append("Relic: %s" % SPCardContent.RELICS[r]["name"])
+	_offer_cards("Victory!", _fight_kind == "elite", "   ".join(lines))
 
 
 func end_turn() -> void:
 	if phase != "fight" or _busy:
 		return
 	phase = "foe_turn"
+	_banner("Enemy Turn", Color("#ff7a6a"), 0.25)
 	discard.append_array(hand)
 	hand.clear()
 	_tick_down(hero_st)
@@ -679,17 +1085,43 @@ func autopilot_step() -> void:
 	if _busy:
 		return
 	match phase:
-		"map":
+		"map":  # rest when hurt, take on elites when healthy, otherwise rooms that pay
+			var hp := float(_health.current) / _health.max_health
+			var want := {"rest": 6.0 if hp < 0.55 else 0.5, "elite": 4.0 if hp > 0.75 else -2.0, "treasure": 5.0,
+				"shop": 3.0 if GameState.score >= _price("common") else 0.0, "event": 2.0, "fight": 2.5, "boss": 1.0}
 			var best := 0
 			for i in options.size():
-				var k: String = options[i]
-				if k == "rest" and _health.current < _health.max_health * 0.6:
-					best = i
-				elif k in ["fight", "treasure"] and options[best] == "elite":
+				var k: String = run_map[floor_index][options[i]]["kind"]
+				var kb: String = run_map[floor_index][options[best]]["kind"]
+				if want.get(k, 0.0) > want.get(kb, 0.0):
 					best = i
 			choose(best)
 		"reward":
+			if deck.size() > 22:
+				skip_reward()
+			else:
+				choose(0)
+		"rest":
+			choose(0 if _health.current < _health.max_health * 0.7 or _upgradable().is_empty() else 1)
+		"shop":
+			for i in options.size():
+				var item: Array = options[i]
+				if item[0] in ["card", "relic"] and GameState.score >= item[2]:
+					choose(i)
+					return
+			skip_reward()
+		"event":
 			choose(0)
+		"notice":
+			choose(0)
+		"pick":
+			var best := 0
+			for i in options.size():  # upgrade an attack, remove a basic card
+				var c := card(options[i])
+				if (_pick_mode == "remove" and c["rarity"] == "starter") or (_pick_mode == "upgrade" and c["type"] == "attack"):
+					best = i
+					break
+			choose(best)
 		"fight":
 			var incoming := 0
 			for f in foes_alive():
@@ -709,6 +1141,9 @@ func autopilot_step() -> void:
 					break
 				elif not defensive and _fx(card(hand[pick]), "blk") > 0 and incoming <= hero_st["block"]:
 					pick = i
+			if not potions.is_empty() and (_health.current < _health.max_health * 0.4 or _fight_kind == "boss"):
+				use_potion(0)
+				return
 			if pick < 0:
 				end_turn()
 				return
@@ -738,8 +1173,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			_refresh_ui()
 		elif k in [KEY_E, KEY_SPACE] and phase == "fight":
 			end_turn()
-		elif k == KEY_S and phase == "reward":
+		elif k == KEY_S and phase in ["reward", "shop", "pick", "notice"]:
 			skip_reward()
+		elif k == KEY_D:
+			view_deck()
 	elif event is InputEventMouseButton and event.pressed and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
 		if phase != "fight":
 			return
@@ -800,6 +1237,7 @@ func _load_fonts() -> void:
 func _process(_delta: float) -> void:
 	if _view and is_instance_valid(_view):
 		_view.queue_redraw()
+	_update_vignette()
 	if _hero_bar:
 		_hero_bar.queue_redraw()
 		_gold_label.text = str(GameState.score)
@@ -1060,6 +1498,10 @@ func _build_ui() -> void:
 	_floor_label = _label(18, Color("#d8d0e8"))
 	_floor_label.position = Vector2(160, 50)
 	hero.add_child(_floor_label)
+	_belt = HBoxContainer.new()
+	_belt.position = Vector2(12, 90)
+	_belt.add_theme_constant_override(&"separation", 4)
+	root.add_child(_belt)
 	# the hand, the energy orb, the piles and the end turn button
 	_hand_root = Control.new()
 	_hand_root.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
@@ -1126,17 +1568,14 @@ func _build_ui() -> void:
 	_panel_title = _label(36, GOLD)
 	_panel_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(_panel_title)
-	_panel_row = HBoxContainer.new()
-	_panel_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	_panel_row.add_theme_constant_override(&"separation", 24)
-	col.add_child(_panel_row)
-	_panel_map = HBoxContainer.new()
-	_panel_map.alignment = BoxContainer.ALIGNMENT_CENTER
-	_panel_map.add_theme_constant_override(&"separation", 6)
-	col.add_child(_panel_map)
+	_panel_body = VBoxContainer.new()
+	_panel_body.alignment = BoxContainer.ALIGNMENT_CENTER
+	_panel_body.add_theme_constant_override(&"separation", 16)
+	col.add_child(_panel_body)
 	_panel_hint = _label(18, Color("#d8d0e8"))
 	_panel_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(_panel_hint)
+	_build_vignette(root)
 	_set_portrait.call_deferred()
 
 
@@ -1167,59 +1606,237 @@ func _set_portrait() -> void:
 	_portrait.texture = a
 
 
-func _show_panel(title: String, hint: String, with_skip := false) -> void:
+func _panel_open(title: String, hint: String) -> void:
 	_refresh_ui()
 	_panel_title.text = title
 	_panel_hint.text = hint
-	for c in _panel_row.get_children():
+	for c in _panel_body.get_children():
 		c.queue_free()
-	for c in _panel_map.get_children():
-		c.queue_free()
-	for i in options.size():
-		var o: String = options[i]
+	_panel.visible = true
+
+
+func _row(sep := 24) -> HBoxContainer:
+	var r := HBoxContainer.new()
+	r.alignment = BoxContainer.ALIGNMENT_CENTER
+	r.add_theme_constant_override(&"separation", sep)
+	_panel_body.add_child(r)
+	return r
+
+
+## The map: a parchment with the floors left to right, the links as dotted lines, the path walked in gold and
+## the rooms that can be entered now as pulsing buttons.
+func _show_map() -> void:
+	_panel_open("Floor %d of %d: choose a room" % [floor_index + 1, floors],
+		"Click a glowing room, or press 1-%d" % options.size())
+	var map := Control.new()
+	map.custom_minimum_size = Vector2(840, 330)
+	map.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_panel_body.add_child(map)
+	var pos := func(f: int, lane: float) -> Vector2:
+		return Vector2(60 + f * 720.0 / maxf(1, floors - 1), 50 + lane * 76)
+	map.draw.connect(func() -> void:
+		map.draw_rect(Rect2(Vector2.ZERO, map.custom_minimum_size), Color("#1d1a33"))
+		map.draw_rect(Rect2(Vector2(4, 4), map.custom_minimum_size - Vector2(8, 8)), Color("#e8d4a4"))
+		map.draw_rect(Rect2(Vector2(10, 10), map.custom_minimum_size - Vector2(20, 20)), Color("#f2e2bc"))
+		for f in floors - 1:
+			for i in run_map[f].size():
+				var a: Vector2 = pos.call(f, run_map[f][i]["lane"])
+				for j: int in run_map[f][i]["next"]:
+					var b: Vector2 = pos.call(f + 1, run_map[f + 1][j]["lane"])
+					var walked: bool = _path.size() > f + 1 and _path[f] == i and _path[f + 1] == j
+					var d := a.distance_to(b)
+					for k in range(10, int(d) - 10, 7):  # dotted line
+						var p := a.lerp(b, k / d)
+						map.draw_rect(Rect2(p - Vector2(1.5, 1.5), Vector2(3, 3)),
+							Color("#e8902a") if walked else Color("#8a7a5a")))
+	for f in floors:
+		for i in run_map[f].size():
+			var node: Dictionary = run_map[f][i]
+			var at: Vector2 = pos.call(f, node["lane"])
+			var b := TextureButton.new()
+			b.texture_normal = _icon(NODE_ICON.get(node["kind"], "sword"))
+			b.ignore_texture_size = true
+			b.stretch_mode = TextureButton.STRETCH_SCALE
+			b.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			var big := 48.0 if node["kind"] == "boss" else 32.0
+			b.size = Vector2(big, big)
+			b.position = at - b.size / 2.0
+			b.tooltip_text = NODE_NAME.get(node["kind"], node["kind"])
+			var idx := options.find(i) if f == floor_index else -1
+			if idx >= 0:
+				b.pressed.connect(func() -> void: choose(idx))
+				b.pivot_offset = b.size / 2.0
+				var t := b.create_tween().set_loops()
+				t.tween_property(b, ^"scale", Vector2(1.25, 1.25), 0.45)
+				t.tween_property(b, ^"scale", Vector2.ONE, 0.45)
+			else:
+				b.disabled = true
+				var done: bool = f < floor_index and _path.size() > f and _path[f] == i
+				b.modulate = Color.WHITE if done else Color(0.55, 0.5, 0.45, 0.8 if f > floor_index else 0.45)
+			map.add_child(b)
+	var legend := _row(14)
+	for k in ["fight", "elite", "event", "shop", "rest", "treasure", "boss"]:
+		var ic := TextureRect.new()
+		ic.texture = _icon(NODE_ICON[k])
+		ic.custom_minimum_size = Vector2(16, 16)
+		ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		ic.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		legend.add_child(ic)
+		var l := _label(9, Color("#d8d0e8"))
+		l.text = NODE_NAME[k]
+		legend.add_child(l)
+
+
+## Cards to pick from (rewards, the deck); `picking` lays the deck out in a scrollable grid.
+func _show_cards(title: String, hint: String, names: Array, with_skip: bool, picking := false) -> void:
+	_panel_open(title, hint)
+	var holder: Container
+	if picking:
+		var scroll := ScrollContainer.new()
+		scroll.custom_minimum_size = Vector2(860, 340)
+		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		_panel_body.add_child(scroll)
+		var grid := GridContainer.new()
+		grid.columns = 7
+		grid.add_theme_constant_override(&"h_separation", 10)
+		grid.add_theme_constant_override(&"v_separation", 10)
+		scroll.add_child(grid)
+		holder = grid
+	else:
+		holder = _row()
+	for i in names.size():
 		var idx := i
-		if phase == "reward":
-			var cv := _card_view(o, true)
-			cv.gui_input.connect(func(e: InputEvent) -> void:
-				if _pressed(e):
-					choose(idx))
-			_panel_row.add_child(cv)
-		else:
-			var b := _button(NODE_NAME.get(o, o), Color("#e8d4a4"))
-			b.custom_minimum_size = Vector2(150, 150)
-			b.icon = _icon(NODE_ICON.get(o, "sword"))
+		var cv := _card_view(names[i], not picking)
+		var glow := _glow(cv.size)
+		cv.add_child(glow)
+		cv.move_child(glow, 0)
+		cv.mouse_entered.connect(func() -> void: glow.visible = true)
+		cv.mouse_exited.connect(func() -> void: glow.visible = false)
+		cv.gui_input.connect(func(e: InputEvent) -> void:
+			if _pressed(e):
+				choose(idx))
+		holder.add_child(cv)
+	if with_skip or picking:
+		var s := _button("Skip" if with_skip else ("Close" if _pick_mode == "view" else "Cancel"))
+		s.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		s.pressed.connect(skip_reward)
+		_panel_body.add_child(s)
+
+
+## A scene with buttons (rest sites, events, notices); optional icons above the labels.
+func _show_choices(title: String, text: String, labels: Array, icons: Array = []) -> void:
+	_panel_open(title, "")
+	var body := _label(18, Color("#f2e2bc"))
+	body.text = text
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	body.custom_minimum_size = Vector2(620, 0)
+	_panel_body.add_child(body)
+	var row := _row()
+	for i in labels.size():
+		var idx := i
+		var b := _button(labels[i], Color("#e8d4a4"))
+		if i < icons.size():
+			b.icon = _icon(icons[i])
 			b.expand_icon = true
 			b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			b.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
 			b.add_theme_constant_override(&"icon_max_width", 64)
-			b.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-			b.pressed.connect(func() -> void: choose(idx))
-			_panel_row.add_child(b)
-	if with_skip:
-		var s := _button("Skip")
-		s.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		s.pressed.connect(skip_reward)
-		_panel_row.add_child(s)
-	if phase == "map":  # the road ahead: one small column of rooms per floor
-		for f in run_map.size():
-			var column := VBoxContainer.new()
-			column.add_theme_constant_override(&"separation", 2)
-			column.alignment = BoxContainer.ALIGNMENT_CENTER
-			for k: String in run_map[f]:
-				var ic := TextureRect.new()
-				ic.texture = _icon(NODE_ICON[k])
-				ic.custom_minimum_size = Vector2(32, 32)
-				ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-				ic.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-				ic.modulate = Color(1, 1, 1, 0.35) if f < floor_index else (Color.WHITE if f == floor_index else Color(0.75, 0.75, 0.8))
-				column.add_child(ic)
-			_panel_map.add_child(column)
-			if f < run_map.size() - 1:
-				var dash := _label(18, Color("#8a8098"))
-				dash.text = "-"
-				dash.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-				_panel_map.add_child(dash)
-	_panel.visible = true
+			b.custom_minimum_size = Vector2(220, 150)
+		else:
+			b.custom_minimum_size = Vector2(0, 50)
+		b.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		b.pressed.connect(func() -> void: choose(idx))
+		row.add_child(b)
+
+
+func _show_shop() -> void:
+	_panel_open("Shop", "Gold: %d   (click to buy, Leave when done)" % GameState.score)
+	var cards_row := _row(14)
+	var other_row := _row(18)
+	for i in options.size():
+		var item: Array = options[i]
+		var idx := i
+		var can := GameState.score >= int(item[2])
+		var box := VBoxContainer.new()
+		box.alignment = BoxContainer.ALIGNMENT_CENTER
+		var price := _label(18, GOLD if can else Color("#a09080"))
+		price.text = "%d g" % item[2]
+		price.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		if item[0] == "card":
+			var cv := _card_view(item[1])
+			cv.gui_input.connect(func(e: InputEvent) -> void:
+				if _pressed(e):
+					choose(idx))
+			if not can:
+				cv.modulate = Color(0.65, 0.65, 0.7)
+			box.add_child(cv)
+			box.add_child(price)
+			cards_row.add_child(box)
+			continue
+		var label: String = {"relic": "", "potion": "", "remove": "Remove a card"}[item[0]]
+		var b := _button(label if item[0] == "remove" else (SPCardContent.RELICS[item[1]]["name"] if item[0] == "relic"
+			else SPCardContent.POTIONS[item[1]]["name"]), Color("#e8d4a4"))
+		if item[0] == "relic":
+			b.icon = _icon(SPCardContent.RELICS[item[1]]["icon"])
+			b.tooltip_text = SPCardContent.RELICS[item[1]]["text"]
+		elif item[0] == "potion":
+			b.icon = _icon("potion")
+			b.tooltip_text = SPCardContent.POTIONS[item[1]]["text"]
+			b.add_theme_color_override(&"icon_normal_color", Color(SPCardContent.POTIONS[item[1]]["color"]))
+		b.expand_icon = item[0] != "remove"
+		b.add_theme_constant_override(&"icon_max_width", 32)
+		b.disabled = not can
+		b.pressed.connect(func() -> void: choose(idx))
+		box.add_child(b)
+		box.add_child(price)
+		other_row.add_child(box)
+	var leave := _button("Leave", Color("#e8502a"))
+	leave.pressed.connect(skip_reward)
+	other_row.add_child(leave)
+
+
+## Relics and potions under the hero's panel; the Deck button.
+func _refresh_belt() -> void:
+	if _belt == null:
+		return
+	for c in _belt.get_children():
+		c.queue_free()
+	for r in relics:
+		var ic := TextureRect.new()
+		ic.texture = _icon(SPCardContent.RELICS[r]["icon"])
+		ic.custom_minimum_size = Vector2(32, 32)
+		ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		ic.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		ic.tooltip_text = "%s: %s" % [SPCardContent.RELICS[r]["name"], SPCardContent.RELICS[r]["text"]]
+		ic.mouse_filter = Control.MOUSE_FILTER_STOP
+		_belt.add_child(ic)
+	var gap := Control.new()
+	gap.custom_minimum_size = Vector2(8, 8)
+	_belt.add_child(gap)
+	for i in SPCardContent.MAX_POTIONS:
+		var slot := TextureButton.new()
+		slot.custom_minimum_size = Vector2(32, 32)
+		slot.ignore_texture_size = true
+		slot.stretch_mode = TextureButton.STRETCH_SCALE
+		slot.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		if i < potions.size():
+			var pd: Dictionary = SPCardContent.POTIONS[potions[i]]
+			slot.texture_normal = _icon("potion")
+			slot.modulate = Color(pd["color"]).lightened(0.15)
+			slot.tooltip_text = "%s: %s (click in a fight)" % [pd["name"], pd["text"]]
+			var idx := i
+			slot.pressed.connect(func() -> void: use_potion(idx))
+		else:
+			slot.texture_normal = _icon("potion")
+			slot.modulate = Color(0.2, 0.2, 0.25, 0.6)
+			slot.disabled = true
+		_belt.add_child(slot)
+	var deck_button := _button("Deck %d" % deck.size(), Color("#e8d4a4"))
+	deck_button.add_theme_font_size_override(&"font_size", 9)
+	deck_button.custom_minimum_size = Vector2(0, 30)
+	deck_button.pressed.connect(view_deck)
+	_belt.add_child(deck_button)
 
 
 func _hide_panel() -> void:
@@ -1263,7 +1880,7 @@ func _card_view(card_name: String, big := false) -> Control:
 	icon.size = Vector2(16, 16) * k
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(icon)
-	var title := _label(18 if big else 9)
+	var title := _label(18 if big else 9, Color("#8af07a") if c.get("upgraded", false) else Color.WHITE)
 	title.text = card_name
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -1281,6 +1898,18 @@ func _card_view(card_name: String, big := false) -> Control:
 	if big:
 		text.add_theme_font_size_override(&"font_size", 18)
 	root.add_child(text)
+	if c.get("rarity", "common") in ["uncommon", "rare"]:  # a silver or gold star on the ribbon's end
+		var star := TextureRect.new()
+		star.texture = _icon("star")
+		star.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		star.stretch_mode = TextureRect.STRETCH_SCALE
+		star.size = Vector2(8, 8) * k
+		star.position = Vector2(46, 39) * k
+		star.modulate = Color.WHITE if c["rarity"] == "rare" else Color(0.75, 0.8, 0.95)
+		if c["rarity"] == "uncommon":
+			star.self_modulate = Color(0.85, 0.85, 1.0)
+		star.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		root.add_child(star)
 	var cost := _label(18 if not big else 27, Color.WHITE)
 	cost.text = str(c.get("cost", 0))
 	cost.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -1345,6 +1974,7 @@ func _refresh_ui() -> void:
 	_pile_label.text = "Draw %d" % draw_pile.size()
 	_discard_label.text = "Discard %d" % discard.size()
 	_floor_label.text = "Floor %d/%d" % [maxi(1, floor_index + 1), floors]
+	_refresh_belt()
 	if not fighting:
 		return
 	var n := hand.size()
@@ -1391,3 +2021,159 @@ func _refresh_ui() -> void:
 			var t := cv.create_tween().set_parallel(true)
 			t.tween_property(cv, ^"position", home, 0.22).set_delay(i * 0.07).set_ease(Tween.EASE_OUT)
 			t.tween_property(cv, ^"scale", Vector2.ONE, 0.22).set_delay(i * 0.07)
+
+
+# --- atmosphere and juice --------------------------------------------------------------------
+
+## theme -> (particle colours, falling speed, sideways drift, count, size)
+const AMBIENT := {
+	"forest": [["#7cc85a", "#ffd84a", "#4a9a4a"], 30.0, 40.0, 24, 3.0],
+	"night": [["#e8ff8a", "#c8ff70"], -6.0, 14.0, 28, 2.0],
+	"snow": [["#ffffff", "#e8f4ff"], 40.0, 18.0, 70, 2.0],
+	"lava": [["#ffb03a", "#ff6a2a", "#ffd04a"], -45.0, 12.0, 40, 2.0],
+	"desert": [["#f0d8a0", "#e8c080"], 6.0, 90.0, 30, 2.0],
+	"ocean": [["#bfeaff", "#ffffff"], -20.0, 8.0, 22, 2.0],
+	"candy": [["#ff8fc8", "#ffffff", "#5ad8ff"], 22.0, 20.0, 30, 2.0],
+	"neon": [["#2de2e6", "#f6019d"], 260.0, 0.0, 50, 1.0],
+}
+
+
+## Drifting pixels over the backdrop: leaves, fireflies, snow, embers, sand, bubbles, sparkles or neon rain.
+func _start_ambient() -> void:
+	var a: Array = AMBIENT.get(theme, [])
+	if a.is_empty() or _view == null:
+		return
+	var view := Vector2(960, 540)
+	for k in a[0].size():
+		var p := CPUParticles2D.new()
+		p.amount = maxi(1, int(a[3] / a[0].size()))
+		p.lifetime = 12.0
+		p.preprocess = 12.0
+		p.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+		p.emission_rect_extents = view / 2.0
+		p.position = view / 2.0
+		p.direction = Vector2(a[2], a[1]).normalized() if Vector2(a[2], a[1]).length() > 0.1 else Vector2.DOWN
+		p.spread = 25.0
+		p.gravity = Vector2.ZERO
+		p.initial_velocity_min = Vector2(a[2], a[1]).length() * 0.6
+		p.initial_velocity_max = Vector2(a[2], a[1]).length() * 1.2
+		p.scale_amount_min = a[4]
+		p.scale_amount_max = a[4] * (1.0 if theme == "neon" else 1.5)
+		p.color = Color(a[0][k])
+		if theme == "neon":
+			p.scale_amount_max = 1.0
+			p.scale_amount_min = 1.0
+			p.texture = _rain_texture()
+		if theme in ["night", "ocean"]:  # fireflies and bubbles fade in and out
+			var g := Gradient.new()
+			g.set_color(0, Color(1, 1, 1, 0))
+			g.add_point(0.5, Color(1, 1, 1, 1))
+			g.set_color(g.get_point_count() - 1, Color(1, 1, 1, 0))
+			p.color_ramp = g
+		p.z_index = 5
+		p.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		_view.get_parent().add_child(p)
+
+
+func _rain_texture() -> Texture2D:
+	var img := Image.create(1, 6, false, Image.FORMAT_RGBA8)
+	img.fill(Color.WHITE)
+	return ImageTexture.create_from_image(img)
+
+
+## A banner sliding across the middle of the screen ("Your turn", "Victory!").
+func _banner(text: String, color: Color, hold := 0.5) -> void:
+	if _ui == null or pace <= 0.0:
+		return
+	var band := ColorRect.new()
+	band.color = Color(0.05, 0.04, 0.1, 0.72)
+	band.size = Vector2(2000, 64)
+	band.position = Vector2(-2000, 200)
+	band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var l := _label(36, color)
+	l.text = text
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	l.size = Vector2(960, 64)
+	l.position = Vector2(2000 - 960, 0)
+	band.add_child(l)
+	_ui.add_child(band)
+	var view_w := _hand_root.size.x if _hand_root and _hand_root.size.x > 0 else 960.0
+	l.position.x = 2000 - view_w + (view_w - 960) / 2.0
+	var t := band.create_tween()
+	t.tween_property(band, ^"position:x", -2000 + view_w, 0.22).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	t.tween_interval(hold)
+	t.tween_property(band, ^"modulate:a", 0.0, 0.25)
+	t.tween_callback(band.queue_free)
+
+
+## A white flash over everything (big hits).
+func _flash(strength := 0.5) -> void:
+	if _ui == null or pace <= 0.0:
+		return
+	var r := ColorRect.new()
+	r.color = Color(1, 1, 1, strength)
+	r.set_anchors_preset(Control.PRESET_FULL_RECT)
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_ui.add_child(r)
+	var t := r.create_tween()
+	t.tween_property(r, ^"color:a", 0.0, 0.18)
+	t.tween_callback(r.queue_free)
+
+
+## The boss arrives: the screen darkens and its name grows in the middle.
+func _boss_intro(boss_name: String) -> void:
+	if _ui == null or pace <= 0.0:
+		return
+	var shade := ColorRect.new()
+	shade.color = Color(0, 0, 0, 0.0)
+	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_ui.add_child(shade)
+	var l := _label(54, Color("#ff5a4a"))
+	l.text = boss_name.to_upper()
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.set_anchors_preset(Control.PRESET_CENTER)
+	l.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	l.grow_vertical = Control.GROW_DIRECTION_BOTH
+	shade.add_child(l)
+	l.pivot_offset = l.size / 2.0
+	l.scale = Vector2(2.2, 2.2)
+	l.modulate.a = 0.0
+	var t := shade.create_tween()
+	t.tween_property(shade, ^"color:a", 0.6, 0.3)
+	t.parallel().tween_property(l, ^"scale", Vector2.ONE, 0.4).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	t.parallel().tween_property(l, ^"modulate:a", 1.0, 0.3)
+	t.tween_interval(0.9)
+	t.tween_property(shade, ^"modulate:a", 0.0, 0.4)
+	t.tween_callback(shade.queue_free)
+	FX.shake(0.5)
+
+
+## A red border that pulses while the hero is low on health.
+func _update_vignette() -> void:
+	if _vignette == null or _health == null:
+		return
+	var low := _health.current > 0 and _health.current <= _health.max_health * 0.3 and phase in ["fight", "foe_turn"]
+	if low and not _vignette.visible:
+		_vignette.visible = true
+		_vignette_tween = _vignette.create_tween().set_loops()
+		_vignette_tween.tween_property(_vignette, ^"modulate:a", 0.35, 0.6)
+		_vignette_tween.tween_property(_vignette, ^"modulate:a", 1.0, 0.6)
+	elif not low and _vignette.visible:
+		_vignette.visible = false
+		if _vignette_tween:
+			_vignette_tween.kill()
+
+
+func _build_vignette(root: Control) -> void:
+	_vignette = Control.new()
+	_vignette.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_vignette.visible = false
+	_vignette.draw.connect(func() -> void:
+		var s := _vignette.size
+		for k in 6:
+			var c := Color(0.9, 0.1, 0.15, 0.32 - k * 0.05)
+			_vignette.draw_rect(Rect2(k * 4, k * 4, s.x - k * 8, s.y - k * 8), c, false, 4.0))
+	root.add_child(_vignette)

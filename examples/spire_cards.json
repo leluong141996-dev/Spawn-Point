@@ -108,6 +108,62 @@
         "kind": "card_icon",
         "of": "coin"
       },
+      "ci_question": {
+        "kind": "card_icon",
+        "of": "question"
+      },
+      "ci_bag": {
+        "kind": "card_icon",
+        "of": "bag"
+      },
+      "ci_hammer": {
+        "kind": "card_icon",
+        "of": "hammer"
+      },
+      "ci_potion": {
+        "kind": "card_icon",
+        "of": "potion"
+      },
+      "ci_blood": {
+        "kind": "card_icon",
+        "of": "blood"
+      },
+      "ci_lantern": {
+        "kind": "card_icon",
+        "of": "lantern"
+      },
+      "ci_ring": {
+        "kind": "card_icon",
+        "of": "ring"
+      },
+      "ci_anchor": {
+        "kind": "card_icon",
+        "of": "anchor"
+      },
+      "ci_vajra": {
+        "kind": "card_icon",
+        "of": "vajra"
+      },
+      "ci_marbles": {
+        "kind": "card_icon",
+        "of": "marbles"
+      },
+      "ci_stone": {
+        "kind": "card_icon",
+        "of": "stone"
+      },
+      "ci_idol": {
+        "kind": "card_icon",
+        "of": "idol"
+      },
+      "ci_flower": {
+        "kind": "card_icon",
+        "of": "flower"
+      },
+      "ci_vial": {
+        "kind": "card_icon",
+        "of": "vial"
+      },
       "fx_slash": {
         "kind": "fx",
         "of": "slash"
@@ -264,16 +320,18 @@
         "CardBattle": {
           "cards": "Strike|1|attack|dmg:6|starter|sword;Holy Shield|1|skill|blk:5|starter|shield;Bash|2|attack|dmg:8,vuln:2|starter|axe;Flame Slash|2|attack|dmg:13|common|fire;Cleave|1|attack|all:7|common|axe;Iron Wave|1|attack|dmg:5,blk:5|common|sword;Heavy Blow|2|attack|dmg:14|common|axe;Twin Strike|1|attack|dmg:5,hits:2|common|sword;Shrug It Off|1|skill|blk:8,draw:1|common|shield;Shield Wall|2|skill|blk:15|uncommon|shield;Bandage|1|skill|heal:7,exhaust|uncommon|heart;Battle Cry|1|power|str:2|rare|flex;Uppercut|2|attack|dmg:13,weak:1,vuln:1|uncommon|flex",
           "hero_name": "Knight",
+          "theme": "night",
           "foe_offset": [
             300,
             0
           ],
           "foe_gap": 160,
           "starter": "Strike*5,Holy Shield*4,Bash",
-          "foes": "Skeleton|22|normal|atk:8,atk:12,str:2+atk:5;Bat|11|normal|atk:5,atk:3x2;Witch|18|normal|weak:1+atk:4,poison:3,atk:9,vuln:1+atk:4;Lich|85|boss|atk:11,blk:12+str:2,atk:5x3,weak:1+atk:8",
+          "foes": "Skeleton|25|normal|atk:9,atk:13,str:2+atk:5;Bat|12|normal|atk:5,atk:3x2;Witch|20|normal|weak:1+atk:4,poison:3,atk:10,vuln:1+atk:4;Lich|100|boss|atk:12,blk:13+str:2,atk:5x3,weak:1+atk:9",
           "floors": 7,
           "run_seed": 3,
-          "gold_per_fight": 12
+          "gold_per_fight": 15,
+          "starter_relic": "burning_blood"
         },
         "GameMenu": {
           "title": "Spire of Bones",
