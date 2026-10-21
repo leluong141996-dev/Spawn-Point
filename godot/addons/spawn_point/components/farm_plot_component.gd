@@ -8,7 +8,7 @@ const SP_NAME := "FarmPlot"
 const SP_HOSTS: Array[String] = ["Area2D"]
 const SP_REQUIRES: Array[String] = []
 const SP_INTERNAL: Array[String] = ["plant", "water", "harvest", "destroy_crop", "state", "is_empty", "is_ripe",
-	"has_crop", "growth"]
+	"has_crop", "growth", "till", "stage", "overnight", "snapshot", "restore", "progress"]
 const SP_CATEGORY := "core"
 
 enum State { EMPTY, GROWING, RIPE }
@@ -28,6 +28,8 @@ signal eaten(crop: int)
 @export_range(1.0, 120.0, 0.5) var water_seconds: float = 6.0
 ## Size of the soil patch in px.
 @export_range(16.0, 128.0, 1.0) var size: float = 30.0
+## How fast crops grow here (1 = normal; a winter farm grows slower).
+@export_range(0.1, 3.0, 0.05) var growth_rate: float = 1.0
 ## Starts as tilled soil; off, it is grass until a [FarmerComponent] works it with the hoe.
 @export var tilled: bool = true
 ## Picture of dry tilled soil (res:// path); empty draws plain soil.
@@ -46,6 +48,7 @@ var crop_texture: Texture2D  # five growth stages side by side (seeds, sprout, y
 var _entity: Area2D
 var _view: Node2D
 var _sway := 0.0
+var _watered_today := false
 var _soil: Texture2D
 var _wet: Texture2D
 
@@ -106,7 +109,38 @@ func water() -> bool:
 	if state != State.GROWING:
 		return false
 	wet_left = water_seconds
+	_watered_today = true
 	return true
+
+
+## A night passes: a crop that was watered today grows [param share] of its growing time; the soil dries.
+func overnight(share: float) -> void:
+	if state == State.GROWING and _watered_today:
+		growth += grow_seconds * share
+		if growth >= grow_seconds:
+			state = State.RIPE
+			ripened.emit(crop)
+	_watered_today = false
+	wet_left = 0.0
+
+
+## The plot's state as plain data (see [FarmSaveComponent]).
+func snapshot() -> Dictionary:
+	return {"tilled": tilled, "state": state, "crop": crop, "growth": growth, "grow": grow_seconds,
+		"wet": wet_left, "watered": _watered_today}
+
+
+## Puts a saved state back; [param texture] and [param color] are the crop's growth stages and colour.
+func restore(d: Dictionary, texture: Texture2D, color: Color) -> void:
+	tilled = bool(d.get("tilled", tilled))
+	state = int(d.get("state", State.EMPTY)) as State
+	crop = int(d.get("crop", -1))
+	growth = float(d.get("growth", 0.0))
+	grow_seconds = float(d.get("grow", grow_seconds))
+	wet_left = float(d.get("wet", 0.0))
+	_watered_today = bool(d.get("watered", false))
+	crop_texture = texture if state != State.EMPTY else null
+	crop_color = color
 
 
 ## Picks the ripe crop. Returns its index, or -1 when nothing is ripe.
@@ -140,7 +174,7 @@ func _physics_process(delta: float) -> void:
 	if state == State.GROWING and GameState.is_playing():
 		if wet_left > 0.0:
 			wet_left -= delta
-			growth += delta
+			growth += delta * growth_rate
 			if growth >= grow_seconds:
 				state = State.RIPE
 				ripened.emit(crop)

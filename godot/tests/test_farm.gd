@@ -194,3 +194,138 @@ func test_a_warp_moves_the_player_through_the_doorway() -> void:
 	warp.warp(p)
 	assert_eq(p.global_position, Vector2(500, 900))
 	assert_true(warp.player_inside == null)
+
+
+func test_hungry_animals_are_fed_before_they_give_anything() -> void:
+	var f := _farmer()
+	f.goods_list = FarmerComponent.parse_goods("Egg|6")
+	var hen := _animal(Vector2(24, 0), {"product": "Egg", "product_seconds": 0.5, "wander_radius": 0.0, "needs_food": true})
+	await frames(40)
+	assert_true(hen.is_hungry() and not hen.is_ready(), "nothing until it is fed")
+	assert_eq(f.interact(), "feed")
+	await frames(40)
+	assert_eq(f.interact(), "collect")
+	assert_true(hen.is_hungry(), "hungry again after giving an egg")
+
+
+func test_chicks_grow_into_chickens() -> void:
+	GameState.reset_run()
+	var chick := _animal(Vector2(100, 100), {"product": "", "grows_into": "NoSuchEntity", "grow_seconds": 1.0})
+	await frames(70)
+	assert_true(is_instance_valid(chick), "without that entity it just stays a chick")
+	assert_eq(chick.grows_into, "")
+
+
+func test_winter_crops_grow_slower() -> void:
+	GameState.reset_run()
+	var plot := _plot(Vector2.ZERO, {"water_seconds": 10.0, "growth_rate": 0.5})
+	await frames(1)
+	plot.plant(0, 10.0, Color.ORANGE)
+	plot.water()
+	await frames(60)
+	assert_near(plot.growth, 0.5, 0.05)
+
+
+func test_days_pass_crops_grow_overnight_and_the_season_ends() -> void:
+	GameState.reset_run()
+	var holder := make_entity("Season", "area", SP.TEAM_NEUTRAL, Vector2(8, 8), {"FarmDays": {"days": 2, "day_seconds": 10.0}})
+	var days := SP.component(holder, &"FarmDays") as FarmDaysComponent
+	var plot := _plot(Vector2(200, 0), {"water_seconds": 0.1})
+	await frames(2)
+	plot.plant(0, 10.0, Color.ORANGE)
+	plot.water()
+	var ended := []
+	days.season_ended.connect(func() -> void: ended.append(true))
+	days.next_day()
+	assert_eq(days.day, 2)
+	assert_true(plot.growth >= 5.0, "watered: half its growing time overnight")
+	days.next_day()
+	assert_eq(ended, [true], "the last night ends the season")
+
+
+func test_a_bed_sleeps_to_the_next_morning_and_seeds_cost_money() -> void:
+	var f := _farmer()
+	f.buy_seeds = true
+	var holder := make_entity("Season", "area", SP.TEAM_NEUTRAL, Vector2(8, 8), {"FarmDays": {"days": 3, "day_seconds": 60.0}})
+	var days := SP.component(holder, &"FarmDays") as FarmDaysComponent
+	var bed := make_entity("Bed", "static", SP.TEAM_NEUTRAL, Vector2(20, 20), {"SleepSpot": {}}, Vector2(24, 0))
+	await frames(2)
+	assert_eq(f.interact(), "sleep")
+	await frames(90)  # the screen dips to black, then morning
+	assert_eq(days.day, 2)
+	bed.queue_free()
+	await frames(2)
+	var plot := _plot(Vector2(20, 0), {"tilled": true})
+	await frames(1)
+	assert_eq(f.interact(), "", "no money, no seeds")
+	GameState.add_score(10)
+	assert_eq(f.interact(), "plant")
+	assert_eq(GameState.score, 10 - f.seed_cost(0))
+	assert_true(plot.has_crop())
+
+
+func test_the_tool_bench_sells_upgrades_that_work() -> void:
+	var f := _farmer()
+	var bench := make_entity("Workbench", "static", SP.TEAM_NEUTRAL, Vector2(20, 20),
+			{"ToolBench": {"offers": "can|Watering can|10;basket|Big basket|5"}}, Vector2(24, 0))
+	await frames(2)
+	assert_eq(f.interact(), "browse", "the first press shows the offer")
+	assert_eq(f.interact(), "browse", "no money: still just looking")
+	GameState.add_score(20)
+	assert_eq(f.interact(), "upgrade")
+	assert_true(f.has_upgrade("can"))
+	assert_eq(GameState.score, 10)
+	bench.queue_free()
+	await frames(2)
+	var plots: Array[FarmPlotComponent] = []
+	for x in [-32, 0, 32]:
+		var p := _plot(Vector2(x, 40), {"water_seconds": 5.0})
+		plots.append(p)
+	await frames(1)
+	for p in plots:
+		p.plant(0, 10.0, Color.ORANGE)
+	(f.get_parent() as Node2D).global_position = Vector2(0, 40)
+	await frames(1)
+	assert_eq(f.interact(), "water")
+	for p in plots:
+		assert_true(p.wet_left > 0.0, "the big can waters the neighbours too")
+
+
+func test_a_farm_save_puts_everything_back() -> void:
+	var f := _farmer()
+	var holder := f.get_parent() as Node2D
+	var days := FarmDaysComponent.new()
+	days.name = "FarmDays"
+	holder.add_child(days)
+	var save := FarmSaveComponent.new()
+	save.name = "FarmSave"
+	save.slot = "test-roundtrip"
+	holder.add_child(save)
+	var plot := _plot(Vector2(200, 0), {"tilled": false})
+	await frames(4)
+	save.clear()
+	plot.till()
+	plot.plant(1, 30.0, Color.ORANGE)
+	plot.growth = 12.0
+	GameState.add_score(37)
+	f.add_upgrade("axe")
+	f.goods_basket = {"Egg": 2}
+	days.day = 2
+	save.save()
+	# mess it all up, then load
+	plot.harvest()
+	plot.tilled = false
+	plot.state = FarmPlotComponent.State.EMPTY
+	GameState.add_score(-GameState.score)
+	f.upgrades.clear()
+	f.goods_basket.clear()
+	days.day = 1
+	assert_true(save.load_save())
+	assert_eq(GameState.score, 37)
+	assert_eq(days.day, 2)
+	assert_true(f.has_upgrade("axe"))
+	assert_eq(f.goods_basket, {"Egg": 2})
+	assert_true(plot.tilled and plot.has_crop() and plot.crop == 1)
+	assert_near(plot.growth, 12.0, 0.01)
+	save.clear()
+	assert_false(save.load_save(), "cleared: nothing to load")

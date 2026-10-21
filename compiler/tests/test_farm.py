@@ -163,3 +163,33 @@ def test_the_farmer_faces_where_it_walks_even_with_a_sword():
         b, _ = normalize(GameBrief(title="t", genre="farm", crops=["Carrot"], player={"character": "Farmer", "abilities": abilities},
                                    enemies=[EnemyBrief(name="Crow", archetype="walker", count=2)]))
         assert assemble(b, 2, seed=1)["entities"]["Player"]["components"]["Aim"]["mode"] == "movement"
+
+
+def test_a_farm_is_a_season_of_days_with_a_bed_and_seeds_to_buy():
+    g = assemble(_farm_brief(length="medium"), 2, seed=2)
+    player = g["entities"]["Player"]["components"]
+    assert player["FarmDays"]["days"] == 3 and player["Farmer"]["buy_seeds"]
+    assert "SleepSpot" in g["entities"]["Bed"]["components"]
+    rules = str(g["rules"])
+    assert "Player.FarmDays.season_ended" in rules and "time_limit" not in rules and "add_score(15)" in rules
+
+
+@pytest.mark.parametrize("palette,season", [("snow", "winter"), ("desert", "desert"), ("forest", "spring")])
+def test_seasons_change_how_crops_grow(palette, season):
+    g = assemble(_farm_brief(palette=palette), 2, seed=2)
+    plot = g["entities"]["Plot"]["components"]["FarmPlot"]
+    assert g["settings"]["season"] == season
+    assert (plot["growth_rate"] < 1.0) == (season in ("winter", "desert"))
+
+
+def test_farm_pests_and_animals_use_the_farm_style():
+    g = assemble(_farm_brief(), 2, seed=2)
+    assert g["entities"]["Crow"]["sprite"]["generate"]["kind"] == "crow"
+    chick = g["entities"]["Chick"]["components"]["FarmAnimal"]
+    assert chick["grows_into"] == "Chicken" and g["entities"]["Chicken"]["components"]["FarmAnimal"]["needs_food"]
+
+
+def test_farm_animals_and_fish_are_never_pests():
+    b, notes = normalize(GameBrief(title="t", genre="farm", crops=["Corn"],
+                                   enemies=[EnemyBrief(name="Fish", archetype="walker"), EnemyBrief(name="Crow", archetype="walker")]))
+    assert [e.name for e in b.enemies] == ["Crow"] and any("not pests" in n for n in notes)

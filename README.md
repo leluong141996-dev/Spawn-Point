@@ -131,7 +131,7 @@ Only what you asked for changes, and the level layout is kept. Prompts can be in
 **The model.** [SpawnPoint-Coder-7B](https://huggingface.co/smoky1496/SpawnPoint-Coder-7B-AWQ) is a 7B model
 fine-tuned to generate Godot 4 games through this pipeline: it writes the game design, tweaks and entity
 edits as strict JSON, and the compiler turns that into Godot scenes and GDScript. It runs on a single 12 GB
-GPU (AWQ 4-bit). v5 added **side-scrolling shooters** (flight patterns, power-ups, a boss), **Vietnamese prompts read directly** and a small per-genre format instead of one big form; v5.1 fixes prompts that name the hero only indirectly ("a tank shooting monsters"). The downloadable AWQ build gets 88% of a sealed set of 16 human-written prompts for shooters and the v4 fixes fully right, and 80% of 30 human-written game ideas in English and Vietnamese (v4: 87% on those 30; the model card lists every number and where v5.1 is behind). The GGUF Q4_K_M build scores 83% on those 30. Older models still work with `SPAWNPOINT_BRIEF_FORMAT=v4`. It is tuned for the 2D game kinds Spawn Point builds; other genres are no better than a general 7B coder. `spawnpoint llm up` downloads and serves it: the AWQ build on vLLM when
+GPU (AWQ 4-bit). v5 added **side-scrolling shooters** (flight patterns, power-ups, a boss), **Vietnamese prompts read directly** and a small per-genre format instead of one big form; v5.1 fixes prompts that name the hero only indirectly ("a tank shooting monsters"); v5.2 catches farm pests mentioned only in passing ("có cáo", "with a fox around") and leaves peaceful farms without any. The downloadable AWQ build gets 94% of a sealed set of 16 human-written prompts for shooters and the v4 fixes fully right, 100% of a sealed set of 16 farm prompts with pests named in passing, and 83% of 30 human-written game ideas in English and Vietnamese (v4: 87% on those 30; the model card lists every number and where v5.2 is behind). The GGUF Q4_K_M build scores 87% on those 30. Older models still work with `SPAWNPOINT_BRIEF_FORMAT=v4`. It is tuned for the 2D game kinds Spawn Point builds; other genres are no better than a general 7B coder. `spawnpoint llm up` downloads and serves it: the AWQ build on vLLM when
 Docker and an NVIDIA GPU are present, otherwise the [GGUF build](https://huggingface.co/smoky1496/SpawnPoint-Coder-7B-GGUF)
 (Q4_K_M, ~4.7 GB) in Ollama. Force one with `--backend vllm|ollama`.
 
@@ -154,18 +154,26 @@ water with lily pads and reeds, buildings, fences, four kinds of tree, chickens 
 directions, and crops with five growth stages (strawberries, carrots, potatoes, pumpkins, corn, wheat, cabbages...,
 picked from the crop's name).
 
-What you do there: till the grass with the hoe, then plant, water and harvest; collect eggs and milk when an animal has
-something to give; fish from the pond's shore (cast, wait for the bite, reel in on the "!"); chop trees and break rocks
-for wood and stone; carry it all to the shipping bin before sunset, while crows go for your crops. Step through the
-farmhouse door for a cozy room inside (bed, fireplace, table, rug). The
+A farm is a season of a few days, each running from 6:00 to 22:00 with the light turning gold in the evening and dark
+at night; sleep in the farmhouse bed (or drop off in the fields at midnight) and watered crops grow overnight. Earn the
+target before the season ends. What you do there: buy seeds (they cost money), till the grass with the hoe, plant,
+water and harvest; feed the hens and the cow, then collect eggs and milk (chicks grow into hens); fish from the pond's
+shore (cast, wait for the bite, reel in on the "!"); chop trees and break rocks for wood and stone; carry it all to the
+shipping bin, while crows, foxes, rabbits or mice go for your crops. Step through the farmhouse door for a cozy room
+inside (bed, fireplace, table, rug). Maps vary: the house on either side, the field and the pen swapping places, the
+pond moving around. The workbench by the house sells tool upgrades (a watering can and a hoe that work a
+3x3 patch, a bigger basket, a sharper axe, a better rod), and the farm saves itself: close the game and it carries on
+where you left it (a won or lost season, or R, starts a fresh one). On a phone, ACT does all of it and a tap on a seed in
+the bar picks it. The
 hotbar shows your seeds and basket. You walk behind trees and the house (the scene is depth-sorted), and only an
 object's footprint blocks you. `spawnpoint overview <project>` saves a picture of the whole map after a short autopilot
 run, like the one above.
 
-<p align="center"><img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/sunny-farm.gif" width="58%" alt="Sunny Farm: the farmer harvests, sells at the shipping bin and works the field"> <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/farm-house.png" width="34%" alt="Inside the farmhouse: bed, dresser, fireplace, table and chairs on a rug"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/sunny-farm.gif" width="52%" alt="Sunny Farm: the farmer harvests, sells at the shipping bin and works the field"> <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/farm-night.gif" width="40%" alt="Evening turns to night on the farm; the farmer milks the cow before bed"></p>
 
-The theme sets the season: a snowy farm is winter (snow, frozen pond, snowy pines and bare trees), a desert farm has
-sand, palms and cacti, a lava-red one is autumn, the rest is spring.
+The theme sets the season, and the model picks it from the prompt ("a winter farm", "nông trại trên sa mạc"): a snowy
+farm is winter (snow, a frozen pond, snowy pines and bare trees, and crops grow slower), a desert farm has sand, palms
+and cacti (and the soil dries faster), an autumn farm is orange with maples, the rest is spring.
 
 <p align="center"><img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/farm-seasons.png" width="92%" alt="The same kind of farm in spring, autumn, winter and the desert"></p>
 <p align="center">
@@ -375,7 +383,7 @@ headless smoke test (spawn, scripted input, crash detection) and report `E_RUNTI
 | Game modes | `BubbleBoard` (a complete bubble shooter: bank shots, colour pops, falling clusters, a descending ceiling) |
 | Shooters | `FlightPath` (straight, wave, dive and hover patterns across the screen), `ShmupShip` (auto-fire, power-ups that add shots and spread), `HealthBar` (boss bars), and `WaveSpawner` gates (`autostart`, `endless`, random spread) |
 | Tower defense | `PathFollower` (walks the road to the base), `Base` (loses a life per invader that gets in), `WaveSpawner` ("8 x Goblin every 1.2; ..."), `TowerSlot`, `TowerBuilder` (click a pad, pay in gold), `TowerBrain` (targets the invader furthest along), `GroundPatch` (roads and paths) |
-| Farming | `FarmPlot` (soil that grows a crop only while watered, drawn from its growth stages), `Farmer` (till / plant / water / harvest, collect, fish, chop, a basket and a hotbar), `FarmAnimal` (wanders, gives eggs or milk), `Gatherable` (trees and rocks that break into wood and stone), `FishingSpot` (cast, bite, reel in), `Warp` (doorways, e.g. into the farmhouse), `Market` (a stall or a shipping bin that buys the basket), `CropPest` (crows that eat crops) |
+| Farming | `FarmPlot` (soil that grows a crop only while watered, drawn from its growth stages), `Farmer` (till / plant / water / harvest, buy seeds, feed, collect, fish, chop, sleep, a basket and a tappable hotbar), `FarmAnimal` (wanders, needs feeding, gives eggs or milk, chicks grow up), `FarmDays` (a season of days with day and night), `SleepSpot` (a bed), `ToolBench` (tool upgrades), `FarmSave` (keeps the farm between plays), `Gatherable` (trees and rocks that break into wood and stone), `FishingSpot` (cast, bite, reel in), `Warp` (doorways, e.g. into the farmhouse), `Market` (a stall or a shipping bin that buys the basket), `CropPest` (crows that eat crops) |
 | Feel | `Juice` — attached to every entity unless `"juice": "none"` |
 
 Runtime autoloads: `GameState` (score, lives, variables, win/lose), `World` (spawning, rule

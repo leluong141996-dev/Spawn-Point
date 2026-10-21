@@ -4,7 +4,7 @@ extends Node
 ## with the hoe, an empty plot gets the selected seed, a growing one gets water, a ripe one is harvested into the basket; a [FarmAnimalComponent] gives its egg
 ## or milk; a [GatherableComponent] tree or rock takes a hit (and gives wood or stone when it breaks); at a
 ## [FishingSpotComponent] the first press casts and the next one, when a fish bites, reels it in.
-## Keys 1-9 choose the seed. Walk into a [MarketComponent] (a stall or a shipping bin) to sell the basket.
+## A hungry animal is fed first. Keys 1-9 choose the seed. Walk into a [MarketComponent] (a stall or a shipping bin) to sell the basket.
 ##
 ## [member crops] is a ";"-separated list of "Name|#color|grow seconds|price", optionally followed by
 ## "|growth stages picture|icon picture" (res:// paths). [member goods] prices everything else the basket can
@@ -14,18 +14,22 @@ const SP_NAME := "Farmer"
 const SP_HOSTS: Array[String] = []
 const SP_REQUIRES: Array[String] = []
 const SP_INTERNAL: Array[String] = ["parse_crops", "parse_goods", "interact", "select", "sell", "nearest_plot",
-	"basket_value", "crop_list", "basket", "goods_basket", "add_goods", "nearest_target"]
+	"basket_value", "crop_list", "basket", "goods_basket", "add_goods", "nearest_target", "upgrades", "has_upgrade",
+	"add_upgrade", "seed_cost"]
 const SP_CATEGORY := "core"
 
 ## Emitted after a sale with the money earned.
 signal sold(amount: int)
-## Emitted after each action: "till", "plant", "water", "harvest", "collect", "chop", "gather", "cast" or "catch".
+## Emitted after each action: "till", "plant", "water", "harvest", "feed", "collect", "chop", "gather", "cast",
+## "catch", "sleep", "browse" or "upgrade".
 signal acted(action: String)
 
 ## The crops on offer (see the class description).
 @export var crops: String = "Carrot|#ff9f1c|8|4;Tomato|#ff004d|14|9;Pumpkin|#ffa300|24|20"
 ## Prices of the other things the basket can hold (see the class description).
 @export var goods: String = ""
+## Seeds cost money (a third of the crop's price, at least $1), paid from the score when planting.
+@export var buy_seeds: bool = false
 ## How far the farmer can reach a plot (px).
 @export_range(8.0, 200.0, 1.0) var reach: float = 44.0
 ## Most crops the basket holds.
@@ -38,6 +42,7 @@ var goods_list: Array[Dictionary] = []
 var selected := 0
 var basket := {}  # crop index -> count
 var goods_basket := {}  # goods name -> count
+var upgrades := {}  # tool key ("can", "hoe", "basket", "axe", "rod") -> true, from a ToolBenchComponent
 
 var _entity: Node2D
 var _layer: CanvasLayer
@@ -127,9 +132,9 @@ func nearest_plot() -> FarmPlotComponent:
 func nearest_target() -> Node:
 	var best: Node = null
 	var best_score := INF
-	for group in [&"farm_plot", &"farm_animal", &"gatherable", &"fishing_spot"]:
+	for group in [&"farm_plot", &"farm_animal", &"gatherable", &"fishing_spot", &"sleep_spot", &"tool_bench"]:
 		var comp_name: StringName = {&"farm_plot": &"FarmPlot", &"farm_animal": &"FarmAnimal", &"gatherable": &"Gatherable",
-			&"fishing_spot": &"FishingSpot"}[group]
+			&"fishing_spot": &"FishingSpot", &"sleep_spot": &"SleepSpot", &"tool_bench": &"ToolBench"}[group]
 		var limit := reach if group == &"farm_plot" else reach * 1.25  # animals and trees are bigger than a plot
 		for e in _entity.get_tree().get_nodes_in_group(group):
 			var d := (e as Node2D).global_position.distance_to(_entity.global_position)
@@ -137,7 +142,7 @@ func nearest_target() -> Node:
 				continue
 			var comp := SP.component(e, comp_name)
 			var score := d
-			if comp is FarmAnimalComponent and not (comp as FarmAnimalComponent).is_ready():
+			if comp is FarmAnimalComponent and not ((comp as FarmAnimalComponent).is_ready() or (comp as FarmAnimalComponent).is_hungry()):
 				score += reach * 2.0
 			if score < best_score:
 				best_score = score
@@ -152,14 +157,23 @@ func interact() -> String:
 	if target is FarmPlotComponent:
 		action = _work_plot(target as FarmPlotComponent)
 	elif target is FarmAnimalComponent:
-		var item := (target as FarmAnimalComponent).collect() if not _full() else ""
-		if _full() and (target as FarmAnimalComponent).is_ready():
-			GameState.message("Basket full - sell it first!")
-		if item != "":
-			add_goods(item, 1, (target.get_parent() as Node2D).global_position)
-			action = "collect"
+		var animal := target as FarmAnimalComponent
+		if animal.feed():
+			action = "feed"
+		else:
+			var item := animal.collect() if not _full() else ""
+			if _full() and animal.is_ready():
+				GameState.message("Basket full - sell it first!")
+			if item != "":
+				add_goods(item, 1, (target.get_parent() as Node2D).global_position)
+				action = "collect"
+	elif target is ToolBenchComponent:
+		action = (target as ToolBenchComponent).use(self)
+	elif target is SleepSpotComponent:
+		if (target as SleepSpotComponent).sleep():
+			action = "sleep"
 	elif target is FishingSpotComponent:
-		var fish := (target as FishingSpotComponent).use()
+		var fish := (target as FishingSpotComponent).use(1.7 if has_upgrade("rod") else 1.0)
 		if fish == "cast":
 			action = "cast"
 		elif fish != "":
@@ -169,13 +183,15 @@ func interact() -> String:
 		var g := target as GatherableComponent
 		var where := (g.get_parent() as Node2D).global_position
 		var item := g.hit()
+		if item == "" and has_upgrade("axe"):  # the better axe hits twice
+			item = g.hit()
 		if item != "":
 			add_goods(item, g.amount, where)
 		action = "gather" if item != "" else "chop"
 	if action != "":
 		if Sfx.has_sound("blip"):
 			Sfx.play("blip", 0.1, -4.0, {"plant": 0.9, "water": 1.2, "harvest": 1.5, "collect": 1.7, "chop": 0.7,
-				"gather": 1.3, "till": 0.6, "cast": 1.0, "catch": 1.8}[action])
+				"gather": 1.3, "till": 0.6, "cast": 1.0, "catch": 1.8, "feed": 1.4, "sleep": 0.5, "browse": 1.1, "upgrade": 2.0}[action])
 		acted.emit(action)
 	return action
 
@@ -184,6 +200,9 @@ func _work_plot(plot: FarmPlotComponent) -> String:
 	if crop_list.is_empty():
 		return ""
 	if plot.till():
+		if has_upgrade("hoe"):
+			for p in _plots_around(plot):
+				p.till()
 		return "till"
 	if plot.is_ripe():
 		if _full():
@@ -195,12 +214,46 @@ func _work_plot(plot: FarmPlotComponent) -> String:
 		return "harvest"
 	if plot.is_empty():
 		var cr: Dictionary = crop_list[selected]
+		if buy_seeds:
+			var cost := seed_cost(selected)
+			if GameState.score < cost:
+				GameState.message("Seeds cost $%d - sell something first!" % cost)
+				return ""
+			GameState.add_score(-cost)
+			FX.float_text(plot.get_parent().global_position + Vector2(0, -18), "-$%d" % cost, Color("#ffb0a0"))
 		plot.plant(selected, cr.seconds, cr.color, cr.texture)
 		plot.water()
 		return "plant"
 	if plot.water():
+		if has_upgrade("can"):
+			for p in _plots_around(plot):
+				p.water()
 		return "water"
 	return ""
+
+
+## Plots next to [param plot] (its 3x3 patch, itself excluded).
+func _plots_around(plot: FarmPlotComponent) -> Array[FarmPlotComponent]:
+	var out: Array[FarmPlotComponent] = []
+	var at := (plot.get_parent() as Node2D).global_position
+	for e in _entity.get_tree().get_nodes_in_group(&"farm_plot"):
+		var d := (e as Node2D).global_position - at
+		if d.length() > 1.0 and absf(d.x) < 40.0 and absf(d.y) < 40.0:
+			out.append(SP.component(e, &"FarmPlot") as FarmPlotComponent)
+	return out
+
+
+func has_upgrade(key: String) -> bool:
+	return upgrades.has(key)
+
+
+## Gives the farmer an upgrade (see [ToolBenchComponent]).
+func add_upgrade(key: String) -> void:
+	if upgrades.has(key):
+		return
+	upgrades[key] = true
+	if key == "basket":
+		basket_size += 8
 
 
 ## Puts [param n] of a goods item in the basket (as far as it fits). Returns how many went in.
@@ -214,6 +267,11 @@ func add_goods(item: String, n := 1, where := Vector2.INF) -> int:
 	var pos := where if where != Vector2.INF else _entity.global_position
 	FX.float_text(pos + Vector2(0, -24), "+%d %s" % [put, item], Color("#fffaf0"))
 	return put
+
+
+## What a packet of the crop's seeds costs.
+func seed_cost(index: int) -> int:
+	return maxi(1, int(crop_list[index].price) / 3)
 
 
 func _full() -> bool:
@@ -310,6 +368,11 @@ func _add_slot(row: HBoxContainer, icon: Variant, key: String, kind: String, id:
 	panel.custom_minimum_size = Vector2(48, 48)
 	panel.add_theme_stylebox_override(&"panel", _slot_style(false))
 	row.add_child(panel)
+	if kind == "crop":  # a click or a tap on a seed picks it (phones have no number keys)
+		var index := int(id)
+		panel.gui_input.connect(func(e: InputEvent) -> void:
+			if (e is InputEventMouseButton and e.pressed) or (e is InputEventScreenTouch and e.pressed):
+				select(index))
 	if icon != null:
 		var tr := TextureRect.new()
 		tr.texture = icon
@@ -325,6 +388,13 @@ func _add_slot(row: HBoxContainer, icon: Variant, key: String, kind: String, id:
 	count.add_theme_constant_override(&"outline_size", 4)
 	count.position = Vector2(26, 28)
 	panel.add_child(count)
+	if key != "" and buy_seeds and kind == "crop":
+		var price := Label.new()
+		price.text = "$%d" % seed_cost(int(id))
+		price.add_theme_font_size_override(&"font_size", 10)
+		price.add_theme_color_override(&"font_color", Color("#3a2014"))
+		price.position = Vector2(26, 1)
+		panel.add_child(price)
 	if key != "":
 		var k := Label.new()
 		k.text = key
