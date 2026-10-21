@@ -42,7 +42,7 @@ class SpriteGenerate(_Model):
     color: str | None = None
     features: list[str] | None = None
     seed: int = 0
-    size: int = Field(default=1, ge=1, le=6, description="draw it this many times bigger (bosses)")
+    size: float = Field(default=1, ge=1, le=6, description="draw it this many times bigger (bosses); 1.5 suits 2x art")
 
     _color = field_validator("color")(_check_color)
 
@@ -104,9 +104,9 @@ class TileStyle(_Model):
 
 class ArtRequest(_Model):
     """An extra picture drawn by the compiler for a component to use (res://sprites/art_<name>.png)."""
-    kind: Literal["crop", "crop_icon", "item_icon", "soil", "soil_wet", "card_frame", "card_icon"]
+    kind: Literal["crop", "crop_icon", "item_icon", "soil", "soil_wet", "card_frame", "card_icon", "card_back", "fx"]
     # the crop name ("Strawberry"), item ("egg", "milk", "wood", "stone", "fish", "hay"), card type ("attack",
-    # "skill", "power") or card icon ("sword", "shield", ... see sprites/cards.py)
+    # "skill", "power"), card icon ("sword", "shield", ... see sprites/cards.py) or effect ("slash", ... see sprites/fx.py)
     of: str = ""
     color: str | None = None
 
@@ -137,6 +137,8 @@ class Settings(_Model):
     season: Literal["spring", "autumn", "winter", "desert"] = "spring"  # the terrain's colours
     # Background music, composed at build time (see music.py): a season's tune, or none.
     music: Literal["none", "spring", "autumn", "winter", "desert"] = "none"
+    # A painted battle scene behind the whole screen (card games), by theme; see sprites/battle.py.
+    backdrop: Literal["none", "night", "forest", "desert", "neon", "candy", "ocean", "lava", "snow"] = "none"
     # Draw entities lower on screen in front of the ones above them (top-down games with tall trees and houses).
     y_sort: bool = False
     # Extra pictures for components (crop growth stages, item icons, soil): name -> what to draw.

@@ -274,7 +274,8 @@ def test_plan_carries_tiles_and_zoom(manifest):
 
 # --- cartoon style ----------------------------------------------------------------------------
 
-@pytest.mark.parametrize("kind", sorted(k for k in KINDS if k not in farm_art.SPRITES))  # the farm set is pixel only
+@pytest.mark.parametrize("kind", sorted(k for k in KINDS if k not in farm_art.SPRITES and not k.startswith("fighter_")))
+# the farm set and card fighters are pixel art only
 def test_every_kind_renders_in_cartoon(kind):
     from spawnpoint.sprites.cartoon import DETAIL, SCALE, generate_cartoon
     s = generate_cartoon("Thing", kind, "#29adff")

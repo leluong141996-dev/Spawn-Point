@@ -375,6 +375,14 @@
           "doc": "Space between foes in px."
         },
         {
+          "name": "hero_name",
+          "type": "String",
+          "hint": "",
+          "hint_string": "",
+          "default": "Hero",
+          "doc": "The hero's name on its panel."
+        },
+        {
           "name": "pace",
           "type": "float",
           "hint": "range",

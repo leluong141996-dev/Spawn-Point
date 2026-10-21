@@ -16,7 +16,7 @@ from typing import Callable
 
 import numpy as np
 
-from . import chibi, creatures, farm, items, monsters, motion, palettes
+from . import chibi, creatures, farm, fighters, items, monsters, motion, palettes
 from .spriteset import SpriteSet, build_sheet, finalize
 
 RGBA = tuple[int, int, int, int]
@@ -787,6 +787,8 @@ KINDS: dict[str, Kind] = {
     "rock": Kind((12, 8), {"idle": (1, 1, True)}, None, "bottom"),
     # the cozy farm: buildings, trees, props, animals and the farmer, painted by farm.py at 16 px per tile
     **{k: Kind(size, anims, None, "bottom") for k, (size, anims, _p, _c) in farm.SPRITES.items()},
+    # card battle fighters: big shaded side-view characters, painted by fighters.py
+    **{k: Kind(fighters.size_of(k), fighters.ANIMS, None, "bottom") for k in fighters.FIGHTERS},
 }
 
 
@@ -827,7 +829,8 @@ def refine(f: np.ndarray, outline: RGBA) -> np.ndarray:
 # Animations a painter draws itself (on top of the kind's own), and the kinds that get a derived attack pulse.
 DRAWN_EXTRA: dict[str, dict[str, tuple[int, float, bool]]] = {"hero": {"attack": (3, 14, False)}}
 NATIVE = {**creatures.PAINTERS, **items.PAINTERS, **monsters.PAINTERS}  # kinds painted at the fine size (coarse = 2:1 shrink)
-ATTACKERS = {"hero", "slime", "hopper", "flyer", "robot", "bug", "beast", "spider", "dragon", "ghost", "snake"}
+ATTACKERS = {"hero", "slime", "hopper", "flyer", "robot", "bug", "beast", "spider", "dragon", "ghost", "snake",
+             *fighters.FIGHTERS}
 DERIVED = {"attack": (3, 14.0, False), "die": (5, 10.0, False)}
 
 
@@ -851,8 +854,9 @@ def generate(name: str, kind: str, color: str, features: list[str] | None = None
     if kind not in KINDS:
         raise ValueError(f"unknown sprite kind '{kind}'")
     spec = KINDS[kind]
-    if kind in farm.SPRITES:  # farm art is drawn at its own 16 px tile size; the fine style just doubles it
-        fr = farm.frames(kind, color, seed)
+    if kind in farm.SPRITES or kind in fighters.FIGHTERS:
+        # farm art and fighters are drawn at their own size; the fine style just doubles it
+        fr = farm.frames(kind, color, seed) if kind in farm.SPRITES else fighters.frames(kind, color, features, seed)
         pal = palettes.get(palette)
         flash_color = tuple(int(x) for x in pal.rgb[pal.light]) if pal else motion.FLASH
         fps, loop = add_derived(kind, fr, spec.anims, True, spec.anchor, flash_color, zlib.crc32(f"{name}:{kind}:{seed}".encode()))

@@ -6,9 +6,10 @@ import numpy as np
 import pytest
 
 from spawnpoint.analyze import analyze
+from spawnpoint.sprites import battle, fighters, fx, pixelfont
 from spawnpoint.sprites import cards as C
 from spawnpoint.studio import genres, prompts
-from spawnpoint.studio.assemble import CARD_CLASSES, assemble, card_icon
+from spawnpoint.studio.assemble import CARD_CLASSES, assemble, card_fighter, card_icon, natural_color
 from spawnpoint.studio.brief import CardBrief, EnemyBrief, GameBrief, normalize
 
 
@@ -85,7 +86,12 @@ def test_assembled_battle_data_parses_and_validates(hero_class, manifest):
                 assert re.fullmatch(r"(atk:\d+(x\d+)?|blk:\d+|str:\d+|weak:\d+|vuln:\d+|poison:\d+|heal:\d+)", move), move
     a = analyze(g, manifest)
     assert a.ok, [str(x) for x in a.diagnostics]
-    assert {"art_frame_attack", "art_ci_sword", "art_ci_crown"} <= set(a.scenery_images)
+    assert {"art_frame_attack", "art_ci_sword", "art_ci_crown", "art_fx_slash", "art_card_back", "scenery_ground"} \
+        <= set(a.scenery_images)
+    assert a.plan["pixel_font"] and a.plan["scenery"]["ground"].endswith("scenery_ground.png")
+    kinds = {n: e["sprite"]["generate"]["kind"] for n, e in g["entities"].items()}
+    assert all(k.startswith("fighter_") for k in kinds.values()), kinds
+    assert g["entities"][b.boss]["sprite"]["generate"].get("size") == 1.5, "the boss is drawn bigger"
 
 
 def test_difficulty_makes_foes_tougher_and_length_adds_floors():
@@ -106,3 +112,58 @@ def test_card_art():
         px = C.icon(name)
         assert px.shape == (16, 16, 4) and (px[..., 3] > 0).sum() > 40, name
     assert not np.array_equal(C.icon("sword"), C.icon("shield"))
+
+
+def test_foe_names_pick_fighter_bodies_and_natural_colours():
+    assert card_fighter("FireDragon", "brute")[0] == "fighter_dragon"
+    assert card_fighter("StoneGolem", "guard") == ("fighter_treant", ["bulky", "stone"])
+    assert card_fighter("Skeleton", "brute")[0] == "fighter_hero" and "skull" in card_fighter("Skeleton", "brute")[1]
+    assert card_fighter("Wolf", "brute")[0] == "fighter_beast" and card_fighter("Bat", "swarm")[0] == "fighter_flyer"
+    assert card_fighter("Blorp", "swarm")[0] == "fighter_slime", "an unknown name falls back on its archetype"
+    assert "staff" in card_fighter("Goblin", "caster")[1], "a caster gets a staff"
+    assert natural_color("DireWolf", "#9b5de5") == "#8a8a9a" and natural_color("Slime", "#123456") == "#123456"
+
+
+@pytest.mark.parametrize("kind", list(fighters.FIGHTERS))
+def test_every_fighter_paints_its_animations(kind):
+    fr = fighters.frames(kind, fighters.FIGHTERS[kind][2], ["helmet", "sword"] if kind == "fighter_hero" else [], 1)
+    w, h = fighters.size_of(kind)
+    assert set(fr) == set(fighters.ANIMS)
+    for anim, frames in fr.items():
+        assert len(frames) == fighters.ANIMS[anim][0]
+        for f in frames:
+            assert f.shape == (h, w, 4) and (f[..., 3] > 0).sum() > 400, (kind, anim)
+            assert not f[:, 0, 3].any() and not f[:, -1, 3].any(), "nothing is cut off at the sides"
+    assert not np.array_equal(fr["idle"][0], fr["attack"][1]), "the attack is a different pose"
+
+
+def test_people_features_change_the_picture():
+    plain = fighters.frames("fighter_hero", "#3a78c8", [], 1)["idle"][0]
+    for feats in (["helmet"], ["hat", "robe", "staff"], ["skull"], ["hood", "dagger"]):
+        assert not np.array_equal(plain, fighters.frames("fighter_hero", "#3a78c8", feats, 1)["idle"][0]), feats
+
+
+@pytest.mark.parametrize("theme", list(battle.THEMES))
+def test_backdrops(theme):
+    img = battle.backdrop(theme, 2)
+    assert img.shape == (battle.H, battle.W, 4) and (img[..., 3] == 255).all()
+    assert len(np.unique(img.reshape(-1, 4), axis=0)) > 40, "a painted scene, not a flat fill"
+    assert np.array_equal(img, battle.backdrop(theme, 2)), "deterministic"
+
+
+def test_effect_strips():
+    for name, (size, n, _p) in fx.EFFECTS.items():
+        strip = fx.strip(name)
+        assert strip.shape == (size, size * n, 4)
+        assert all((strip[:, i * size:(i + 1) * size, 3] > 0).any() for i in range(n)), name
+
+
+def test_pixel_font():
+    files = pixelfont.font_files("pf")
+    fnt, png = files["pf.fnt"], files["pf.png"]
+    ids = {int(m) for m in re.findall(r"char id=(\d+)", fnt)}
+    needed = set(range(ord("A"), ord("Z") + 1)) | set(range(ord("a"), ord("z") + 1)) | set(range(48, 58)) | {ord(c) for c in " .,:!?/+-%()'"}
+    assert needed <= ids
+    assert 'file="pf.png"' in fnt and png.shape[1] == int(re.search(r"scaleW=(\d+)", fnt).group(1))
+    plain = pixelfont.font_files("pp", outline=False)["pp.png"]
+    assert (plain[..., 3] > 0).sum() < (png[..., 3] > 0).sum(), "the plain font has no outline"

@@ -1,19 +1,15 @@
 {
   "spawnpoint": 1,
   "name": "Spire of Bones",
-  "genre": "platformer",
+  "genre": "topdown",
   "settings": {
     "tile_size": 32,
     "lives": 1,
     "seed": 3,
     "background": "#1d2b53",
     "zoom": 1.0,
-    "tiles": {
-      "solid": {
-        "color": "#5f574f",
-        "top": "#00e436"
-      }
-    },
+    "pixel_size": 2,
+    "backdrop": "night",
     "art": {
       "frame_attack": {
         "kind": "card_frame",
@@ -102,12 +98,60 @@
       "ci_crown": {
         "kind": "card_icon",
         "of": "crown"
+      },
+      "ci_crack": {
+        "kind": "card_icon",
+        "of": "crack"
+      },
+      "ci_coin": {
+        "kind": "card_icon",
+        "of": "coin"
+      },
+      "fx_slash": {
+        "kind": "fx",
+        "of": "slash"
+      },
+      "fx_fire": {
+        "kind": "fx",
+        "of": "fire"
+      },
+      "fx_ice": {
+        "kind": "fx",
+        "of": "ice"
+      },
+      "fx_bolt": {
+        "kind": "fx",
+        "of": "bolt"
+      },
+      "fx_poison": {
+        "kind": "fx",
+        "of": "poison"
+      },
+      "fx_heal": {
+        "kind": "fx",
+        "of": "heal"
+      },
+      "fx_shield": {
+        "kind": "fx",
+        "of": "shield"
+      },
+      "fx_buff": {
+        "kind": "fx",
+        "of": "buff"
+      },
+      "fx_curse": {
+        "kind": "fx",
+        "of": "curse"
+      },
+      "fx_hit": {
+        "kind": "fx",
+        "of": "hit"
+      },
+      "card_back": {
+        "kind": "card_back"
       }
     },
-    "music": "autumn",
-    "pixel_palette": "sweetie16",
-    "scenery": "night",
-    "pixel_size": 1
+    "music": "autumn"
   },
   "entities": {
     "Skeleton": {
@@ -124,12 +168,12 @@
       ],
       "sprite": {
         "generate": {
-          "kind": "hero",
+          "kind": "fighter_hero",
           "color": "#ff004d",
           "seed": 3,
-          "size": 3,
           "features": [
-            "skull"
+            "skull",
+            "sword"
           ]
         }
       }
@@ -148,10 +192,12 @@
       ],
       "sprite": {
         "generate": {
-          "kind": "flyer",
-          "color": "#ff77a8",
+          "kind": "fighter_flyer",
+          "color": "#5a4a7a",
           "seed": 3,
-          "size": 3
+          "features": [
+            "wings"
+          ]
         }
       }
     },
@@ -169,10 +215,9 @@
       ],
       "sprite": {
         "generate": {
-          "kind": "hero",
+          "kind": "fighter_hero",
           "color": "#ffa300",
           "seed": 3,
-          "size": 3,
           "features": [
             "hat",
             "staff",
@@ -196,16 +241,17 @@
       ],
       "sprite": {
         "generate": {
-          "kind": "hero",
+          "kind": "fighter_hero",
           "color": "#7e2553",
           "seed": 3,
-          "size": 4,
           "features": [
             "skull",
             "hood",
             "staff",
-            "cape"
-          ]
+            "cape",
+            "crown"
+          ],
+          "size": 1.5
         }
       }
     },
@@ -218,6 +264,12 @@
         },
         "CardBattle": {
           "cards": "Strike|1|attack|dmg:6|starter|sword;Holy Shield|1|skill|blk:5|starter|shield;Bash|2|attack|dmg:8,vuln:2|starter|axe;Flame Slash|2|attack|dmg:13|common|fire;Cleave|1|attack|all:7|common|axe;Iron Wave|1|attack|dmg:5,blk:5|common|sword;Heavy Blow|2|attack|dmg:14|common|axe;Twin Strike|1|attack|dmg:5,hits:2|common|sword;Shrug It Off|1|skill|blk:8,draw:1|common|shield;Shield Wall|2|skill|blk:15|uncommon|shield;Bandage|1|skill|heal:7,exhaust|uncommon|heart;Battle Cry|1|power|str:2|rare|flex;Uppercut|2|attack|dmg:13,weak:1,vuln:1|uncommon|flex",
+          "hero_name": "Knight",
+          "foe_offset": [
+            300,
+            0
+          ],
+          "foe_gap": 160,
           "starter": "Strike*5,Holy Shield*4,Bash",
           "foes": "Skeleton|22|normal|atk:8,atk:12,str:2+atk:5;Bat|11|normal|atk:5,atk:3x2;Witch|18|normal|weak:1+atk:4,poison:3,atk:9,vuln:1+atk:4;Lich|85|boss|atk:11,blk:12+str:2,atk:5x3,weak:1+atk:8",
           "floors": 7,
@@ -238,15 +290,15 @@
       },
       "sprite": {
         "generate": {
-          "kind": "hero",
+          "kind": "fighter_hero",
           "color": "#29adff",
           "seed": 3,
           "features": [
             "helmet",
             "shield",
-            "armor"
-          ],
-          "size": 3
+            "armor",
+            "sword"
+          ]
         }
       }
     }
@@ -263,13 +315,13 @@
       "..............................",
       "..............................",
       "......P.......................",
-      "##############################",
-      "##############################",
-      "##############################",
-      "##############################",
-      "##############################",
-      "##############################",
-      "##############################"
+      "..............................",
+      "..............................",
+      "..............................",
+      "..............................",
+      "..............................",
+      "..............................",
+      ".............................."
     ],
     "legend": {
       "#": "solid",

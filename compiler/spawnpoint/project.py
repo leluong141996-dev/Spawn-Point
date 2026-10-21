@@ -90,6 +90,16 @@ def write(out: Path, graph_data: dict, plan: dict, rules_source: str, godot_feat
         tiles_image.save(out / "sprites" / "tiles.png")
     for name, image in (scenery_images or {}).items():
         image.save(out / "sprites" / f"{name}.png")
+    if plan.get("pixel_font"):  # the pixel font for in-game text (sprites/pixelfont.py)
+        from PIL import Image
+
+        from .sprites import pixelfont
+        files = {**pixelfont.font_files("pixel_font"), **pixelfont.font_files("pixel_font_plain", outline=False)}
+        for fname, data in files.items():
+            if isinstance(data, str):
+                (out / "sprites" / fname).write_text(data)
+            else:
+                Image.fromarray(data).save(out / "sprites" / fname)
     (out / "spawnpoint.json").write_text(json.dumps(graph_data, indent=2, ensure_ascii=False) + "\n")
     gi = out / ".gitignore"
     if not gi.exists():

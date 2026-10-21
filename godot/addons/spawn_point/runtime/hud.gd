@@ -7,6 +7,7 @@ extends CanvasLayer
 const TEXT_COLOR := Color("#fff1e8")
 const ACCENT := Color("#ffec27")
 const DANGER := Color("#ff004d")
+const PIXEL_FONT := "res://sprites/pixel_font.fnt"
 
 var _score: Label
 var _lives: Label
@@ -42,6 +43,7 @@ func _process(_delta: float) -> void:
 	var p := World.player()
 	var h: HealthComponent = SP.component(p, &"Health") as HealthComponent if p else null
 	_lives.visible = GameState.start_lives > 1  # one life: nothing to count
+	_score.get_parent().visible = not GameState.vars.get("hud_hidden", false)  # a game with its own panels
 	var cur: int = h.current if h else -1
 	if cur != _shown_health:
 		_shown_health = cur
@@ -111,6 +113,11 @@ func _show_overlay(title: String, color: Color) -> void:
 
 func _label(size: int, color := TEXT_COLOR) -> Label:
 	var l := Label.new()
+	if ResourceLoader.exists(PIXEL_FONT):  # games that ship the pixel font (card games) use it here too
+		var f := load(PIXEL_FONT) as FontFile
+		f.fixed_size_scale_mode = TextServer.FIXED_SIZE_SCALE_INTEGER_ONLY
+		l.add_theme_font_override(&"font", f)
+		size = maxi(9, int(round(size / 9.0)) * 9)
 	l.add_theme_font_size_override(&"font_size", size)
 	l.add_theme_color_override(&"font_color", color)
 	l.add_theme_color_override(&"font_outline_color", Color(0, 0, 0, 0.85))

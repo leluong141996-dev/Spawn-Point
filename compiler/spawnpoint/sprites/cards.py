@@ -23,46 +23,86 @@ def _c(h: str, a: int = 255) -> RGBA:
 INK = _c("#1d1a33")
 WHITE = _c("#fff8ec")
 # card type -> (border dark, border, border light)
-FRAME_COLORS = {"attack": ("#7a2430", "#c8463a", "#ee7a5a"), "skill": ("#1f3f7a", "#3a78c8", "#7ab8f0"),
-                "power": ("#4a1f7a", "#9a4ac8", "#c890f0")}
-PARCHMENT, PARCHMENT_DARK = _c("#f0dcb0"), _c("#d0b080")
-WINDOW, WINDOW_LIGHT = _c("#2b2650"), _c("#3a3366")
+FRAME_COLORS = {"attack": ("#6a2420", "#b8503a", "#e88a5a"), "skill": ("#1a4a44", "#3a8a7a", "#7ac8b0"),
+                "power": ("#3a1a5a", "#8a4ab8", "#c890f0")}
+PARCHMENT, PARCHMENT_DARK, PARCHMENT_LIGHT = _c("#f2e2bc"), _c("#d8c090"), _c("#fff4d8")
+GEM, GEM_DARK, GEM_LIGHT = _c("#f0a030"), _c("#a85a18"), _c("#ffe08a")
+# Where things go on the 56x78 card (the game lays the cost, icon, name and text over these).
+LAYOUT = {"cost": (8, 8), "medallion": (28, 26, 14), "banner": (3, 43, 52, 52), "text": (5, 54, 50, 73)}
 
 
 def card_frame(kind: str) -> np.ndarray:
-    """A blank card of one type; the name, icon, cost and text are laid over it in the game."""
+    """A blank card of one type: parchment, a round medallion for the icon, a name ribbon and a cost socket."""
     dark, mid, light = (_c(x) for x in FRAME_COLORS.get(kind, FRAME_COLORS["attack"]))
     g = Fig(FRAME_W, FRAME_H)
     w, h = FRAME_W, FRAME_H
     g.rect(0, 0, w - 1, h - 1, INK)
     g.rect(1, 1, w - 2, h - 2, mid)
-    g.rect(1, 1, w - 2, 1, light)          # bevel: lit top and left, dark bottom and right
+    g.rect(1, 1, w - 2, 1, light)
     g.rect(1, 1, 1, h - 2, light)
     g.rect(1, h - 2, w - 2, h - 2, dark)
     g.rect(w - 2, 1, w - 2, h - 2, dark)
-    for x, y in ((0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)):  # rounded corners
+    for x, y in ((0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)):
         g.px[y, x] = (0, 0, 0, 0)
     for x, y in ((1, 1), (w - 2, 1), (1, h - 2), (w - 2, h - 2)):
         g.px[y, x] = INK
-    # the name banner
-    g.rect(4, 4, w - 5, 13, INK)
-    g.rect(5, 5, w - 6, 12, dark)
-    g.rect(5, 5, w - 6, 5, mid)
-    # the art window, with a soft light at the top
-    g.rect(5, 15, w - 6, 42, INK)
-    g.rect(6, 16, w - 7, 41, WINDOW)
-    for y in range(16, 26):
-        for x in range(6, w - 6):
-            if (x + y) % 2 == 0 and y < 22:
-                g.px[y, x] = WINDOW_LIGHT
+    # the parchment body with a soft grain
+    g.rect(3, 3, w - 4, h - 4, PARCHMENT)
+    rng = np.random.default_rng(5)
+    grain = rng.random((h, w)) < 0.06
+    body = np.zeros((h, w), bool)
+    body[4:h - 4, 4:w - 4] = True
+    g.px[grain & body] = PARCHMENT_DARK
+    g.rect(3, 3, w - 4, 3, PARCHMENT_LIGHT)
+    g.rect(3, h - 4, w - 4, h - 4, PARCHMENT_DARK)
+    # the medallion: a type-coloured ring, a gold rim and a darker disc
+    cx, cy, r = LAYOUT["medallion"]
+    g.ellipse(cx, cy, r + 1.5, r + 1.5, INK)
+    g.ellipse(cx, cy, r + 0.5, r + 0.5, mid)
+    g.ellipse(cx - 0.6, cy - 0.6, r - 1, r - 1, light)
+    g.ellipse(cx, cy, r - 1.5, r - 1.5, dark)
+    g.ellipse(cx, cy, r - 2.5, r - 2.5, GEM_DARK)
+    g.ellipse(cx, cy, r - 3.5, r - 3.5, _c("#e8d4a4"))
+    g.ellipse(cx + 1, cy + 1, r - 5, r - 5, _c("#dcc494"))
+    g.ellipse(cx - 2, cy - 2, r - 8, r - 8, _c("#f4e4bc"))
+    # the name ribbon, with folded tails
+    x0, y0, x1, y1 = LAYOUT["banner"]
+    g.rect(x0 - 1, y0 + 2, x0 + 3, y1 + 2, dark)
+    g.rect(x1 - 3, y0 + 2, x1 + 1, y1 + 2, dark)
+    g.rect(x0 + 2, y0, x1 - 2, y1, INK)
+    g.rect(x0 + 3, y0 + 1, x1 - 3, y1 - 1, mid)
+    g.rect(x0 + 3, y0 + 1, x1 - 3, y0 + 1, light)
+    g.rect(x0 + 3, y1 - 1, x1 - 3, y1 - 1, dark)
     # the text panel
-    g.rect(4, 45, w - 5, h - 5, INK)
-    g.rect(5, 46, w - 6, h - 6, PARCHMENT)
-    g.rect(5, h - 6, w - 6, h - 6, PARCHMENT_DARK)
-    g.rect(w - 6, 46, w - 6, h - 6, PARCHMENT_DARK)
-    # rivets
-    for x, y in ((3, 43), (w - 4, 43)):
-        g.px[y, x] = light
+    tx0, ty0, tx1, ty1 = LAYOUT["text"]
+    g.rect(tx0, ty0, tx1, ty1, _c("#ead6a8"))
+    g.rect(tx0, ty0, tx1, ty0, PARCHMENT_DARK)
+    # the cost socket
+    gx, gy = LAYOUT["cost"]
+    g.ellipse(gx, gy, 7.5, 7.5, INK)
+    g.ellipse(gx, gy, 6.5, 6.5, GEM_DARK)
+    g.ellipse(gx - 0.5, gy - 0.5, 5.5, 5.5, GEM)
+    g.ellipse(gx - 2, gy - 2, 2, 2, GEM_LIGHT)
+    return g.px
+
+
+def card_back() -> np.ndarray:
+    """The back of a card (draw and discard piles): a dark teal field with a gold diamond."""
+    w, h = 40, 56
+    g = Fig(w, h)
+    g.rect(0, 0, w - 1, h - 1, INK)
+    g.rect(1, 1, w - 2, h - 2, _c("#2a5a5a"))
+    g.rect(3, 3, w - 4, h - 4, _c("#1a3a40"))
+    for y in range(4, h - 4):
+        for x in range(4, w - 4):
+            if (x + y) % 6 == 0:
+                g.px[y, x] = _c("#24484e")
+    g.poly([(w / 2, 10), (w - 9, h / 2), (w / 2, h - 10), (9, h / 2)], GOLD_DARK)
+    g.poly([(w / 2, 13), (w - 12, h / 2), (w / 2, h - 13), (12, h / 2)], GOLD)
+    g.ellipse(w / 2, h / 2, 4, 4, _c("#1a3a40"))
+    g.ellipse(w / 2 - 1, h / 2 - 1, 1.5, 1.5, GOLD_LIGHT)
+    for x, y in ((0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)):
+        g.px[y, x] = (0, 0, 0, 0)
     return g.px
 
 
@@ -233,6 +273,21 @@ def _chest(g: Fig) -> None:
     g.set(8, 10, INK)
 
 
+def _coin(g: Fig) -> None:
+    g.ellipse(8, 8, 6.5, 6.5, GOLD_DARK)
+    g.ellipse(7.5, 7.5, 5.5, 5.5, GOLD)
+    g.rect(7, 4, 8, 11, GOLD_DARK)
+    g.ellipse(6, 5, 1.4, 1.4, GOLD_LIGHT)
+
+
+def _crack(g: Fig) -> None:
+    """Vulnerable: a cracked shield."""
+    _shield(g)
+    g.line(9, 2, 6, 7, INK)
+    g.line(6, 7, 10, 10, INK)
+    g.line(10, 10, 7, 15, INK)
+
+
 def _crown(g: Fig) -> None:
     g.poly([(2, 5), (5, 9), (8, 3), (11, 9), (14, 5), (13, 13), (3, 13)], GOLD)
     g.rect(3, 11, 13, 13, GOLD_DARK)
@@ -243,7 +298,7 @@ def _crown(g: Fig) -> None:
 
 ICONS = {"sword": _sword, "axe": _axe, "dagger": _dagger, "shield": _shield, "bow": _bow, "staff": _staff,
          "fire": _fire, "ice": _ice, "bolt": _bolt, "drop": _drop, "skull": _skull, "heart": _heart, "flex": _flex,
-         "book": _book, "wind": _wind, "star": _star, "campfire": _campfire, "chest": _chest, "crown": _crown}
+         "book": _book, "wind": _wind, "star": _star, "campfire": _campfire, "chest": _chest, "crown": _crown, "crack": _crack, "coin": _coin}
 
 
 def icon(name: str) -> np.ndarray:

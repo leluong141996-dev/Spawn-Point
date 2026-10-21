@@ -10,6 +10,7 @@ from typing import Any
 
 from ..level import jump_model
 from ..sprites import cards as card_art
+from ..sprites import fx as fx_art
 from ..sprites import farm as farm_art
 from ..sprites import palettes
 from ..sprites.generate import features_for
@@ -241,6 +242,54 @@ CARD_BOSS_INTENTS = "atk:{11},blk:{12}+str:2,atk:{5}x3,weak:1+atk:{8}"
 CARD_MUSIC = {"snow": "winter", "desert": "desert", "lava": "autumn", "night": "autumn", "neon": "autumn"}
 
 
+CARD_CLASS_LOOK = {"warrior": ["helmet", "armor", "shield", "sword"], "mage": ["hat", "staff", "robe"],
+                   "rogue": ["hood", "dagger"]}
+TREANT_WORDS = {"treant", "ent", "tree", "golem", "rock", "stone", "statue", "gargoyle", "titan", "colossus"}
+STONE_WORDS = {"golem", "rock", "stone", "statue", "gargoyle", "titan", "colossus", "robot", "mech", "machine"}
+
+
+# Animals and plants look like themselves whatever the theme's colours (slimes, ghosts and dragons take the theme's).
+NATURAL_COLORS = {"wolf": "#8a8a9a", "fox": "#e8803a", "bear": "#8a5a3a", "boar": "#7a5a4a", "hog": "#7a5a4a",
+                  "pig": "#e8a0a0", "rat": "#8a7a7a", "mouse": "#9a8a8a", "cat": "#e8a050", "tiger": "#e8902a",
+                  "lion": "#d8a050", "dog": "#a87a4a", "bat": "#5a4a7a", "crow": "#3a3a4a", "raven": "#3a3a4a",
+                  "owl": "#a07a50", "spider": "#4a3a5a", "treant": "#4a9a4a", "ent": "#4a9a4a", "tree": "#4a9a4a",
+                  "golem": "#8a8a96", "rock": "#8a8a96", "stone": "#8a8a96", "statue": "#a8a8b0", "frog": "#5ab84a",
+                  "snake": "#5a9a4a", "beetle": "#3a5a8a", "rabbit": "#e8e0d8", "bunny": "#e8e0d8"}
+
+
+def natural_color(name: str, fallback: str) -> str:
+    return next((NATURAL_COLORS[w] for w in _ordered_words(name)[::-1] if w in NATURAL_COLORS), fallback)
+
+
+def card_fighter(name: str, archetype: str | None) -> tuple[str, list[str]]:
+    """The fighter body (sprites/fighters.py) a foe's name asks for, and its features."""
+    words = _words(name)
+    feats = features_for(name)
+    if words & DRAGON_WORDS:
+        return "fighter_dragon", feats
+    if words & (TREANT_WORDS | ROBOT_WORDS):
+        return "fighter_treant", feats + (["stone"] if words & (STONE_WORDS | ROBOT_WORDS) else [])
+    if words & PLANT_WORDS:
+        return "fighter_treant", feats
+    if words & MUSHROOM_WORDS:
+        return "fighter_mushroom", feats
+    if words & (GHOST_WORDS | REAPER_WORDS | FLAME_WORDS):
+        return "fighter_ghost", feats
+    if words & SPIDER_WORDS:
+        return "fighter_spider", feats
+    if words & FLYER_WORDS:
+        return "fighter_flyer", feats
+    if words & (BEAST_WORDS | SNAKE_WORDS | BUG_WORDS | HOPPER_WORDS):
+        return "fighter_beast", feats
+    if words & HUMANOID_WORDS or {"skull", "zombie", "monster", "tusks"} & set(feats):
+        if not {"sword", "staff", "axe", "spear", "bow", "dagger"} & set(feats):
+            feats = feats + (["staff", "robe", "hood"] if archetype == "caster" else ["shield"] if archetype == "guard" else ["sword"])
+        return "fighter_hero", feats
+    return {"brute": ("fighter_beast", ["ears", "tail"]), "guard": ("fighter_treant", ["stone"]),
+            "caster": ("fighter_hero", ["hood", "staff", "robe"]), "swarm": ("fighter_slime", [])}.get(
+        archetype or "", ("fighter_slime", []))
+
+
 def card_icon(name: str, fallback: str) -> str:
     words = {w.lower() for w in re.findall(r"[A-Za-z]+", name)}
     return next((icon for keys, icon in CARD_ICON_WORDS if words & keys), fallback)
@@ -418,7 +467,7 @@ class _Assembler:
 
     def _styled(self, g: dict) -> dict:
         if self.layer >= 2:
-            if self.b.genre == "farm":  # the cozy farm keeps its own colours and chunky 16 px tiles
+            if self.b.genre in ("farm", "cards"):  # farms and card battles keep their own colours and backdrops
                 return g
             # Spawn Point makes pixel art games: a brief that asks for cartoon art still gets pixel art, with the
             # classic palette that suits the theme.
@@ -467,7 +516,7 @@ class _Assembler:
         foes.append(f"{b.boss}|{round(85 + 12 * (d - 2))}|boss|{scaled(CARD_BOSS_INTENTS)}")
         self._card_foe(b.boss, pal["enemies"][-1], boss=True)
         floors = CARD_FLOORS[b.length]
-        battle = {"cards": library, "starter": f"{strike[0]}*5,{block[0]}*4,{sig[0]}", "foes": ";".join(foes),
+        battle = {"cards": library, "hero_name": b.player.character, "foe_offset": [300, 0], "foe_gap": 160, "starter": f"{strike[0]}*5,{block[0]}*4,{sig[0]}", "foes": ";".join(foes),
                   "floors": floors, "run_seed": self.seed, "gold_per_fight": 12}
         hero_hp = 70 - 3 * (d - 2)
         comps = {"PlayerInput": {}, "Health": {"max_health": hero_hp, "invincibility_time": 0.0}, "CardBattle": battle}
@@ -477,27 +526,38 @@ class _Assembler:
         self.entities["Player"] = {"shape": {"type": "capsule", "size": [24, 40], "color": pal["player"]},
                                    "components": comps, "base": [24, 12], "juice": {"shake_on_hurt": 0.0}}
         width, height, ground = 30, 17, 10
-        rows = ["." * width for _ in range(ground)] + ["#" * width for _ in range(height - ground)]
+        rows = ["." * width for _ in range(height)]
         r = list(rows[ground - 1])
         r[6] = "P"
         rows[ground - 1] = "".join(r)
-        if self.layer >= 2:
-            self._sprites()
-            for name, ent in self.entities.items():  # bigger fighters: these are portraits, not tiny map sprites
-                gen = ent.get("sprite", {}).get("generate")
-                if gen is not None:
-                    gen["size"] = 4 if name == b.boss else 3
-                    if gen["kind"] == "hero" and name != "Player":
-                        gen["features"] = features_for(name)  # a Skeleton has a skull, a Witch her hat and staff
-                        if name == b.boss and "cape" not in gen["features"]:
-                            gen["features"].append("cape")  # the boss stands out from its minions
-                    if name == "Player":
-                        gen["features"] = features_for(b.player.character) or features_for(
-                            {"warrior": "Knight", "mage": "Wizard", "rogue": "Rogue"}[b.hero_class])
+        if self.layer >= 2:  # big painted fighters (sprites/fighters.py)
+            archetypes = {e.name: e.archetype for e in b.enemies}
+            for name, ent in self.entities.items():
+                color = ent["shape"]["color"]
+                if name == "Player":
+                    feats = features_for(b.player.character)
+                    kind, extra = card_fighter(b.player.character, None)
+                    if kind != "fighter_hero" or not feats:
+                        kind, feats = "fighter_hero", feats + CARD_CLASS_LOOK[b.hero_class]
+                    elif not {"sword", "staff", "axe", "spear", "bow", "dagger"} & set(feats):
+                        feats = feats + [w for w in CARD_CLASS_LOOK[b.hero_class] if w in ("sword", "staff", "dagger")]
+                else:
+                    kind, feats = card_fighter(name, archetypes.get(name, "brute"))
+                    color = natural_color(name, color)
+                gen: dict[str, Any] = {"kind": kind, "color": color, "seed": self.seed, "features": feats}
+                if name == b.boss:
+                    if kind == "fighter_hero":
+                        gen["features"] = feats + ["cape", "crown"]  # the boss stands out from its minions
+                    if kind != "fighter_dragon":
+                        gen["size"] = 1.5  # 3 screen pixels per art pixel; the dragon is big already
+                ent["sprite"] = {"generate": gen}
+                del ent["shape"]
         settings: dict[str, Any] = {"tile_size": TILE, "lives": 1, "seed": self.seed, "background": pal["bg"],
-                                    "zoom": 1.0, "tiles": {"solid": {"color": pal["solid"], "top": pal["top"]}},
+                                    "zoom": 1.0, "pixel_size": 2, "backdrop": b.palette,
                                     "art": {**{f"frame_{t}": {"kind": "card_frame", "of": t} for t in ("attack", "skill", "power")},
-                                            **{f"ci_{n}": {"kind": "card_icon", "of": n} for n in card_art.ICONS}}}
+                                            **{f"ci_{n}": {"kind": "card_icon", "of": n} for n in card_art.ICONS},
+                                            **{f"fx_{n}": {"kind": "fx", "of": n} for n in fx_art.EFFECTS},
+                                            "card_back": {"kind": "card_back"}}}
         if self.layer >= 2:
             settings["music"] = CARD_MUSIC.get(b.palette, "spring")
         self.rules = [
@@ -505,7 +565,7 @@ class _Assembler:
             {"on": "Player.CardBattle.fight_started", "if": "event.kind == 'elite'", "do": ["message('An elite foe!')"]},
             {"on": "Player.CardBattle.won", "do": [f"message({_q('The ' + b.boss + ' is defeated!')})", "win()"]},
         ]
-        return {"spawnpoint": 1, "name": b.title or "Untitled", "genre": "platformer", "settings": settings,
+        return {"spawnpoint": 1, "name": b.title or "Untitled", "genre": "topdown", "settings": settings,
                 "entities": self.entities, "level": {"map": rows, "legend": {"#": "solid", "P": "Player"}},
                 "rules": self.rules}
 
