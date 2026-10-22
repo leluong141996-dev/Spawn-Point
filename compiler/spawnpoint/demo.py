@@ -26,6 +26,10 @@ MODEL = "https://huggingface.co/smoky1496/SpawnPoint-Coder-7B-AWQ"
 # (example graph, genre tag, one-line pitch, controls). Controls are ASCII: they travel through Godot's
 # export_presets.cfg into the game page.
 SHOWCASE = [
+    ("spire_cards.json", "card game",
+     "A Slay the Spire style deckbuilder: climb a branching map of fights, events, shops and rest sites, play cards against skeletons, bats and a witch, collect relics and potions, upgrade your deck and defeat the Lich.",
+     "Play a card: click it / 1-9 | Target: click a foe / Tab | End turn: E / Space | Deck: D | Restart: R",
+     {"pad": None, "buttons": [["END", "KeyE"]], "tap": "Tap a card to play it, tap a foe to aim it"}),
     ("pixel_hopper.json", "platformer",
      "A Mario-style romp: stomp slimes, double-jump, dash, and collect every coin to open the door.",
      "Move: arrows / WASD | Jump: Space (twice to double-jump) | Dash: Shift | Restart: R",
@@ -209,7 +213,7 @@ def index_html(games: list[Game]) -> str:
 <title>Spawn Point demos</title>
 <link rel="icon" href="favicon.ico">
 <meta property="og:image" content="logo.png">
-<meta name="description" content="Nine Godot 4 games built with Spawn Point: platformers, a sword fighter, tower defense, a space shooter, a bubble shooter, a survivor, a farm. Play in your browser.">
+<meta name="description" content="Ten Godot 4 games built with Spawn Point: a card game, platformers, a sword fighter, tower defense, a space shooter, a bubble shooter, a survivor, a farm. Play in your browser.">
 <meta property="og:title" content="Spawn Point demos: play Godot games in your browser">
 <meta property="og:description" content="A Mario-style platformer, a ninja rescue, a dinosaur-egg shooter, a survivor and an arena, all built from Spawn Point components.">
 <style>
@@ -248,7 +252,7 @@ footer {{ color:var(--muted); font-size:13px; padding-bottom:40px }}
 <body>
 <header>
   <h1 class="brand"><img src="logo-icon-64.png" width="48" height="48" alt="" style="image-rendering:pixelated;vertical-align:middle;margin-right:10px">Spawn<span>Point</span> demos</h1>
-  <p class="lede">Nine games, nine ways to play, all built by Spawn Point from small JSON game graphs and a
+  <p class="lede">Ten games, ten ways to play, all built by Spawn Point from small JSON game graphs and a
   library of tested Godot 4 components: game feel, cartoon or pixel art and collisions come for free. Click a card to play in
   your browser, no install needed.</p>
   <div class="links">

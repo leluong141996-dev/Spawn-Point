@@ -2097,7 +2097,9 @@ func _banner(text: String, color: Color, hold := 0.5) -> void:
 	l.size = Vector2(960, 64)
 	l.position = Vector2(2000 - 960, 0)
 	band.add_child(l)
-	_ui.add_child(band)
+	var root := _panel.get_parent()
+	root.add_child(band)
+	root.move_child(band, _panel.get_index())  # under the map, reward and shop panels
 	var view_w := _hand_root.size.x if _hand_root and _hand_root.size.x > 0 else 960.0
 	l.position.x = 2000 - view_w + (view_w - 960) / 2.0
 	var t := band.create_tween()

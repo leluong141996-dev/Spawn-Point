@@ -181,7 +181,9 @@ CARD_LINE = ('Card games (deckbuilders like Slay the Spire, "game thẻ bài") a
              ' multi_hit, sweep (hits every foe), block, heal, draw, poison, weaken or rage (more damage for the fight);'
              ' enemies: {name, archetype} where brute hits hard, guard blocks, caster curses and poisons, swarm comes in packs;'
              ' boss: the last foe.')
-CARD_WORDS = re.compile(r"\bcards?\b|deck|slay the spire|thẻ bài|lá bài|bộ bài|đánh bài", re.I)
+# Only prompts that ask for a card game: "upgrade cards" in a survivor or "key cards" in a shooter do not.
+CARD_WORDS = re.compile(r"card ?games?|card battler|card roguelike|card-based|deck|slay the spire|thẻ bài|bộ bài|đánh bài|"
+                        r"game bài", re.I)
 
 
 def brief_messages_v5(prompt: str) -> list[dict]:
