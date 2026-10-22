@@ -1627,7 +1627,7 @@ func _row(sep := 24) -> HBoxContainer:
 ## the rooms that can be entered now as pulsing buttons.
 func _show_map() -> void:
 	_panel_open("Floor %d of %d: choose a room" % [floor_index + 1, floors],
-		"Click a glowing room, or press 1-%d" % options.size())
+		"Click a glowing room, or press 1-%d" % options.size() if options.size() > 1 else "Click the glowing room, or press 1")
 	var map := Control.new()
 	map.custom_minimum_size = Vector2(840, 330)
 	map.mouse_filter = Control.MOUSE_FILTER_IGNORE
