@@ -136,6 +136,10 @@ class _Analyzer:
 
         for name, req in s.art.items():
             self.scenery_images[f"art_{name}"] = sc.to_image(_draw_art(req))
+        if s.backdrop != "none":  # one painted picture behind the whole screen (card battles)
+            from .sprites import battle
+            self.scenery_images["scenery_ground"] = sc.to_image(battle.backdrop(s.backdrop, s.seed))
+            return {"ground": "res://sprites/scenery_ground.png", "pixel": 2}
         if s.terrain:  # a drawn ground for the whole map (farms)
             from .sprites import farm
             self.scenery_images["scenery_ground"] = sc.to_image(farm.terrain_image(s.terrain, s.seed, s.season))
@@ -425,6 +429,7 @@ class _Analyzer:
             "entities": entities,
             "placements": placements,
             "y_sort": s.y_sort,
+            "pixel_font": any("CardBattle" in e.components for e in g.entities.values()),
             "rules_script": RULES_SCRIPT,
         }
 
@@ -465,7 +470,15 @@ class _Analyzer:
 
 def _draw_art(req):
     """The picture an ArtRequest asks for, as an RGBA array."""
-    from .sprites import farm
+    from .sprites import cards, farm, fx
+    if req.kind == "fx":
+        return fx.strip(req.of)
+    if req.kind == "card_back":
+        return cards.card_back()
+    if req.kind == "card_frame":
+        return cards.card_frame(req.of)
+    if req.kind == "card_icon":
+        return cards.icon(req.of)
     if req.kind == "crop":
         return farm.crop_sheet(req.of, req.color or "#e83a4a")
     if req.kind == "crop_icon":

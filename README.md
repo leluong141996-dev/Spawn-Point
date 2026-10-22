@@ -14,6 +14,12 @@
 ⭐ **If Spawn Point drew something fun or useful, a star helps other people find it. If it drew something wrong, [open an issue](https://github.com/leluong141996-dev/Spawn-Point/issues/new) with your prompt: the model's tests grow from prompts that broke.**
 
 <p align="center">
+  <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/cards-fight.gif" width="48%" alt="A card battle in a willow forest: a ranger plays cards against a piranha plant and a wolf">
+  <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/cards-run.gif" width="48%" alt="A card game run at night: the map, an event, a knight fighting skeletons and bats">
+</p>
+<p align="center"><sub>New in 0.4: a Slay the Spire style card game from one sentence ("game thẻ bài, hiệp sĩ đánh lũ xương khô, trùm là Lich").</sub></p>
+
+<p align="center">
   <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/farm-field.gif" width="48%" alt="Tilling, planting, watering and harvesting in the fenced field">
   <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/farm-animals.gif" width="48%" alt="Collecting eggs and milk from the chickens and the cow in the pen">
   <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/farm-fishing.gif" width="48%" alt="Fishing from the pond's shore: cast, wait for the bite, reel in">
@@ -22,7 +28,7 @@
 <p align="center"><sub>A cozy farm made from one sentence: the field, the animals, fishing and the farmhouse inside.
 Every tile, building, animal and crop is drawn by plain Python. Recorded with <code>spawnpoint gif --focus field|animals|fish|house</code> (autopilot).</sub></p>
 
-<p align="center"><b><a href="https://leluong141996-dev.github.io/Spawn-Point/">▶ Play the demos in your browser</a></b>: a Mario-style platformer, a
+<p align="center"><b><a href="https://leluong141996-dev.github.io/Spawn-Point/">▶ Play the demos in your browser</a></b>: a Slay the Spire style card game, a Mario-style platformer, a
 knight with a sword, tower defense, a ninja rescue, a dinosaur-egg bubble shooter, a survivor with level-ups, a cozy
 island farm, an arena shooter and a side-scrolling space shooter. No install needed, and
 they work on phones too (touch controls).</p>
@@ -143,6 +149,25 @@ server has it, else its first model), `SPAWNPOINT_LLM_API_KEY`.
 Web builds need the Godot **web export templates** (Editor → Manage Export Templates, or unpack
 `web_*.zip` from the official `.tpz` into `~/.local/share/godot/export_templates/<version>/`);
 use `--no-web` to skip and play natively with `spawnpoint run`.
+
+## A card game from one sentence
+
+Ask for a deckbuilder (`spawnpoint create "a deckbuilder where a wizard climbs a frozen tower full of ice spirits"`,
+or `"game thẻ bài kiểu Slay the Spire, hiệp sĩ đánh lũ xương khô"`) and Spawn Point builds a whole run: a branching map
+of fights, elites, unknown events, shops, rest sites and treasure, with the boss at the top. Each turn you get 3 energy
+and 5 cards; foes show their next move above their heads. Block, poison, weak, vulnerable and strength work the way
+deckbuilder players expect, and after a fight you earn gold and pick one of three cards.
+
+<p align="center"><img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/cards-map.png" width="70%" alt="The run's map on a parchment: rooms linked by dotted paths, the boss at the end"></p>
+
+The model picks the hero and its class (a warrior, mage or rogue starting deck), the game's own cards ("Fireball",
+"Ice Shield": named, and what each does), the foes and how they fight (brutes hit hard, guards block, casters curse
+and poison, swarms come in packs) and the boss; the assembler sets the numbers and balances the run with the autopilot.
+Rest sites heal or upgrade a card (Strike becomes Strike+), shops sell cards, relics and potions and remove cards, ten
+relics change the rules (one to start with per class) and potions are drunk in a fight. The art is pixel art drawn
+from code: a painted backdrop per theme (a willow forest, a haunted night, desert ruins, a frozen peak, a volcano, a
+beach, a candy land, a neon city) with drifting leaves, snow or embers, parchment cards, skill effects (slashes, fire,
+ice, lightning, poison), a pixel font, and the same chibi heroes and monsters as the other games, drawn big.
 
 ## A cozy farm from one sentence
 
@@ -388,6 +413,7 @@ headless smoke test (spawn, scripted input, crash detection) and report `E_RUNTI
 | Shooters | `FlightPath` (straight, wave, dive and hover patterns across the screen), `ShmupShip` (auto-fire, power-ups that add shots and spread), `HealthBar` (boss bars), and `WaveSpawner` gates (`autostart`, `endless`, random spread) |
 | Tower defense | `PathFollower` (walks the road to the base), `Base` (loses a life per invader that gets in), `WaveSpawner` ("8 x Goblin every 1.2; ..."), `TowerSlot`, `TowerBuilder` (click a pad, pay in gold), `TowerBrain` (targets the invader furthest along), `GroundPatch` (roads and paths) |
 | Farming | `FarmPlot` (soil that grows a crop only while watered, drawn from its growth stages), `Farmer` (till / plant / water / harvest, buy seeds, feed, collect, fish, chop, sleep, a basket and a tappable hotbar), `FarmAnimal` (wanders, needs feeding, gives eggs or milk, chicks grow up), `FarmDays` (a season of days with day and night), `SleepSpot` (a bed), `ToolBench` (tool upgrades), `FarmSave` (keeps the farm between plays), `Shop` and `Sprinkler` (buy animals, seeds and sprinklers), `GameMenu` (title screen, pause menu, music), `Gatherable` (trees and rocks that break into wood and stone), `FishingSpot` (cast, bite, reel in), `Warp` (doorways, e.g. into the farmhouse), `Market` (a stall or a shipping bin that buys the basket), `CropPest` (crows that eat crops) |
+| Card games | `CardBattle` (a whole deckbuilding run on its hero: the branching map, fights with energy, block, statuses and foe intents, rewards, rest sites, shops, events, relics, potions, upgrades and the card UI; foes are ordinary entities spawned per fight) |
 | Feel | `Juice` — attached to every entity unless `"juice": "none"` |
 
 Runtime autoloads: `GameState` (score, lives, variables, win/lose), `World` (spawning, rule

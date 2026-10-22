@@ -1,0 +1,411 @@
+{
+  "spawnpoint": 1,
+  "name": "Spire of Bones",
+  "genre": "topdown",
+  "settings": {
+    "tile_size": 32,
+    "lives": 1,
+    "seed": 3,
+    "background": "#1d2b53",
+    "zoom": 1.0,
+    "pixel_size": 1,
+    "backdrop": "night",
+    "pixel_palette": "sweetie16",
+    "art": {
+      "frame_attack": {
+        "kind": "card_frame",
+        "of": "attack"
+      },
+      "frame_skill": {
+        "kind": "card_frame",
+        "of": "skill"
+      },
+      "frame_power": {
+        "kind": "card_frame",
+        "of": "power"
+      },
+      "ci_sword": {
+        "kind": "card_icon",
+        "of": "sword"
+      },
+      "ci_axe": {
+        "kind": "card_icon",
+        "of": "axe"
+      },
+      "ci_dagger": {
+        "kind": "card_icon",
+        "of": "dagger"
+      },
+      "ci_shield": {
+        "kind": "card_icon",
+        "of": "shield"
+      },
+      "ci_bow": {
+        "kind": "card_icon",
+        "of": "bow"
+      },
+      "ci_staff": {
+        "kind": "card_icon",
+        "of": "staff"
+      },
+      "ci_fire": {
+        "kind": "card_icon",
+        "of": "fire"
+      },
+      "ci_ice": {
+        "kind": "card_icon",
+        "of": "ice"
+      },
+      "ci_bolt": {
+        "kind": "card_icon",
+        "of": "bolt"
+      },
+      "ci_drop": {
+        "kind": "card_icon",
+        "of": "drop"
+      },
+      "ci_skull": {
+        "kind": "card_icon",
+        "of": "skull"
+      },
+      "ci_heart": {
+        "kind": "card_icon",
+        "of": "heart"
+      },
+      "ci_flex": {
+        "kind": "card_icon",
+        "of": "flex"
+      },
+      "ci_book": {
+        "kind": "card_icon",
+        "of": "book"
+      },
+      "ci_wind": {
+        "kind": "card_icon",
+        "of": "wind"
+      },
+      "ci_star": {
+        "kind": "card_icon",
+        "of": "star"
+      },
+      "ci_campfire": {
+        "kind": "card_icon",
+        "of": "campfire"
+      },
+      "ci_chest": {
+        "kind": "card_icon",
+        "of": "chest"
+      },
+      "ci_crown": {
+        "kind": "card_icon",
+        "of": "crown"
+      },
+      "ci_crack": {
+        "kind": "card_icon",
+        "of": "crack"
+      },
+      "ci_coin": {
+        "kind": "card_icon",
+        "of": "coin"
+      },
+      "ci_question": {
+        "kind": "card_icon",
+        "of": "question"
+      },
+      "ci_bag": {
+        "kind": "card_icon",
+        "of": "bag"
+      },
+      "ci_hammer": {
+        "kind": "card_icon",
+        "of": "hammer"
+      },
+      "ci_potion": {
+        "kind": "card_icon",
+        "of": "potion"
+      },
+      "ci_blood": {
+        "kind": "card_icon",
+        "of": "blood"
+      },
+      "ci_lantern": {
+        "kind": "card_icon",
+        "of": "lantern"
+      },
+      "ci_ring": {
+        "kind": "card_icon",
+        "of": "ring"
+      },
+      "ci_anchor": {
+        "kind": "card_icon",
+        "of": "anchor"
+      },
+      "ci_vajra": {
+        "kind": "card_icon",
+        "of": "vajra"
+      },
+      "ci_marbles": {
+        "kind": "card_icon",
+        "of": "marbles"
+      },
+      "ci_stone": {
+        "kind": "card_icon",
+        "of": "stone"
+      },
+      "ci_idol": {
+        "kind": "card_icon",
+        "of": "idol"
+      },
+      "ci_flower": {
+        "kind": "card_icon",
+        "of": "flower"
+      },
+      "ci_vial": {
+        "kind": "card_icon",
+        "of": "vial"
+      },
+      "fx_slash": {
+        "kind": "fx",
+        "of": "slash"
+      },
+      "fx_fire": {
+        "kind": "fx",
+        "of": "fire"
+      },
+      "fx_ice": {
+        "kind": "fx",
+        "of": "ice"
+      },
+      "fx_bolt": {
+        "kind": "fx",
+        "of": "bolt"
+      },
+      "fx_poison": {
+        "kind": "fx",
+        "of": "poison"
+      },
+      "fx_heal": {
+        "kind": "fx",
+        "of": "heal"
+      },
+      "fx_shield": {
+        "kind": "fx",
+        "of": "shield"
+      },
+      "fx_buff": {
+        "kind": "fx",
+        "of": "buff"
+      },
+      "fx_curse": {
+        "kind": "fx",
+        "of": "curse"
+      },
+      "fx_hit": {
+        "kind": "fx",
+        "of": "hit"
+      },
+      "card_back": {
+        "kind": "card_back"
+      }
+    },
+    "music": "autumn"
+  },
+  "entities": {
+    "Skeleton": {
+      "team": "enemy",
+      "components": {
+        "Health": {
+          "max_health": 10,
+          "invincibility_time": 0.0
+        }
+      },
+      "base": [
+        26,
+        12
+      ],
+      "sprite": {
+        "generate": {
+          "kind": "hero",
+          "color": "#ff004d",
+          "seed": 3,
+          "size": 3,
+          "features": [
+            "skull"
+          ]
+        }
+      }
+    },
+    "Bat": {
+      "team": "enemy",
+      "components": {
+        "Health": {
+          "max_health": 10,
+          "invincibility_time": 0.0
+        }
+      },
+      "base": [
+        26,
+        12
+      ],
+      "sprite": {
+        "generate": {
+          "kind": "flyer",
+          "color": "#5a4a7a",
+          "seed": 3,
+          "size": 3
+        }
+      }
+    },
+    "Witch": {
+      "team": "enemy",
+      "components": {
+        "Health": {
+          "max_health": 10,
+          "invincibility_time": 0.0
+        }
+      },
+      "base": [
+        26,
+        12
+      ],
+      "sprite": {
+        "generate": {
+          "kind": "hero",
+          "color": "#ffa300",
+          "seed": 3,
+          "size": 3,
+          "features": [
+            "hat",
+            "staff",
+            "robe",
+            "hair"
+          ]
+        }
+      }
+    },
+    "Lich": {
+      "team": "enemy",
+      "components": {
+        "Health": {
+          "max_health": 10,
+          "invincibility_time": 0.0
+        }
+      },
+      "base": [
+        40,
+        12
+      ],
+      "sprite": {
+        "generate": {
+          "kind": "hero",
+          "color": "#7e2553",
+          "seed": 3,
+          "size": 4,
+          "features": [
+            "skull",
+            "hood",
+            "staff",
+            "cape"
+          ]
+        }
+      }
+    },
+    "Player": {
+      "components": {
+        "PlayerInput": {},
+        "Health": {
+          "max_health": 70,
+          "invincibility_time": 0.0
+        },
+        "CardBattle": {
+          "cards": "Strike|1|attack|dmg:6|starter|sword;Holy Shield|1|skill|blk:5|starter|shield;Bash|2|attack|dmg:8,vuln:2|starter|axe;Flame Slash|2|attack|dmg:13|common|fire;Cleave|1|attack|all:7|common|axe;Iron Wave|1|attack|dmg:5,blk:5|common|sword;Heavy Blow|2|attack|dmg:14|common|axe;Twin Strike|1|attack|dmg:5,hits:2|common|sword;Shrug It Off|1|skill|blk:8,draw:1|common|shield;Shield Wall|2|skill|blk:15|uncommon|shield;Bandage|1|skill|heal:7,exhaust|uncommon|heart;Battle Cry|1|power|str:2|rare|flex;Uppercut|2|attack|dmg:13,weak:1,vuln:1|uncommon|flex",
+          "hero_name": "Knight",
+          "theme": "night",
+          "foe_offset": [
+            300,
+            0
+          ],
+          "foe_gap": 160,
+          "starter": "Strike*5,Holy Shield*4,Bash",
+          "foes": "Skeleton|25|normal|atk:9,atk:13,str:2+atk:5;Bat|12|normal|atk:5,atk:3x2;Witch|20|normal|weak:1+atk:4,poison:3,atk:10,vuln:1+atk:4;Lich|100|boss|atk:12,blk:13+str:2,atk:5x3,weak:1+atk:9",
+          "floors": 7,
+          "run_seed": 3,
+          "gold_per_fight": 15,
+          "starter_relic": "burning_blood"
+        },
+        "GameMenu": {
+          "title": "Spire of Bones",
+          "subtitle": "Climb 7 floors and defeat the Lich."
+        }
+      },
+      "base": [
+        24,
+        12
+      ],
+      "juice": {
+        "shake_on_hurt": 0.0
+      },
+      "sprite": {
+        "generate": {
+          "kind": "hero",
+          "color": "#29adff",
+          "seed": 3,
+          "features": [
+            "helmet",
+            "shield",
+            "armor"
+          ],
+          "size": 3
+        }
+      }
+    }
+  },
+  "level": {
+    "map": [
+      "..............................",
+      "..............................",
+      "..............................",
+      "..............................",
+      "..............................",
+      "..............................",
+      "..............................",
+      "..............................",
+      "..............................",
+      "......P.......................",
+      "..............................",
+      "..............................",
+      "..............................",
+      "..............................",
+      "..............................",
+      "..............................",
+      ".............................."
+    ],
+    "legend": {
+      "#": "solid",
+      "P": "Player"
+    }
+  },
+  "rules": [
+    {
+      "on": "Game.ready",
+      "do": [
+        "set_var('score_label', 'GOLD')",
+        "message('Fight your way up and defeat the Lich!')"
+      ]
+    },
+    {
+      "on": "Player.CardBattle.fight_started",
+      "if": "event.kind == 'elite'",
+      "do": [
+        "message('An elite foe!')"
+      ]
+    },
+    {
+      "on": "Player.CardBattle.won",
+      "do": [
+        "message('The Lich is defeated!')",
+        "win()"
+      ]
+    }
+  ]
+}

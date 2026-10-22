@@ -45,7 +45,14 @@ def _brief_summary(brief: GameBrief, notes: list[str]) -> None:
     b = brief
     enemies = ", ".join(f"{e.count}x {e.name} ({e.archetype})" for e in b.enemies) or "none"
     _say(f"  “{b.title}” — {b.genre}, palette {b.palette}, goal {b.goal}, {b.length}, difficulty {b.difficulty}")
-    _say(f"  player: {', '.join(b.player.abilities) or 'no abilities'}; jump {b.player.jump_tiles} tiles; "
+    if b.genre == "cards":
+        own = ", ".join(f"{c.name} ({c.kind})" for c in b.cards) or "the class's own"
+        _say(f"  hero: {b.player.character} ({b.hero_class}); cards: {own}")
+        _say(f"  foes: {', '.join(f'{e.name} ({e.archetype})' for e in b.enemies) or 'none'}; boss: {b.boss}")
+        for n in notes:
+            _say(f"  note: {n}")
+        return
+    _say(f"  player:{', '.join(b.player.abilities) or 'no abilities'}; jump {b.player.jump_tiles} tiles; "
          f"speed {b.player.speed}; feel {b.feel}; juice {b.juice}")
     _say(f"  enemies: {enemies}; pickups: {b.collectible.count}x {b.collectible.name}; hazards: {', '.join(b.hazards) or 'none'}")
     for n in notes:

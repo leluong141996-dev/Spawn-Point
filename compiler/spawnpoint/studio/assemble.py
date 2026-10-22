@@ -9,6 +9,8 @@ import re
 from typing import Any
 
 from ..level import jump_model
+from ..sprites import cards as card_art
+from ..sprites import fx as fx_art
 from ..sprites import farm as farm_art
 from ..sprites import palettes
 from ..sprites.generate import features_for
@@ -186,6 +188,79 @@ INVADER_HP = {"slow": 18, "normal": 6, "fast": 4}
 INVADER_GOLD = {"slow": 14, "normal": 5, "fast": 4}
 
 
+# --- card games ----------------------------------------------------------------------------------
+# A card: (cost, type, effects, rarity, icon). Effects use CardBattle's language (dmg:6,vuln:2 ...).
+CARD_KINDS: dict[str, tuple[int, str, str, str, str]] = {
+    "strike": (1, "attack", "dmg:6", "common", "sword"), "heavy": (2, "attack", "dmg:13", "common", "axe"),
+    "multi_hit": (1, "attack", "dmg:3,hits:3", "uncommon", "dagger"), "sweep": (1, "attack", "all:5", "common", "wind"),
+    "block": (1, "skill", "blk:6", "common", "shield"), "heal": (1, "skill", "heal:6,exhaust", "uncommon", "heart"),
+    "draw": (1, "skill", "draw:2", "common", "book"), "poison": (1, "skill", "poison:5", "common", "drop"),
+    "weaken": (1, "skill", "weak:2,blk:4", "uncommon", "skull"), "rage": (1, "power", "str:2", "rare", "flex"),
+}
+# Each class: the basic attack and block (5 and 4 copies), a signature card, and the cards rewards draw from.
+CARD_CLASSES: dict[str, dict[str, Any]] = {
+    "warrior": {"strike": ("Strike", "sword"), "block": ("Defend", "shield"),
+                "signature": ("Bash", 2, "attack", "dmg:8,vuln:2", "axe"),
+                "pool": [("Cleave", 1, "attack", "all:7", "common", "axe"), ("Iron Wave", 1, "attack", "dmg:5,blk:5", "common", "sword"),
+                         ("Heavy Blow", 2, "attack", "dmg:14", "common", "axe"), ("Twin Strike", 1, "attack", "dmg:5,hits:2", "common", "sword"),
+                         ("Shrug It Off", 1, "skill", "blk:8,draw:1", "common", "shield"), ("Shield Wall", 2, "skill", "blk:15", "uncommon", "shield"),
+                         ("Bandage", 1, "skill", "heal:7,exhaust", "uncommon", "heart"), ("Battle Cry", 1, "power", "str:2", "rare", "flex"),
+                         ("Uppercut", 2, "attack", "dmg:13,weak:1,vuln:1", "uncommon", "flex")]},
+    "mage": {"strike": ("Zap", "bolt"), "block": ("Ward", "shield"),
+             "signature": ("Fireball", 2, "attack", "dmg:11,all:3", "fire"),
+             "pool": [("Frost Bolt", 1, "attack", "dmg:6,weak:1", "common", "ice"), ("Chain Lightning", 2, "attack", "all:9", "common", "bolt"),
+                      ("Arcane Shield", 1, "skill", "blk:8", "common", "staff"), ("Insight", 0, "skill", "draw:2,exhaust", "common", "book"),
+                      ("Mana Surge", 0, "skill", "nrg:2,exhaust", "uncommon", "star"), ("Meteor", 3, "attack", "dmg:26", "rare", "fire"),
+                      ("Curse", 1, "skill", "weak:2,vuln:2", "uncommon", "skull"), ("Focus", 1, "power", "str:2", "rare", "staff"),
+                      ("Ice Wall", 2, "skill", "blk:12,draw:1", "uncommon", "ice")]},
+    "rogue": {"strike": ("Stab", "dagger"), "block": ("Dodge", "wind"),
+              "signature": ("Poison Dart", 1, "attack", "dmg:3,poison:4", "drop"),
+              "pool": [("Flurry", 1, "attack", "dmg:3,hits:3", "common", "dagger"), ("Deadly Poison", 1, "skill", "poison:7", "common", "drop"),
+                       ("Backstab", 0, "attack", "dmg:10,exhaust", "uncommon", "dagger"), ("Smoke Bomb", 1, "skill", "blk:7,weak:1", "common", "wind"),
+                       ("Quick Draw", 1, "skill", "draw:3", "common", "book"), ("Fan of Knives", 1, "attack", "all:5", "common", "dagger"),
+                       ("Adrenaline", 0, "skill", "nrg:1,draw:2,exhaust", "rare", "bolt"), ("Envenom", 1, "power", "str:1", "rare", "drop"),
+                       ("Arrow Rain", 2, "attack", "all:8", "uncommon", "bow")]},
+}
+# A word in a card's name picks its icon ("Fire Ball" burns, "Frost Nova" freezes).
+CARD_ICON_WORDS = (({"fire", "flame", "burn", "blaze", "inferno", "meteor", "ember"}, "fire"),
+                   ({"ice", "frost", "freeze", "snow", "blizzard", "cold"}, "ice"),
+                   ({"lightning", "thunder", "bolt", "shock", "spark", "zap", "storm"}, "bolt"),
+                   ({"poison", "venom", "toxic", "acid", "plague"}, "drop"), ({"arrow", "shot", "bow", "volley"}, "bow"),
+                   ({"heal", "cure", "mend", "potion", "life", "bandage", "prayer"}, "heart"),
+                   ({"shield", "guard", "block", "wall", "armor", "armour", "parry", "barrier", "defend"}, "shield"),
+                   ({"dagger", "knife", "stab", "backstab", "shiv", "blade"}, "dagger"), ({"axe", "cleave", "chop"}, "axe"),
+                   ({"magic", "spell", "arcane", "staff", "mana", "missile", "hex"}, "staff"),
+                   ({"wind", "gust", "whirlwind", "tornado", "dodge", "smoke"}, "wind"), ({"book", "study", "insight", "learn"}, "book"),
+                   ({"curse", "doom", "death", "fear", "skull", "weaken"}, "skull"),
+                   ({"rage", "fury", "strength", "power", "roar", "might", "berserk"}, "flex"),
+                   ({"star", "light", "holy", "smite", "divine"}, "star"))
+CARD_FLOORS = {"short": 5, "medium": 7, "long": 9}
+CARD_STARTER_RELIC = {"warrior": "burning_blood", "mage": "lantern", "rogue": "snake_ring"}  # see card_content.gd
+# Foe archetype -> (base HP, intents with {n} placeholders scaled by difficulty).
+CARD_FOES = {"brute": (22, "atk:{8},atk:{12},str:2+atk:{5}"), "guard": (26, "blk:{8}+atk:{5},atk:{8},blk:{12}"),
+             "caster": (18, "weak:1+atk:{4},poison:3,atk:{9},vuln:1+atk:{4}"), "swarm": (11, "atk:{5},atk:{3}x2")}
+CARD_BOSS_INTENTS = "atk:{11},blk:{12}+str:2,atk:{5}x3,weak:1+atk:{8}"
+CARD_MUSIC = {"snow": "winter", "desert": "desert", "lava": "autumn", "night": "autumn", "neon": "autumn"}
+
+
+# Animals and plants look like themselves whatever the theme's colours (slimes, ghosts and dragons take the theme's).
+NATURAL_COLORS = {"wolf": "#8a8a9a", "fox": "#e8803a", "bear": "#8a5a3a", "boar": "#7a5a4a", "hog": "#7a5a4a",
+                  "pig": "#e8a0a0", "rat": "#8a7a7a", "mouse": "#9a8a8a", "cat": "#e8a050", "tiger": "#e8902a",
+                  "lion": "#d8a050", "dog": "#a87a4a", "bat": "#5a4a7a", "crow": "#3a3a4a", "raven": "#3a3a4a",
+                  "owl": "#a07a50", "spider": "#4a3a5a", "treant": "#4a9a4a", "ent": "#4a9a4a", "tree": "#4a9a4a",
+                  "golem": "#8a8a96", "rock": "#8a8a96", "stone": "#8a8a96", "statue": "#a8a8b0", "frog": "#5ab84a",
+                  "snake": "#5a9a4a", "beetle": "#3a5a8a", "rabbit": "#e8e0d8", "bunny": "#e8e0d8"}
+
+
+def natural_color(name: str, fallback: str) -> str:
+    return next((NATURAL_COLORS[w] for w in _ordered_words(name)[::-1] if w in NATURAL_COLORS), fallback)
+
+
+def card_icon(name: str, fallback: str) -> str:
+    words = {w.lower() for w in re.findall(r"[A-Za-z]+", name)}
+    return next((icon for keys, icon in CARD_ICON_WORDS if words & keys), fallback)
+
+
 def _space_bg(bg: str) -> str:
     """Space is dark whatever the theme: light backgrounds are darkened (the theme still tints it)."""
     r, g, b = (int(bg[i:i + 2], 16) for i in (1, 3, 5))
@@ -318,6 +393,8 @@ class _Assembler:
             return self._styled(self._td_graph())
         if b.genre == "shmup":
             return self._styled(self._shmup_graph())
+        if b.genre == "cards":
+            return self._styled(self._cards_graph())
         lay = self._layout()
         grid: dict[tuple[int, int], str] = {}
         self._player(grid, lay)
@@ -356,7 +433,7 @@ class _Assembler:
 
     def _styled(self, g: dict) -> dict:
         if self.layer >= 2:
-            if self.b.genre == "farm":  # the cozy farm keeps its own colours and chunky 16 px tiles
+            if self.b.genre in ("farm", "cards"):  # farms and card battles keep their own colours and backdrops
                 return g
             # Spawn Point makes pixel art games: a brief that asks for cartoon art still gets pixel art, with the
             # classic palette that suits the theme.
@@ -366,6 +443,99 @@ class _Assembler:
             if self.b.genre == "shmup":
                 g["settings"]["scenery"] = "space"  # scrolling stars, whatever the art style
         return g
+
+    # -- cards -------------------------------------------------------------------------------
+    def _cards_graph(self) -> dict:
+        """A deckbuilder: the hero on the left of a side-view stage, foes spawned on the right for each fight."""
+        b, pal, d = self.b, self.pal, self.b.difficulty
+        cls = CARD_CLASSES[b.hero_class]
+        k_hp, k_dmg = 0.92 + 0.1 * d, 0.97 + 0.05 * d  # harder foes: tougher first, then hitting harder
+        cards: dict[str, tuple] = {}
+        strike, block = cls["strike"], cls["block"]
+        own = list(b.cards)
+        first = {kind: next((c for c in own if c.kind == kind), None) for kind in ("strike", "block")}
+        if first["strike"]:  # the game's own basic attack and block become the starting cards
+            strike = (first["strike"].name, card_icon(first["strike"].name, "sword"))
+            own.remove(first["strike"])
+        if first["block"]:
+            block = (first["block"].name, card_icon(first["block"].name, "shield"))
+            own.remove(first["block"])
+        cards[strike[0]] = (1, "attack", "dmg:6", "starter", strike[1])
+        cards[block[0]] = (1, "skill", "blk:5", "starter", block[1])
+        sig = cls["signature"]
+        cards[sig[0]] = (sig[1], sig[2], sig[3], "starter", sig[4])
+        for c in own:
+            cost, kind, fx, rarity, icon = CARD_KINDS[c.kind]
+            cards.setdefault(c.name, (cost, kind, fx, rarity, card_icon(c.name, icon)))
+        for name, cost, kind, fx, rarity, icon in cls["pool"]:
+            cards.setdefault(name, (cost, kind, fx, rarity, icon))
+        library = ";".join(f"{n}|{c[0]}|{c[1]}|{c[2]}|{c[3]}|{c[4]}" for n, c in cards.items())
+
+        def scaled(template: str) -> str:
+            return re.sub(r"\{(\d+)\}", lambda m: str(max(1, round(int(m.group(1)) * k_dmg))), template)
+
+        foes = []
+        for i, e in enumerate(b.enemies):
+            hp, intents = CARD_FOES.get(e.archetype, CARD_FOES["brute"])
+            foes.append(f"{e.name}|{round(hp * k_hp)}|normal|{scaled(intents)}")
+            self._card_foe(e.name, pal["enemies"][i % len(pal["enemies"])])
+        foes.append(f"{b.boss}|{round(100 + 14 * (d - 2))}|boss|{scaled(CARD_BOSS_INTENTS)}")
+        self._card_foe(b.boss, pal["enemies"][-1], boss=True)
+        floors = CARD_FLOORS[b.length]
+        battle = {"cards": library, "hero_name": b.player.character, "theme": b.palette, "foe_offset": [300, 0], "foe_gap": 160, "starter": f"{strike[0]}*5,{block[0]}*4,{sig[0]}", "foes": ";".join(foes),
+                  "floors": floors, "run_seed": self.seed, "gold_per_fight": 15,
+                  "starter_relic": CARD_STARTER_RELIC[b.hero_class]}
+        hero_hp = 70 - 3 * (d - 2)
+        comps = {"PlayerInput": {}, "Health": {"max_health": hero_hp, "invincibility_time": 0.0}, "CardBattle": battle}
+        if self.layer >= 2:
+            comps["GameMenu"] = {"title": b.title or "Card Quest",
+                                 "subtitle": f"Climb {floors} floors and defeat the {b.boss}."}
+        self.entities["Player"] = {"shape": {"type": "capsule", "size": [24, 40], "color": pal["player"]},
+                                   "components": comps, "base": [24, 12], "juice": {"shake_on_hurt": 0.0}}
+        width, height, ground = 30, 17, 10
+        rows = ["." * width for _ in range(height)]
+        r = list(rows[ground - 1])
+        r[6] = "P"
+        rows[ground - 1] = "".join(r)
+        if self.layer >= 2:  # the chibi pixel sprites, drawn big: these are portraits, not tiny map sprites
+            for name, ent in self.entities.items():
+                if name != "Player":
+                    ent["shape"]["color"] = natural_color(name, ent["shape"]["color"])
+            self._sprites()
+            for name, ent in self.entities.items():
+                gen = ent.get("sprite", {}).get("generate")
+                if gen is not None:
+                    gen["size"] = 4 if name == b.boss else 3
+                    if gen["kind"] == "hero" and name != "Player":
+                        gen["features"] = features_for(name)  # a Skeleton has a skull, a Witch her hat and staff
+                        if name == b.boss and "cape" not in gen["features"]:
+                            gen["features"].append("cape")  # the boss stands out from its minions
+                    if name == "Player":
+                        gen["features"] = features_for(b.player.character) or features_for(
+                            {"warrior": "Knight", "mage": "Wizard", "rogue": "Rogue"}[b.hero_class])
+        settings: dict[str, Any] = {"tile_size": TILE, "lives": 1, "seed": self.seed, "background": pal["bg"],
+                                    "zoom": 1.0, "pixel_size": 1, "backdrop": b.palette,
+                                    "pixel_palette": palettes.THEME_PALETTE[b.palette],
+                                    "art": {**{f"frame_{t}": {"kind": "card_frame", "of": t} for t in ("attack", "skill", "power")},
+                                            **{f"ci_{n}": {"kind": "card_icon", "of": n} for n in card_art.ICONS},
+                                            **{f"fx_{n}": {"kind": "fx", "of": n} for n in fx_art.EFFECTS},
+                                            "card_back": {"kind": "card_back"}}}
+        if self.layer >= 2:
+            settings["music"] = CARD_MUSIC.get(b.palette, "spring")
+        self.rules = [
+            {"on": "Game.ready", "do": ["set_var('score_label', 'GOLD')", f"message({_q(b.intro)})"]},
+            {"on": "Player.CardBattle.fight_started", "if": "event.kind == 'elite'", "do": ["message('An elite foe!')"]},
+            {"on": "Player.CardBattle.won", "do": [f"message({_q('The ' + b.boss + ' is defeated!')})", "win()"]},
+        ]
+        return {"spawnpoint": 1, "name": b.title or "Untitled", "genre": "topdown", "settings": settings,
+                "entities": self.entities, "level": {"map": rows, "legend": {"#": "solid", "P": "Player"}},
+                "rules": self.rules}
+
+    def _card_foe(self, name: str, color: str, boss: bool = False) -> None:
+        """A foe that only stands there: CardBattle spawns it, sets its HP and plays its moves."""
+        self.entities[name] = {"team": "enemy", "shape": {"type": "capsule", "size": [30, 36], "color": color},
+                               "components": {"Health": {"max_health": 10, "invincibility_time": 0.0}},
+                               "base": [40 if boss else 26, 12]}
 
     # -- farm --------------------------------------------------------------------------------
     def _farm_graph(self) -> dict:
@@ -1266,7 +1436,7 @@ SPIDER_WORDS = {"spider", "tarantula", "arachnid", "widow"}
 SNAKE_WORDS = {"snake", "serpent", "cobra", "python", "viper", "worm", "eel", "naga"}
 BEAST_WORDS = {"wolf", "fox", "dog", "puppy", "hound", "cat", "kitty", "tiger", "lion", "bear", "boar", "pig", "hog",
                "panther", "jackal", "hyena", "werewolf", "coyote", "leopard", "cougar"}
-PLANT_WORDS = {"plant", "flower", "piranha", "venus", "vine", "sprout", "thorn"}
+PLANT_WORDS = {"plant", "flower", "piranha", "venus", "vine", "sprout", "thorn", "treant", "ent"}
 MUSHROOM_WORDS = {"mushroom", "shroom", "toadstool", "fungus", "funguy", "spore"}
 REAPER_WORDS = {"reaper", "grim", "scythe"}
 FLAME_WORDS = {"flame", "fire", "ember", "blaze", "inferno", "pyro", "lava"}

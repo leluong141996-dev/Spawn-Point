@@ -37,6 +37,11 @@ func _ready() -> void:
 
 
 func _on_fired() -> void:
+	play_attack()
+
+
+## Shows the attack animation once (also for attacks that are not a Weapon, like a played card).
+func play_attack() -> void:
 	if _sprite and _sprite.sprite_frames.has_animation(&"attack"):
 		_attack_left = attack_time
 		_sprite.play(&"attack")  # restart on every shot
