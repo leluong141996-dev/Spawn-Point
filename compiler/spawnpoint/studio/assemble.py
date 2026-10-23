@@ -240,6 +240,12 @@ CARD_STARTER_RELIC = {"warrior": "burning_blood", "mage": "lantern", "rogue": "s
 CARD_FOES = {"brute": (22, "atk:{8},atk:{12},str:2+atk:{5}"), "guard": (26, "blk:{8}+atk:{5},atk:{8},blk:{12}"),
              "caster": (18, "weak:1+atk:{4},poison:3,atk:{9},vuln:1+atk:{4}"), "swarm": (11, "atk:{5},atk:{3}x2")}
 CARD_BOSS_INTENTS = "atk:{11},blk:{12}+str:2,atk:{5}x3,weak:1+atk:{8}"
+# What the title screen says about the keys, by genre.
+GAME_CONTROLS = {"platformer": "Arrows or WASD to move, Space to jump.", "topdown": "WASD to move, the mouse to aim and shoot.",
+                 "bubble": "Aim with the mouse, click to shoot.", "tower_defense": "Click a pad to build a tower.",
+                 "shmup": "Arrows or WASD to fly; the ship fires on its own."}
+# A theme's tune (music.py has four moods).
+GAME_MUSIC = {"snow": "winter", "desert": "desert", "lava": "autumn", "night": "autumn", "neon": "autumn"}
 CARD_MUSIC = {"snow": "winter", "desert": "desert", "lava": "autumn", "night": "autumn", "neon": "autumn"}
 
 
@@ -442,7 +448,20 @@ class _Assembler:
             g["settings"]["pixel_size"] = 1  # the fine style: detailed chibi people, fine tiles
             if self.b.genre == "shmup":
                 g["settings"]["scenery"] = "space"  # scrolling stars, whatever the art style
+            self._finished(g)
         return g
+
+    def _finished(self, g: dict) -> None:
+        """Every game a prompt makes opens on a title screen, can be paused and has music, like a finished game."""
+        player = next((e for e in g["entities"].values() if "PlayerInput" in e.get("components", {})), None)
+        if player is None or "GameMenu" in player.get("components", {}):
+            return
+        intro = next((r["do"][0][len("message("):-1].strip("'\"") for r in g.get("rules", [])
+                      if r.get("on") == "Game.ready" and r["do"] and r["do"][0].startswith("message(")), "")
+        controls = GAME_CONTROLS.get(self.b.genre, GAME_CONTROLS["platformer"])
+        player["components"]["GameMenu"] = {"title": self.b.title or "My Game",
+                                            "subtitle": f"{intro} {controls}".strip()}
+        g["settings"].setdefault("music", GAME_MUSIC.get(self.b.palette, "spring"))
 
     # -- cards -------------------------------------------------------------------------------
     def _cards_graph(self) -> dict:

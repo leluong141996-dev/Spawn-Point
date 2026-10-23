@@ -15,6 +15,7 @@ var _hearts: HBoxContainer
 var _toast: Label
 var _overlay: Control
 var _overlay_title: Label
+var _overlay_score: Label
 var _toast_tween: Tween
 var _shown_health := -1
 var _xp_back: ColorRect
@@ -106,6 +107,8 @@ func _refresh_hearts(h: HealthComponent) -> void:
 func _show_overlay(title: String, color: Color) -> void:
 	_overlay_title.text = title
 	_overlay_title.add_theme_color_override(&"font_color", color)
+	_overlay_score.text = "%s %d" % [str(GameState.vars.get("score_label", "SCORE")), GameState.score]
+	_overlay_score.visible = GameState.score > 0
 	_overlay.visible = true
 	_overlay.modulate.a = 0.0
 	_overlay.create_tween().tween_property(_overlay, ^"modulate:a", 1.0, 0.35)
@@ -207,7 +210,26 @@ func _build() -> void:
 	_overlay_title = _label(64)
 	_overlay_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(_overlay_title)
-	var hint := _label(22)
-	hint.text = "Press R to play again"
+	_overlay_score = _label(26, ACCENT)
+	_overlay_score.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(_overlay_score)
+	var again := Button.new()  # a button, so phones can play again too (there is no R key on a touch screen)
+	again.text = "Play again"
+	again.focus_mode = Control.FOCUS_NONE
+	again.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	again.custom_minimum_size = Vector2(220, 56)
+	again.add_theme_font_size_override(&"font_size", 26)
+	for state in [["normal", Color("#e8902a")], ["hover", Color("#ffb347")], ["pressed", Color("#b86a1a")]]:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = state[1]
+		sb.border_color = Color("#1d1a33")
+		sb.set_border_width_all(4)
+		again.add_theme_stylebox_override(StringName(state[0]), sb)
+	for c in [&"font_color", &"font_hover_color", &"font_pressed_color"]:
+		again.add_theme_color_override(c, Color("#1d1a33"))
+	again.pressed.connect(func() -> void: GameState.restart())
+	box.add_child(again)
+	var hint := _label(18)
+	hint.text = "or press R"
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(hint)
