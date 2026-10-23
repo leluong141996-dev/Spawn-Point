@@ -272,6 +272,19 @@ def tweak(out_dir: Path, request: str, llm: ChatModel, *, web_export: bool = Tru
                        meta={"op": "tweak", "request": request, "changes": result.changes if result else None})
 
 
+def _newest_weapon(old: GameBrief, new: GameBrief) -> GameBrief:
+    """A hero carries one weapon. When a tweak adds the other one ("give the fox a sword" to a shooter), the weapon
+    just asked for replaces the old one (the normalizer alone would keep the gun and drop the request)."""
+    abilities = list(new.player.abilities)
+    if "sword" in abilities and "shoot" in abilities:
+        added = "sword" if "sword" not in old.player.abilities else "shoot" if "shoot" not in old.player.abilities else None
+        if added:
+            abilities.remove("shoot" if added == "sword" else "sword")
+            new = new.model_copy(deep=True)
+            new.player.abilities = abilities
+    return new
+
+
 def _tweak(out_dir, request, llm, web_export, on_layer, manifest, recorder: Recorder | None) -> StudioResult:
     manifest = manifest or manifest_mod.load()
     session = load_session(out_dir)
@@ -287,6 +300,7 @@ def _tweak(out_dir, request, llm, web_export, on_layer, manifest, recorder: Reco
         new = _parse(raw["brief"])
     except Exception as e:
         raise StudioError(f"the LLM produced an invalid brief update: {e}") from e
+    new = _newest_weapon(old, new)
     new, notes = normalize(new)
     if recorder:
         tr = recorder.last("translate")
