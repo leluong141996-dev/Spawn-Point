@@ -114,16 +114,25 @@ class OpenAICompatible:
             "response_format": {"type": "json_schema",
                                 "json_schema": {"name": schema_name, "schema": schema, "strict": True}},
         }
-        t0 = time.perf_counter()
-        resp = self._request("/chat/completions", payload)
-        elapsed = time.perf_counter() - t0
-        u = resp.get("usage") or {}
-        self.usage.add(Usage(1, u.get("prompt_tokens", 0), u.get("completion_tokens", 0), elapsed))
-        try:
-            content = resp["choices"][0]["message"]["content"]
-        except (KeyError, IndexError, TypeError) as e:
-            raise LLMError(f"unexpected LLM response: {str(resp)[:300]}") from e
-        return parse_json(content)
+        for attempt in range(2):
+            t0 = time.perf_counter()
+            resp = self._request("/chat/completions", payload)
+            elapsed = time.perf_counter() - t0
+            u = resp.get("usage") or {}
+            self.usage.add(Usage(1, u.get("prompt_tokens", 0), u.get("completion_tokens", 0), elapsed))
+            try:
+                content = resp["choices"][0]["message"]["content"]
+            except (KeyError, IndexError, TypeError) as e:
+                raise LLMError(f"unexpected LLM response: {str(resp)[:300]}") from e
+            try:
+                return parse_json(content)
+            except LLMError:
+                # A cut-off answer (often whitespace up to max_tokens, when the server allows it in guided
+                # JSON): one more try, a little warmer, usually takes another path.
+                if attempt == 1:
+                    raise
+                payload["temperature"] = max(temperature, 0.6)
+        raise AssertionError("unreachable")
 
 
 def pick_model(models: list[dict]) -> str:

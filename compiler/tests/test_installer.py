@@ -99,19 +99,21 @@ def test_setup_check_reports_what_is_missing(monkeypatch, capsys):
 
 
 def test_changing_a_game_with_words(monkeypatch, capsys, tmp_path):
-    asked = iter(["make the jump higher", "cho nhảy cao hơn", ""])
+    asked = iter(["make the jump higher", "cho nhảy cao hơn", "add background music", ""])
     monkeypatch.setattr("builtins.input", lambda prompt="": next(asked))
     calls = []
 
     def fake_tweak(project, request, llm, web_export, on_layer):
         calls.append(request)
-        return SimpleNamespace(ok=True, changes=[f"player.jump_tiles: 3.5 -> {3.5 + len(calls)}"])
+        changes = [f"player.jump_tiles: 3.5 -> {3.5 + len(calls)}"] if len(calls) < 3 else []
+        return SimpleNamespace(ok=True, changes=changes, brief=SimpleNamespace(genre="platformer"))
 
     monkeypatch.setattr(studio_cli, "do_tweak", fake_tweak)
     studio_cli._chat(tmp_path, llm=None, web_export=True)
     out = capsys.readouterr().out
-    assert calls == ["make the jump higher", "cho nhảy cao hơn"], "one rebuild per request, stops at an empty line"
+    assert calls == ["make the jump higher", "cho nhảy cao hơn", "add background music"], "one rebuild per request"
     assert "player.jump_tiles: 3.5 -> 5.5" in out and "reloads" in out
+    assert "I can't change that yet" in out and "double jump" in out, "a request with no effect says what can change"
 
 
 @pytest.mark.skipif(not installer.web_templates_ready(), reason="Godot web export templates not installed")
@@ -125,3 +127,34 @@ def test_share_zips_a_web_build_without_live_reload(tmp_path):
         assert {"index.html", "index.wasm", "index.pck", "index.js"} <= names
         assert all("/" not in n for n in names), "index.html at the top level, as itch.io wants"
         assert "version.json" not in z.read("index.html").decode(), "no live-reload polling in a shared game"
+
+
+def test_a_cut_off_json_answer_is_asked_again(monkeypatch):
+    from spawnpoint.studio.llm import OpenAICompatible
+
+    llm = OpenAICompatible(base_url="http://localhost:1/v1", model="m")
+    answers = iter(['{"brief": {"speed":' + " " * 50, '{"brief": {"speed": "fast"}}'])
+    temps = []
+
+    def fake_request(path, payload=None):
+        temps.append(payload["temperature"])
+        return {"choices": [{"message": {"content": next(answers)}}], "usage": {}}
+
+    monkeypatch.setattr(llm, "_request", fake_request)
+    assert llm.chat_json([], {}, "x", temperature=0.1) == {"brief": {"speed": "fast"}}
+    assert temps == [0.1, 0.6], "the second try is a little warmer"
+
+
+def test_llm_up_remakes_a_container_from_an_older_version(monkeypatch):
+    from spawnpoint import llm_server
+
+    calls = []
+    monkeypatch.setattr(llm_server, "pick_backend", lambda b: "vllm")
+    monkeypatch.setattr(llm_server, "_exists", lambda: not any(c[0] == "rm" for c in calls))
+    monkeypatch.setattr(llm_server, "_container_args", lambda: ["--model", llm_server.MODEL, "--revision", "v5.2-release"])
+    monkeypatch.setattr(llm_server, "_docker", lambda *a, **k: calls.append(a) or SimpleNamespace(stdout="", returncode=0))
+    monkeypatch.setattr(llm_server, "ready", lambda port=8000: True)
+    llm_server.up(say=lambda m: None)
+    assert calls[0] == ("rm", "-f", llm_server.NAME), "an old model revision is not reused"
+    run = next(c for c in calls if c[0] == "run")
+    assert "--guided-decoding-disable-any-whitespace" in run and llm_server.REVISION in run
