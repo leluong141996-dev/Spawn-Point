@@ -2,7 +2,10 @@
 
 # Spawn Point
 
-**Describe a 2D game in one sentence — get a playable, juicy Godot 4 game in seconds.**
+**Make a 2D game from one sentence in about 20 seconds. Change it by saying what you want. Share it as a web game.**
+
+For beginners and game jams: free, runs on your own computer, and every sprite, tile, effect and sound is drawn by code,
+so there are no assets to find and no licenses to worry about. The result is a real Godot 4 project you can keep building.
 
 [![CI](https://github.com/leluong141996-dev/Spawn-Point/actions/workflows/ci.yml/badge.svg)](https://github.com/leluong141996-dev/Spawn-Point/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/spawnpoint-studio)](https://pypi.org/project/spawnpoint-studio/)
@@ -19,19 +22,92 @@
 </p>
 <p align="center"><sub>New in 0.4: a Slay the Spire style card game from one sentence ("game thẻ bài, hiệp sĩ đánh lũ xương khô, trùm là Lich").</sub></p>
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/farm-field.gif" width="48%" alt="Tilling, planting, watering and harvesting in the fenced field">
-  <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/farm-animals.gif" width="48%" alt="Collecting eggs and milk from the chickens and the cow in the pen">
-  <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/farm-fishing.gif" width="48%" alt="Fishing from the pond's shore: cast, wait for the bite, reel in">
-  <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/farm-house.gif" width="48%" alt="Walking into the farmhouse: bed, fireplace, table and rug">
-</p>
-<p align="center"><sub>A cozy farm made from one sentence: the field, the animals, fishing and the farmhouse inside.
-Every tile, building, animal and crop is drawn by plain Python. Recorded with <code>spawnpoint gif --focus field|animals|fish|house</code> (autopilot).</sub></p>
-
 <p align="center"><b><a href="https://leluong141996-dev.github.io/Spawn-Point/">▶ Play the demos in your browser</a></b>: a Slay the Spire style card game, a Mario-style platformer, a
 knight with a sword, tower defense, a ninja rescue, a dinosaur-egg bubble shooter, a survivor with level-ups, a cozy
 island farm, an arena shooter and a side-scrolling space shooter. No install needed, and
 they work on phones too (touch controls).</p>
+
+## Make your first game
+
+```bash
+pip install spawnpoint-studio
+spawnpoint setup          # installs Godot 4.6 and the web templates if missing, checks how the model can run
+spawnpoint llm up         # downloads and serves the SpawnPoint-Coder-7B model (NVIDIA GPU, or Ollama anywhere)
+spawnpoint create "a ninja platformer where you collect stars"
+```
+
+```
+Design:
+  “Star Quest” — platformer, palette night, goal collect_all, medium, difficulty 2
+  player: Ninja (stomp); jump 3.5 tiles; speed normal; feel snappy; juice normal
+  [L0 core loop] ok in 5.6s
+  ▶ playing at http://localhost:8060/  (the page reloads as layers land)
+  [L1 goals & enemies] ok in 5.1s
+  [L2 feel & polish] ok in 5.2s
+Done in 25.9s
+
+Change it with words, e.g. "make the jump higher", "add more enemies", "make it harder", "cho nhảy cao hơn".
+change> cho nhảy cao hơn
+  player.jump_tiles: 3.5 -> 4.2
+  the browser tab reloads with the new version
+change>
+Share it:   spawnpoint share out/star-quest   (a zip for itch.io or your friends)
+```
+
+The game opens in your browser as soon as the first layer is built. Prompts can be in English or Vietnamese.
+
+## Change it with words
+
+After `create`, type what you want at the `change>` prompt (or later: `spawnpoint tweak <game> "..."`). Only what
+you asked for changes, and the level layout is kept.
+
+| say | what changes |
+|---|---|
+| "make the jump 20% higher", "cho nhảy cao hơn" | the jump height |
+| "add a dash", "give him a sword" | the hero's abilities |
+| "more enemies", "add bats that chase you" | the enemies |
+| "make it harder", "dễ hơn" | the difficulty: enemy health, numbers, the level |
+| "night colors", "a winter farm" | the theme and its art |
+| "make the boss a dragon", "add a card called Meteor" | card games: the boss, the cards |
+
+For finer control, `spawnpoint studio` opens a web cockpit where you right-click anything in the game to edit it.
+
+## Share it
+
+```bash
+spawnpoint share out/star-quest     # -> out/star-quest-web.zip
+```
+
+The zip is a web build with `index.html` at the top: on [itch.io](https://itch.io) make a new HTML project, upload
+it and tick "This file will be played in the browser" (960 x 540, fullscreen button on). It also works on any static
+host (GitHub Pages, Netlify) and on phones, with touch controls.
+
+## What can it make?
+
+| kind | try |
+|---|---|
+| Card game (deckbuilder) | `"a deckbuilder where a wizard climbs a frozen tower full of ice spirits"` |
+| Farming game | `"a cozy island farm with strawberries and pumpkins, watch out for crows"` |
+| Platformer | `"a ninja platformer where you collect stars, with spikes and bats"` |
+| Rescue platformer | `"a fox must save her puppy from a cage guarded by goblins"` |
+| Sword platformer | `"a knight with a sword fights slimes and skeletons"` |
+| Top-down shooter | `"a space game where I blast alien bugs in an arena"` |
+| Survivor with level-ups | `"survive 3 minutes of zombies, pick an upgrade every level"` |
+| Tower defense | `"defend the castle from goblins and orcs with archer and cannon towers"` |
+| Side-scrolling shooter | `"a falcon ship fights drones and saucers, the boss is a mothership"` |
+| Bubble shooter | `"a dinosaur egg shooter, pop three of a colour"` |
+
+## Good for game jams
+
+- **A playable start in under a minute**, then change it with words while you think about the idea.
+- **It is a real Godot 4 project**: open `out/<game>/project.godot` in Godot and keep going by hand; the scenes and
+  components are plain GDScript.
+- **No art or sound needed**: everything is generated (pixel art, backdrops, effects, chiptune music, sound effects),
+  and you can swap in your own sprites later (`spawnpoint sprites import`).
+- **Free and offline**: the model runs on your machine, no API keys, nothing leaves your computer.
+- **Ready to submit**: `spawnpoint share` makes the zip itch.io wants.
+
+## How it works
 
 Spawn Point is an open-source, autonomous game studio that runs on your own machine. Instead of asking an LLM to type
 hundreds of lines of GDScript (slow, expensive, and easy to break with Godot 3/4 mix-ups), the LLM
@@ -53,17 +129,13 @@ graph.json ──► validate (Python) ──► build scenes (Godot headless) �
 | Hitboxes | drift from visuals | derived from the same shape as the visual |
 | Failure mode | crashes, syntax errors | structured diagnostics *before* Godot runs |
 
-## Install
+## Install details
 
-Requirements: Python ≥ 3.10, [Godot 4.6](https://godotengine.org/download) on your `PATH` (`godot4` or
-`godot`, or set `GODOT_BIN`), and for the LLM features one of: a 12 GB NVIDIA GPU with Docker (vLLM, fastest),
-[Ollama](https://ollama.com/download) on any machine (Mac, AMD, or CPU), or any OpenAI-compatible API.
-
-```bash
-pip install spawnpoint-studio
-spawnpoint llm up                      # SpawnPoint-Coder-7B: vLLM on NVIDIA, otherwise Ollama (or set SPAWNPOINT_LLM_*)
-spawnpoint create "a ninja platformer where you collect stars"
-```
+Requirements: Python ≥ 3.10; Godot 4.6 (`spawnpoint setup` downloads it into Spawn Point's own folder if none is on
+your `PATH`; or set `GODOT_BIN`) with its web export templates (`setup` fetches only the two web files, about 80 MB);
+and to run the model one of: a 12 GB NVIDIA GPU with Docker (vLLM, fastest), [Ollama](https://ollama.com/download) on
+any machine (Mac, AMD, or CPU), or any OpenAI-compatible API (`SPAWNPOINT_LLM_*`). `spawnpoint setup --check` reports
+what is missing without installing anything.
 
 No GPU? [Play the demos in your browser](https://leluong141996-dev.github.io/Spawn-Point/), or build the hand-written examples locally, no LLM needed:
 
@@ -93,36 +165,9 @@ A local "studio floor" around the running game — no terminal needed:
 Edits are stored as overrides in `studio.json` and survive later tweaks; they win over the tuner.
 Standard library only on the server, one HTML/JS page on the client, Server-Sent Events for progress.
 
-## Make a game from a sentence
+## Under the hood: from a sentence to a game
 
-```bash
-spawnpoint llm up                     # SpawnPoint-Coder-7B: vLLM (~11 GB VRAM) or Ollama — or any OpenAI-compatible API
-spawnpoint create "a ninja platformer where you collect stars"
-```
-
-```
-Design:
-  “Ninja Star Dash” — platformer, palette candy, goal collect_all, short, difficulty 2
-  player: double_jump, stomp; jump 4.0 tiles; speed fast; feel floaty; juice subtle
-  enemies: 4x Goblin (walker), 2x Spider (hopper); pickups: 10x Star; hazards: spikes
-  [L0 core loop] ok in 5.5s (build 3.1s, web 2.4s)
-  ▶ playing at http://localhost:8060/  (the page reloads as layers land)
-  [L1 goals & enemies] ok in 5.1s
-  [L2 feel & polish] ok in 5.1s
-Done in 25.7s (design 10.0s; LLM 2 call(s), 977 prompt + 256 completion tokens).
-```
-
-The browser opens on the first playable layer and reloads as the next ones land. Then iterate:
-
-```bash
-spawnpoint tweak out/ninja-star-dash "jump 20% higher and add a dash, night colors"
-#   palette: "candy" -> "night"
-#   player.abilities: ["double_jump", "stomp"] -> ["double_jump", "stomp", "dash"]
-#   player.jump_tiles: 4.0 -> 4.8
-```
-
-Only what you asked for changes, and the level layout is kept. Prompts can be in any language
-(non-English prompts are translated first). How it works:
+`spawnpoint create` runs four steps:
 
 1. **Design** — the LLM fills a small, enumerated **GameBrief** (genre, palette, abilities, enemy
    archetypes, pickups, goal, feel…) using guided JSON decoding, so even a 7B model cannot produce
@@ -139,16 +184,15 @@ Only what you asked for changes, and the level layout is kept. Prompts can be in
 **The model.** [SpawnPoint-Coder-7B](https://huggingface.co/smoky1496/SpawnPoint-Coder-7B-AWQ) is a 7B model
 fine-tuned to generate Godot 4 games through this pipeline: it writes the game design, tweaks and entity
 edits as strict JSON, and the compiler turns that into Godot scenes and GDScript. It runs on a single 12 GB
-GPU (AWQ 4-bit). v5 added **side-scrolling shooters** (flight patterns, power-ups, a boss), **Vietnamese prompts read directly** and a small per-genre format instead of one big form; v5.1 fixes prompts that name the hero only indirectly ("a tank shooting monsters"); v5.2 catches farm pests mentioned only in passing ("có cáo", "with a fox around") and leaves peaceful farms without any. The downloadable AWQ build gets 94% of a sealed set of 16 human-written prompts for shooters and the v4 fixes fully right, 100% of a sealed set of 16 farm prompts with pests named in passing, and 83% of 30 human-written game ideas in English and Vietnamese (v4: 87% on those 30; the model card lists every number and where v5.2 is behind). The GGUF Q4_K_M build scores 87% on those 30. Older models still work with `SPAWNPOINT_BRIEF_FORMAT=v4`. It is tuned for the 2D game kinds Spawn Point builds; other genres are no better than a general 7B coder. `spawnpoint llm up` downloads and serves it: the AWQ build on vLLM when
+GPU (AWQ 4-bit). **v6 designs card games** (Slay the Spire style deckbuilders): 94% of a sealed set of 16 card-game prompts fully right (v5.2: 56%), 90% of 30 human-written game ideas in English and Vietnamese; the downloadable AWQ build gets 94% and 87% on those, the GGUF Q4_K_M build 88% and 83% (the model card lists every number). Earlier: v5 added **side-scrolling shooters** (flight patterns, power-ups, a boss), **Vietnamese prompts read directly** and a small per-genre format instead of one big form; v5.1 fixes prompts that name the hero only indirectly ("a tank shooting monsters"); v5.2 catches farm pests mentioned only in passing ("có cáo", "with a fox around") and leaves peaceful farms without any. The downloadable AWQ build gets 94% of a sealed set of 16 human-written prompts for shooters and the v4 fixes fully right, 100% of a sealed set of 16 farm prompts with pests named in passing, and 83% of 30 human-written game ideas in English and Vietnamese (v4: 87% on those 30; the model card lists every number and where v5.2 is behind). The GGUF Q4_K_M build scores 87% on those 30. Older models still work with `SPAWNPOINT_BRIEF_FORMAT=v4`. It is tuned for the 2D game kinds Spawn Point builds; other genres are no better than a general 7B coder. `spawnpoint llm up` downloads and serves it: the AWQ build on vLLM when
 Docker and an NVIDIA GPU are present, otherwise the [GGUF build](https://huggingface.co/smoky1496/SpawnPoint-Coder-7B-GGUF)
 (Q4_K_M, ~4.7 GB) in Ollama. Force one with `--backend vllm|ollama`.
 
 LLM settings: `SPAWNPOINT_LLM_BASE_URL` (default: vLLM at `http://localhost:8000/v1`, or Ollama at
 `http://localhost:11434/v1` when only Ollama answers), `SPAWNPOINT_LLM_MODEL` (default: SpawnPoint-Coder if the
 server has it, else its first model), `SPAWNPOINT_LLM_API_KEY`.
-Web builds need the Godot **web export templates** (Editor → Manage Export Templates, or unpack
-`web_*.zip` from the official `.tpz` into `~/.local/share/godot/export_templates/<version>/`);
-use `--no-web` to skip and play natively with `spawnpoint run`.
+Web builds need the Godot **web export templates**: `spawnpoint setup` fetches them (or Editor → Manage Export
+Templates); use `--no-web` to skip and play natively with `spawnpoint run`.
 
 ## A card game from one sentence
 
@@ -170,6 +214,15 @@ beach, a candy land, a neon city) with drifting leaves, snow or embers, parchmen
 ice, lightning, poison), a pixel font, and the same chibi heroes and monsters as the other games, drawn big.
 
 ## A cozy farm from one sentence
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/farm-field.gif" width="48%" alt="Tilling, planting, watering and harvesting in the fenced field">
+  <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/farm-animals.gif" width="48%" alt="Collecting eggs and milk from the chickens and the cow in the pen">
+  <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/farm-fishing.gif" width="48%" alt="Fishing from the pond's shore: cast, wait for the bite, reel in">
+  <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/farm-house.gif" width="48%" alt="Walking into the farmhouse: bed, fireplace, table and rug">
+</p>
+<p align="center"><sub>A cozy farm made from one sentence: the field, the animals, fishing and the farmhouse inside.
+Every tile, building, animal and crop is drawn by plain Python. Recorded with <code>spawnpoint gif --focus field|animals|fish|house</code> (autopilot).</sub></p>
 
 <p align="center"><img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/farm-overview.png" width="92%" alt="A generated island farm: farmhouse, fenced crop field, animal pen with a coop, pond and woods"><br><sub>One generated farm, the whole map: everything here is drawn by plain Python, no image files.</sub></p>
 

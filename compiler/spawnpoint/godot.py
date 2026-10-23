@@ -47,7 +47,10 @@ def find_binary() -> str:
         path = shutil.which(c)
         if path:
             return path
-    raise GodotError("Godot 4 not found. Install it or set GODOT_BIN=/path/to/godot.")
+    from .installer import managed_binary
+    if managed_binary().exists():  # installed by `spawnpoint setup`
+        return str(managed_binary())
+    raise GodotError("Godot 4 not found. Run `spawnpoint setup` to install it, or set GODOT_BIN=/path/to/godot.")
 
 
 def available() -> bool:

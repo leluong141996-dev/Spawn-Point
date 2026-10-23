@@ -52,7 +52,7 @@ def _brief_summary(brief: GameBrief, notes: list[str]) -> None:
         for n in notes:
             _say(f"  note: {n}")
         return
-    _say(f"  player:{', '.join(b.player.abilities) or 'no abilities'}; jump {b.player.jump_tiles} tiles; "
+    _say(f"  player: {b.player.character} ({', '.join(b.player.abilities) or 'no abilities'}); jump {b.player.jump_tiles} tiles; "
          f"speed {b.player.speed}; feel {b.feel}; juice {b.juice}")
     _say(f"  enemies: {enemies}; pickups: {b.collectible.count}x {b.collectible.name}; hazards: {', '.join(b.hazards) or 'none'}")
     for n in notes:
@@ -63,6 +63,11 @@ def create(args) -> int:
     if getattr(args, "ai_art", False):
         import os
         os.environ["SPAWNPOINT_AI_ART"] = "1"  # read by create(); stored in studio.json for later tweaks
+    from .installer import web_templates_ready
+    if not args.no_web and not web_templates_ready():
+        _say("note: the Godot web export templates are missing, so the game will not open in the browser."
+             " Run `spawnpoint setup` once to fetch them; until then play with `spawnpoint run`.")
+        args.no_web = True
     llm = OpenAICompatible()
     brief = _load_brief(json.loads(args.brief.read_text())) if args.brief else None
     server: web.Server | None = None
@@ -104,10 +109,14 @@ def create(args) -> int:
         _print_playtest(result.playtest)
     _say(f"Done in {result.timings.get('total', 0):.1f}s (design {result.timings.get('design', 0):.1f}s; LLM {result.usage}).")
     out = out_holder["out"]
-    _say(f"Change it:  spawnpoint tweak {_rel(out)} \"make the jump 20% higher\"")
-    _say(f"Native:     spawnpoint run {_rel(out)}")
     if not result.ok:
+        _say(f"Native:     spawnpoint run {_rel(out)}")
         return 1
+    if not getattr(args, "no_chat", False) and sys.stdin.isatty():
+        _chat(out, llm, web_export=not args.no_web)
+    _say(f"Change it:  spawnpoint tweak {_rel(out)} \"make the jump 20% higher\"")
+    _say(f"Share it:   spawnpoint share {_rel(out)}   (a zip for itch.io or your friends)")
+    _say(f"Native:     spawnpoint run {_rel(out)}")
     if server is not None and not args.no_serve:
         _say("Serving — press Ctrl+C to stop.")
         try:
@@ -115,6 +124,48 @@ def create(args) -> int:
                 time.sleep(3600)
         except KeyboardInterrupt:
             server.stop()
+    return 0
+
+
+CHAT_EXAMPLES = ('"make the jump higher"', '"add more enemies"', '"make it harder"', '"cho nhảy cao hơn"',
+                 '"thêm quái"', '"night colors"')
+
+
+def _chat(project: Path, llm, web_export: bool) -> None:
+    """Change the game with words, one request after another, until an empty line."""
+    _say("")
+    _say(f"Change it with words, e.g. {', '.join(CHAT_EXAMPLES[:4])}. Press Enter on an empty line when done.")
+    while True:
+        try:
+            request = input("change> ").strip()
+        except (EOFError, KeyboardInterrupt):
+            _say("")
+            return
+        if not request:
+            return
+        try:
+            result = do_tweak(project, request, llm, web_export=web_export, on_layer=_report_layer)
+        except (LLMError, StudioError) as e:
+            _say(f"  error: {e}")
+            continue
+        for c in result.changes or ["no change: try saying it another way"]:
+            _say(f"  {c}")
+        if result.ok and web_export:
+            _say("  the browser tab reloads with the new version")
+
+
+def share(args) -> int:
+    project = args.project.resolve()
+    if not (project / "project.godot").exists():
+        _say(f"error: {project} is not a built game")
+        return 2
+    _say(f"Packing {_rel(project)} for the web ...")
+    zip_path = web.share_zip(project, args.out.resolve() if args.out else None)
+    size = zip_path.stat().st_size / 1e6
+    _say(f"Wrote {_rel(zip_path)} ({size:.1f} MB)")
+    _say("  itch.io: create a new project, kind of project HTML, upload the zip and tick")
+    _say('  "This file will be played in the browser"; viewport 960 x 540, and turn on the fullscreen button.')
+    _say("  Anywhere else: unzip it on any static web host (GitHub Pages, Netlify...) and open index.html.")
     return 0
 
 

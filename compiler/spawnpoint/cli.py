@@ -1,4 +1,4 @@
-"""Command line: spawnpoint validate | build | run | components | manifest."""
+"""Command line: spawnpoint setup | create | tweak | share | build | run | ... (see `spawnpoint --help`)."""
 
 from __future__ import annotations
 
@@ -46,6 +46,7 @@ def main(argv: list[str] | None = None) -> int:
     cr.add_argument("--no-web", action="store_true", help="skip the web export (play with `spawnpoint run`)")
     cr.add_argument("--no-open", action="store_true", help="do not open the browser")
     cr.add_argument("--no-serve", action="store_true", help="exit after building instead of serving")
+    cr.add_argument("--no-chat", action="store_true", help="do not ask for changes after building")
     cr.add_argument("--port", type=int, default=8060)
     cr.add_argument("--record", action="store_true", help="save LLM calls as local fine-tuning data")
     cr.add_argument("--playtest", action="store_true", help="after layer 2, let bots play and tune the game")
@@ -143,6 +144,14 @@ def main(argv: list[str] | None = None) -> int:
     ds.add_argument("action", choices=["stats", "path"])
     ds.add_argument("--json", action="store_true")
 
+    su = sub.add_parser("setup", help="install Godot and the web templates if missing, and check how the model can run")
+    su.add_argument("--check", action="store_true", help="only report what is missing; install nothing")
+    su.add_argument("--no-web", action="store_true", help="skip the web export templates")
+
+    sh = sub.add_parser("share", help="zip a game's web build to upload to itch.io or send to friends")
+    sh.add_argument("project", type=Path)
+    sh.add_argument("-o", "--out", type=Path, help="zip file (default: <project>-web.zip next to the project)")
+
     sv = sub.add_parser("serve", help="serve a project's web build with live reload")
     sv.add_argument("project", type=Path)
     sv.add_argument("--port", type=int, default=8060)
@@ -155,12 +164,17 @@ def main(argv: list[str] | None = None) -> int:
                 "manifest": _manifest, "create": studio_cli.create, "tweak": studio_cli.tweak,
                 "serve": studio_cli.serve, "dataset": studio_cli.dataset, "playtest": studio_cli.playtest, "studio": studio_cli.studio,
                 "sprites": _sprites, "gif": _gif, "overview": _overview, "logo": _logo, "llm": _llm, "examples": _examples,
-                "demo": _demo}[args.cmd](args)
+                "demo": _demo, "setup": _setup, "share": studio_cli.share}[args.cmd](args)
     except godot.GodotError as e:
         print(f"error: {e}", file=sys.stderr)
         if e.output:
             print(e.output[-3000:], file=sys.stderr)
         return 2
+
+
+def _setup(args) -> int:
+    from . import installer
+    return installer.run(args)
 
 
 def _print_diags(diags) -> None:

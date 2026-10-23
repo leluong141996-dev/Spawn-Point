@@ -24,7 +24,7 @@ LIVE_RELOAD = (
 )
 
 
-def export_preset(head_include: str = LIVE_RELOAD) -> str:
+def export_preset(head_include: str = LIVE_RELOAD, folder: str = WEB_DIR) -> str:
     return "\n".join([
         "[preset.0]",
         "",
@@ -36,7 +36,7 @@ def export_preset(head_include: str = LIVE_RELOAD) -> str:
         'export_filter="all_resources"',
         'include_filter=""',
         'exclude_filter="build_plan.json,spawnpoint.json,studio.json"',
-        f'export_path="{WEB_DIR}/index.html"',
+        f'export_path="{folder}/index.html"',
         "",
         "[preset.0.options]",
         "",
@@ -58,18 +58,37 @@ def export_preset(head_include: str = LIVE_RELOAD) -> str:
     ])
 
 
-def export(project: Path, head_include: str = LIVE_RELOAD) -> float:
-    """Exports the project to <project>/web and bumps the live-reload version. Returns seconds."""
+def export(project: Path, head_include: str = LIVE_RELOAD, folder: str = WEB_DIR) -> float:
+    """Exports the project to <project>/<folder> (and bumps the live-reload version for the web folder). Seconds."""
     t0 = time.perf_counter()
-    web = project / WEB_DIR
+    web = project / folder
     web.mkdir(exist_ok=True)
     (web / ".gdignore").write_text("")  # keep Godot from importing the build output
-    (project / "export_presets.cfg").write_text(export_preset(head_include))
-    result = godot.run(project, ["--export-release", "Web", f"{WEB_DIR}/index.html"], timeout=300)
+    (project / "export_presets.cfg").write_text(export_preset(head_include, folder))
+    result = godot.run(project, ["--export-release", "Web", f"{folder}/index.html"], timeout=300)
     if result.returncode != 0 or not (web / "index.html").exists():
-        raise godot.GodotError("web export failed (are the Godot web export templates installed?)", result.output)
-    bump_version(project)
+        raise godot.GodotError("web export failed: the Godot web export templates are missing; run `spawnpoint setup`",
+                               result.output)
+    if folder == WEB_DIR:
+        bump_version(project)
     return time.perf_counter() - t0
+
+
+SHARE_DIR = "share"
+
+
+def share_zip(project: Path, out: Path | None = None) -> Path:
+    """A zip of the game's web build, ready to upload to itch.io or any static host (index.html at the top level,
+    no live reload). Returns the zip's path."""
+    import zipfile
+
+    export(project, head_include="", folder=SHARE_DIR)
+    out = out or project.parent / f"{project.name}-web.zip"
+    files = sorted(p for p in (project / SHARE_DIR).iterdir() if p.is_file() and p.name != ".gdignore")
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
+        for f in files:
+            z.write(f, f.name)
+    return out
 
 
 def bump_version(project: Path) -> int:
