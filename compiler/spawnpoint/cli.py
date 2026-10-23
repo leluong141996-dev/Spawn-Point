@@ -14,6 +14,9 @@ from .project import slugify
 
 
 def main(argv: list[str] | None = None) -> int:
+    for stream in (sys.stdout, sys.stderr):  # Windows consoles default to cp1252, which cannot print ✓ or “”
+        if hasattr(stream, "reconfigure") and (stream.encoding or "").lower().replace("-", "") != "utf8":
+            stream.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser(prog="spawnpoint", description="Compile JSON game graphs into Godot 4 projects.")
     ap.add_argument("--version", action="version", version=f"spawnpoint {__version__}")
     sub = ap.add_subparsers(dest="cmd", required=True)
