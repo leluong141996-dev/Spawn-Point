@@ -158,3 +158,21 @@ def test_llm_up_remakes_a_container_from_an_older_version(monkeypatch):
     assert calls[0] == ("rm", "-f", llm_server.NAME), "an old model revision is not reused"
     run = next(c for c in calls if c[0] == "run")
     assert "--guided-decoding-disable-any-whitespace" in run and llm_server.REVISION in run
+
+
+def test_share_to_itch_logs_in_once_then_pushes_the_web_build(monkeypatch, tmp_path, capsys):
+    calls = []
+    monkeypatch.setattr(installer, "ensure_butler", lambda say: "/bin/butler")
+    monkeypatch.setattr(installer, "butler_logged_in", lambda: False)
+    monkeypatch.delenv("BUTLER_API_KEY", raising=False)
+    monkeypatch.setattr("subprocess.run", lambda cmd, **k: calls.append(cmd) or SimpleNamespace(returncode=0))
+    assert studio_cli._push_itch(tmp_path, "fox/star-collector") == 0
+    assert calls == [["/bin/butler", "login"], ["/bin/butler", "push", str(tmp_path / "share"), "fox/star-collector:html5"]]
+    assert "https://fox.itch.io/star-collector" in capsys.readouterr().out
+    assert studio_cli._push_itch(tmp_path, "not a page") == 2, "user/game is checked before anything runs"
+
+
+def test_butler_downloads_for_each_computer():
+    assert installer.butler_channel("Linux", "x86_64") == "linux-amd64"
+    assert installer.butler_channel("Darwin", "arm64") == "darwin-arm64"
+    assert installer.butler_channel("Windows", "AMD64") == "windows-amd64"

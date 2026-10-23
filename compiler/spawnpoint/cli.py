@@ -155,6 +155,7 @@ def main(argv: list[str] | None = None) -> int:
     sh = sub.add_parser("share", help="zip a game's web build to upload to itch.io or send to friends")
     sh.add_argument("project", type=Path)
     sh.add_argument("-o", "--out", type=Path, help="zip file (default: <project>-web.zip next to the project)")
+    sh.add_argument("--itch", metavar="USER/GAME", help="also upload it to your itch.io page (with butler)")
 
     sv = sub.add_parser("serve", help="serve a project's web build with live reload")
     sv.add_argument("project", type=Path)
