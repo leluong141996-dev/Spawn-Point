@@ -493,3 +493,15 @@ def test_level_ups_turn_a_platformer_into_a_survivor():
     assert b.player.abilities == ["dash", "shoot"] and any("survivor" in n for n in notes)
     plain, _ = normalize(GameBrief(title="p", genre="platformer", goal="reach_exit"))
     assert plain.genre == "platformer"
+
+
+def test_a_tweak_that_adds_a_sword_replaces_the_gun():
+    from spawnpoint.studio.orchestrator import _newest_weapon
+
+    old = GameBrief(title="T", genre="topdown", player={"abilities": ["shoot", "dash"]})
+    asked = GameBrief(title="T", genre="topdown", player={"abilities": ["shoot", "dash", "sword"]})
+    assert _newest_weapon(old, asked).player.abilities == ["dash", "sword"], "the weapon just asked for wins"
+    back = GameBrief(title="T", genre="topdown", player={"abilities": ["sword", "shoot"]})
+    assert _newest_weapon(asked.model_copy(update={"player": asked.player.model_copy(update={"abilities": ["sword"]})}),
+                          back).player.abilities == ["shoot"]
+    assert _newest_weapon(old, old).player.abilities == ["shoot", "dash"], "nothing added: unchanged"
