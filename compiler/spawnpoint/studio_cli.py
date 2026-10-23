@@ -131,6 +131,23 @@ CHAT_EXAMPLES = ('"make the jump higher"', '"add more enemies"', '"make it harde
                  '"thêm quái"', '"night colors"')
 
 
+# What words can change, per genre (what the design controls), for when a request maps to nothing.
+CAN_CHANGE = {
+    "platformer": "the hero (and its jump, speed, health, dash, double jump, sword or gun), enemies, pickups, spikes and pits",
+    "topdown": "the hero (speed, health, dash, sword or gun), enemies, pickups, level-ups and how long to survive",
+    "farm": "the crops, the pests, the season and the money to earn",
+    "tower_defense": "the towers and the invaders",
+    "shmup": "the ship, the enemies and the boss",
+    "bubble": "the shooter and what is popped",
+    "cards": "the hero and its class, the cards, the foes and the boss",
+}
+
+
+def _cannot(genre: str) -> str:
+    return (f"I can't change that yet. Words can change {CAN_CHANGE.get(genre, 'the hero and the enemies')}, "
+            "plus the theme, the difficulty, the level length and the title.")
+
+
 def _chat(project: Path, llm, web_export: bool) -> None:
     """Change the game with words, one request after another, until an empty line."""
     _say("")
@@ -148,7 +165,7 @@ def _chat(project: Path, llm, web_export: bool) -> None:
         except (LLMError, StudioError) as e:
             _say(f"  error: {e}")
             continue
-        for c in result.changes or ["no change: try saying it another way"]:
+        for c in result.changes or [_cannot(result.brief.genre)]:
             _say(f"  {c}")
         if result.ok and web_export:
             _say("  the browser tab reloads with the new version")
@@ -163,9 +180,41 @@ def share(args) -> int:
     zip_path = web.share_zip(project, args.out.resolve() if args.out else None)
     size = zip_path.stat().st_size / 1e6
     _say(f"Wrote {_rel(zip_path)} ({size:.1f} MB)")
+    if getattr(args, "itch", None):
+        return _push_itch(project, args.itch)
     _say("  itch.io: create a new project, kind of project HTML, upload the zip and tick")
     _say('  "This file will be played in the browser"; viewport 960 x 540, and turn on the fullscreen button.')
+    _say("  Or in one step next time: spawnpoint share <game> --itch your-name/your-game")
     _say("  Anywhere else: unzip it on any static web host (GitHub Pages, Netlify...) and open index.html.")
+    return 0
+
+
+def _push_itch(project: Path, target: str) -> int:
+    """Uploads the shared web build to an itch.io page with butler (logging in through the browser if needed)."""
+    import os
+    import re
+    import subprocess
+
+    from . import installer
+
+    if not re.fullmatch(r"[\w.-]+/[\w.-]+", target):
+        _say("error: --itch wants your-name/your-game, as in https://your-name.itch.io/your-game")
+        return 2
+    butler = installer.ensure_butler(_say)
+    if not os.environ.get("BUTLER_API_KEY") and not installer.butler_logged_in():
+        _say("  log in to itch.io in the browser window that opens ...")
+        if subprocess.run([butler, "login"]).returncode != 0:
+            _say("error: itch.io login failed")
+            return 2
+    _say(f"Uploading to itch.io ({target}:html5) ...")
+    pushed = subprocess.run([butler, "push", str(project / web.SHARE_DIR), f"{target}:html5"])
+    if pushed.returncode != 0:
+        _say("error: the upload failed. The page must exist first: create it on itch.io (kind of project: HTML).")
+        return 2
+    user, game = target.split("/", 1)
+    _say(f"Uploaded: https://{user}.itch.io/{game}")
+    _say('  first upload only: on the page\'s edit screen tick "This file will be played in the browser" for it,')
+    _say("  set the viewport to 960 x 540 and turn on the fullscreen button.")
     return 0
 
 
@@ -184,7 +233,7 @@ def tweak(args) -> int:
         for c in result.changes:
             _say(f"  {c}")
     else:
-        _say("No changes (the request did not map to anything the brief controls).")
+        _say(_cannot(result.brief.genre))
     for n in result.notes:
         _say(f"  note: {n}")
     _say(f"Done in {result.timings.get('total', 0):.1f}s (LLM {result.usage}). "

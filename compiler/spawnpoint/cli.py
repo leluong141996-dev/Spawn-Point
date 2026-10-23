@@ -14,6 +14,9 @@ from .project import slugify
 
 
 def main(argv: list[str] | None = None) -> int:
+    for stream in (sys.stdout, sys.stderr):  # Windows consoles default to cp1252, which cannot print ✓ or “”
+        if hasattr(stream, "reconfigure") and (stream.encoding or "").lower().replace("-", "") != "utf8":
+            stream.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser(prog="spawnpoint", description="Compile JSON game graphs into Godot 4 projects.")
     ap.add_argument("--version", action="version", version=f"spawnpoint {__version__}")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -147,10 +150,12 @@ def main(argv: list[str] | None = None) -> int:
     su = sub.add_parser("setup", help="install Godot and the web templates if missing, and check how the model can run")
     su.add_argument("--check", action="store_true", help="only report what is missing; install nothing")
     su.add_argument("--no-web", action="store_true", help="skip the web export templates")
+    su.add_argument("--no-model", action="store_true", help="do not check how the model can run (e.g. on CI)")
 
     sh = sub.add_parser("share", help="zip a game's web build to upload to itch.io or send to friends")
     sh.add_argument("project", type=Path)
     sh.add_argument("-o", "--out", type=Path, help="zip file (default: <project>-web.zip next to the project)")
+    sh.add_argument("--itch", metavar="USER/GAME", help="also upload it to your itch.io page (with butler)")
 
     sv = sub.add_parser("serve", help="serve a project's web build with live reload")
     sv.add_argument("project", type=Path)

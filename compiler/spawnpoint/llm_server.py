@@ -7,6 +7,7 @@ Apple Silicon, AMD, or plain CPU). `auto` picks vLLM when Docker and an NVIDIA G
 from __future__ import annotations
 
 import getpass
+import json
 import os
 import shutil
 import subprocess
@@ -62,6 +63,15 @@ def _exists() -> bool:
     return bool(_docker("ps", "-a", "--filter", f"name=^{NAME}$", "--format", "{{.Names}}").stdout.strip())
 
 
+def _container_args() -> list[str]:
+    """The arguments the existing container was made with (its command line after the image)."""
+    out = _docker("inspect", "-f", "{{json .Config.Cmd}}", NAME, check=False)
+    try:
+        return json.loads(out.stdout) if out.returncode == 0 else []
+    except ValueError:
+        return []
+
+
 def _running() -> bool:
     out = _docker("inspect", "-f", "{{.State.Running}}", NAME, check=False)
     return out.returncode == 0 and out.stdout.strip() == "true"
@@ -78,6 +88,16 @@ def ready(port: int = 8000) -> bool:
 def up(port: int = 8000, max_len: int = 16384, say=print, backend: str = "auto") -> int:
     if pick_backend(backend) == "ollama":
         return ollama_up(say)
+    args = [IMAGE, "--model", MODEL, *(["--revision", REVISION] if REVISION else []), "--served-model-name", SERVED,
+            "--max-model-len", str(max_len), "--gpu-memory-utilization", "0.85",
+            # Guided JSON with free whitespace lets the model "escape" a value it does not want to write
+            # (a number where the schema says "slow|normal|fast") into whitespace until max_tokens.
+            "--guided-decoding-backend", "xgrammar", "--guided-decoding-disable-any-whitespace"]
+    if _exists() and _container_args() != args[1:]:
+        # Made by an older Spawn Point (another model revision or other options): make it again, so an upgrade
+        # really serves the model this version pins. The downloaded weights stay in the shared cache.
+        say("Updating the model server to this version's settings ...")
+        _docker("rm", "-f", NAME)
     if _exists():
         _docker("start", NAME)
     else:
@@ -88,8 +108,7 @@ def up(port: int = 8000, max_len: int = 16384, say=print, backend: str = "auto")
         # the image, so USER/LOGNAME are set for torch's getpass.getuser().
         _docker("run", "-d", "--name", NAME, "--gpus", "all", "-p", f"{port}:8000", "--ipc=host",
                 "-u", f"{os.getuid()}:{os.getgid()}", "-e", f"USER={user}", "-e", f"LOGNAME={user}",
-                "-e", "HOME=/tmp", "-e", "HF_HOME=/hf", "-v", f"{hf}:/hf", IMAGE, "--model", MODEL,
-                *(["--revision", REVISION] if REVISION else []), "--served-model-name", SERVED, "--max-model-len", str(max_len), "--gpu-memory-utilization", "0.85")
+                "-e", "HOME=/tmp", "-e", "HF_HOME=/hf", "-v", f"{hf}:/hf", *args)
     say(f"Starting {SERVED} on :{port} (first start downloads ~5.6 GB) ...")
     while not ready(port):
         if not _running():

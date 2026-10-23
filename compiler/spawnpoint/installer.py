@@ -181,6 +181,44 @@ def install_web_templates(say=print, url: str | None = None) -> Path:
     return out
 
 
+# --- butler (itch.io's uploader) --------------------------------------------------------------------------------
+
+def butler_channel(system: str | None = None, machine: str | None = None) -> str:
+    system = system or platform.system()
+    machine = (machine or platform.machine()).lower()
+    arch = "arm64" if machine in ("aarch64", "arm64") and system == "Darwin" else "amd64"
+    return {"Darwin": "darwin", "Windows": "windows"}.get(system, "linux") + "-" + arch
+
+
+def butler_logged_in() -> bool:
+    """butler keeps its itch.io key in butler_creds once you have logged in."""
+    if sys.platform == "win32":
+        base = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
+    elif sys.platform == "darwin":
+        base = Path.home() / "Library" / "Application Support"
+    else:
+        base = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+    return (base / "itch" / "butler_creds").exists()
+
+
+def ensure_butler(say=print) -> str:
+    """butler on the PATH, or downloaded once into Spawn Point's folder."""
+    found = shutil.which("butler")
+    if found:
+        return found
+    folder = data_dir() / "butler"
+    exe = folder / ("butler.exe" if sys.platform == "win32" else "butler")
+    if not exe.exists():
+        say("  downloading butler, itch.io's uploader ...")
+        archive = data_dir() / "butler.zip"
+        _download(f"https://broth.itch.zone/butler/{butler_channel()}/LATEST/archive/default", archive, say)
+        with zipfile.ZipFile(archive) as z:
+            z.extractall(folder)
+        archive.unlink()
+        exe.chmod(exe.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    return str(exe)
+
+
 # --- the model ---------------------------------------------------------------------------------------------------
 
 @dataclass
@@ -248,13 +286,15 @@ def run(args) -> int:
     # 3. The model
     llm = check_llm()
     backend = llm.backend()
-    if backend == "api":
+    if getattr(args, "no_model", False):
+        backend = "skip"
+    elif backend == "api":
         say(f"✓ model: an OpenAI-compatible API at {os.environ['SPAWNPOINT_LLM_BASE_URL']}")
     elif backend == "vllm":
         say("✓ model: NVIDIA GPU and Docker found; `spawnpoint llm up` serves SpawnPoint-Coder-7B with vLLM")
     elif backend == "ollama":
         say("✓ model: Ollama found; `spawnpoint llm up` pulls SpawnPoint-Coder-7B (GGUF, about 4.7 GB)")
-    else:
+    elif backend is None:
         say("✗ model: no way to run it yet. Install Ollama (https://ollama.com/download, any computer)"
             " or Docker with an NVIDIA GPU, then run `spawnpoint setup` again.")
         ok = False

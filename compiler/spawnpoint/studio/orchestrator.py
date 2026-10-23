@@ -285,11 +285,9 @@ def _newest_weapon(old: GameBrief, new: GameBrief) -> GameBrief:
     return new
 
 
-def _tweak(out_dir, request, llm, web_export, on_layer, manifest, recorder: Recorder | None) -> StudioResult:
-    manifest = manifest or manifest_mod.load()
-    session = load_session(out_dir)
-    old = GameBrief.model_validate(session["brief"])
-    t0 = time.perf_counter()
+def design_tweak(old: GameBrief, request: str, llm: ChatModel) -> tuple[GameBrief, list[str], dict]:
+    """The changed design for a request in words, without building anything: (new brief, notes, raw answer with
+    the request as read under "english")."""
     english = request
     if needs_translation(request) and brief_format() != "v5":  # the v5 model reads Vietnamese itself
         english = llm.chat_json(translate_messages(request), TRANSLATE_SCHEMA, "Translation",
@@ -302,6 +300,16 @@ def _tweak(out_dir, request, llm, web_export, on_layer, manifest, recorder: Reco
         raise StudioError(f"the LLM produced an invalid brief update: {e}") from e
     new = _newest_weapon(old, new)
     new, notes = normalize(new)
+    raw["english"] = english  # the request as the model read it (kept in the session's history)
+    return new, notes, raw
+
+
+def _tweak(out_dir, request, llm, web_export, on_layer, manifest, recorder: Recorder | None) -> StudioResult:
+    manifest = manifest or manifest_mod.load()
+    session = load_session(out_dir)
+    old = GameBrief.model_validate(session["brief"])
+    t0 = time.perf_counter()
+    new, notes, raw = design_tweak(old, request, llm)
     if recorder:
         tr = recorder.last("translate")
         if tr:
@@ -335,7 +343,7 @@ def _tweak(out_dir, request, llm, web_export, on_layer, manifest, recorder: Reco
     timings["total"] = time.perf_counter() - t0
     result.timings = timings
     if report.build.ok:
-        session["history"].append({"request": request, "english": english, "changes": changes})
+        session["history"].append({"request": request, "english": raw["english"], "changes": changes})
         session.update(brief=new.model_dump(), seed=seed, chunks=chunks)
         _save_session(out_dir, session)
     return result

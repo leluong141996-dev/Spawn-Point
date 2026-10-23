@@ -75,8 +75,12 @@ For finer control, `spawnpoint studio` opens a web cockpit where you right-click
 ## Share it
 
 ```bash
-spawnpoint share out/star-quest     # -> out/star-quest-web.zip
+spawnpoint share out/star-quest                          # -> out/star-quest-web.zip
+spawnpoint share out/star-quest --itch your-name/star-quest   # and upload it to your itch.io page
 ```
+
+With `--itch`, Spawn Point fetches butler (itch.io's uploader), logs you in through the browser the first time (or
+uses `BUTLER_API_KEY`) and uploads the game; create the page on itch.io first (kind of project: HTML).
 
 The zip is a web build with `index.html` at the top: on [itch.io](https://itch.io) make a new HTML project, upload
 it and tick "This file will be played in the browser" (960 x 540, fullscreen button on). It also works on any static
@@ -105,7 +109,8 @@ host (GitHub Pages, Netlify) and on phones, with touch controls.
 - **No art or sound needed**: everything is generated (pixel art, backdrops, effects, chiptune music, sound effects),
   and you can swap in your own sprites later (`spawnpoint sprites import`).
 - **Free and offline**: the model runs on your machine, no API keys, nothing leaves your computer.
-- **Ready to submit**: `spawnpoint share` makes the zip itch.io wants.
+- **It looks finished**: a title screen with the game's name and keys, a pause menu, music, and a Play again button.
+- **Ready to submit**: `spawnpoint share --itch you/game` uploads it to itch.io in one step.
 
 ## How it works
 
