@@ -1,0 +1,39 @@
+name: Install
+
+# A new user's first steps on Linux, macOS and Windows: pip install, spawnpoint setup (downloads Godot and the web
+# templates), build an example and pack it for the web. No GPU on these runners, so the model check is skipped.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  first-game:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-14, windows-2022]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: pip install
+        run: pip install .
+      - name: spawnpoint setup
+        run: spawnpoint setup --no-model
+      - name: setup again finds everything
+        run: spawnpoint setup --check --no-model
+      - name: build an example
+        run: |
+          spawnpoint examples copy coin_hopper
+          spawnpoint build coin_hopper.json -o game
+      - name: pack it for the web
+        run: |
+          spawnpoint share game -o game-web.zip
+          python -c "import zipfile; n = zipfile.ZipFile('game-web.zip').namelist(); print(n); assert 'index.html' in n and 'index.wasm' in n"

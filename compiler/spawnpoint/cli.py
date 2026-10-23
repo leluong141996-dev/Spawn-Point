@@ -147,6 +147,7 @@ def main(argv: list[str] | None = None) -> int:
     su = sub.add_parser("setup", help="install Godot and the web templates if missing, and check how the model can run")
     su.add_argument("--check", action="store_true", help="only report what is missing; install nothing")
     su.add_argument("--no-web", action="store_true", help="skip the web export templates")
+    su.add_argument("--no-model", action="store_true", help="do not check how the model can run (e.g. on CI)")
 
     sh = sub.add_parser("share", help="zip a game's web build to upload to itch.io or send to friends")
     sh.add_argument("project", type=Path)

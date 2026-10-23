@@ -248,13 +248,15 @@ def run(args) -> int:
     # 3. The model
     llm = check_llm()
     backend = llm.backend()
-    if backend == "api":
+    if getattr(args, "no_model", False):
+        backend = "skip"
+    elif backend == "api":
         say(f"✓ model: an OpenAI-compatible API at {os.environ['SPAWNPOINT_LLM_BASE_URL']}")
     elif backend == "vllm":
         say("✓ model: NVIDIA GPU and Docker found; `spawnpoint llm up` serves SpawnPoint-Coder-7B with vLLM")
     elif backend == "ollama":
         say("✓ model: Ollama found; `spawnpoint llm up` pulls SpawnPoint-Coder-7B (GGUF, about 4.7 GB)")
-    else:
+    elif backend is None:
         say("✗ model: no way to run it yet. Install Ollama (https://ollama.com/download, any computer)"
             " or Docker with an NVIDIA GPU, then run `spawnpoint setup` again.")
         ok = False

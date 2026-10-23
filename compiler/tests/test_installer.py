@@ -93,7 +93,7 @@ def test_web_templates_are_read_out_of_the_archive_with_ranges(monkeypatch, tmp_
 def test_setup_check_reports_what_is_missing(monkeypatch, capsys):
     monkeypatch.setattr(installer, "web_templates_ready", lambda: False)
     monkeypatch.setattr(installer, "check_llm", lambda: installer.LLMCheck(False, False, False, False))
-    code = installer.run(SimpleNamespace(check=True, no_web=False))
+    code = installer.run(SimpleNamespace(check=True, no_web=False, no_model=False))
     out = capsys.readouterr().out
     assert code == 1 and "✗ web export templates" in out and "✗ model" in out and "ollama.com" in out
 
