@@ -3,16 +3,19 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 import time
 import webbrowser
 from pathlib import Path
 
 from .project import slugify
-from .studio import dataset as dataset_mod, web
+from . import manifest as manifest_mod
+from .studio import cast, dataset as dataset_mod, web
 from .studio.brief import GameBrief
 from .studio.llm import LLMError, OpenAICompatible
-from .studio.orchestrator import LayerReport, StudioError, create as do_create, tweak as do_tweak
+from .studio.orchestrator import (LayerReport, StudioError, create as do_create, load_session, relook as do_relook,
+                                  tweak as do_tweak)
 
 LAYER_NAMES = {0: "L0 core loop", 1: "L1 goals & enemies", 2: "L2 feel & polish"}
 
@@ -79,17 +82,27 @@ def create(args) -> int:
         return out_holder["out"]
 
     def on_brief(b: GameBrief, notes: list[str]) -> None:
+        out_holder["hero"] = b.player.character
         _say("Design:")
         _brief_summary(b, notes)
 
-    def on_layer(r: LayerReport) -> None:
+    def on_plan(graph: dict, out: Path) -> None:
+        """Shows the cast in the browser while the layers build; the game replaces the page when it is ready."""
         nonlocal server
-        _report_layer(r)
-        if r.build.ok and not args.no_web and not args.no_serve and server is None:
-            server = web.Server(out_holder["out"], args.port).start()
-            _say(f"  ▶ playing at {server.url}  (the page reloads as layers land)")
+        try:
+            cast.write(out, graph, manifest_mod.load(), hero=out_holder.get("hero", ""))
+        except Exception as e:  # the cast page is a nicety: never let it stop the build
+            _say(f"  (no cast page: {e})")
+        if not args.no_serve and server is None:
+            server = web.Server(out, args.port).start()
+            _say(f"  ▶ meet the cast at {server.url}  (the game opens there when it is built)")
             if not args.no_open:
                 webbrowser.open(server.url)
+
+    def on_layer(r: LayerReport) -> None:
+        _report_layer(r)
+        if r.build.ok and not args.no_web and "out" in out_holder:
+            cast.status(out_holder["out"], LAYER_STATUS.get(r.layer, "Building ..."))
 
     recorder = _recorder(args)
     _say(f"Designing with {llm.base_url} ..." if brief is None else "Using the given brief ...")
@@ -97,7 +110,8 @@ def create(args) -> int:
         result = do_create(args.prompt, out_dir_for, llm, seed=args.seed, creative=args.creative,
                            brief=brief, web_export=not args.no_web, on_layer=on_layer, on_brief=on_brief,
                            recorder=recorder, playtest=args.playtest,
-                           on_progress=lambda m: _say(f"  [playtest] {m}"))
+                           on_progress=lambda m: _say(f"  [playtest] {m}"),
+                           on_plan=None if args.no_web else on_plan, web_from_layer=0 if args.no_web else 2)
     except (LLMError, StudioError) as e:
         _say(f"error: {e}")
         return 2
@@ -127,7 +141,14 @@ def create(args) -> int:
     return 0
 
 
-CHAT_EXAMPLES = ('"make the jump higher"', '"add more enemies"', '"make it harder"', '"cho nhảy cao hơn"',
+# What the cast page says after each layer is built (the game itself is exported after the last one).
+LAYER_STATUS = {0: "Placing the enemies and the pickups ...", 1: "Drawing the pixel art and the effects ...", 2: "Ready!"}
+# "new look" / "đổi hình": other colours and details for every character, nothing else changes (no LLM call).
+LOOK_NEW = re.compile(r"\b(new|another|different|other) look\b|re-?roll|đổi (hình|ngoại hình|giao diện)|hình khác|"
+                      r"trông khác", re.I)
+LOOK_BACK = re.compile(r"\b(old|previous|last) look\b|look back|hình cũ|quay lại hình|như cũ", re.I)
+
+CHAT_EXAMPLES = ('"make the jump higher"', '"new look"', '"add more enemies"', '"cho nhảy cao hơn"',
                  '"thêm quái"', '"night colors"')
 
 
@@ -160,6 +181,9 @@ def _chat(project: Path, llm, web_export: bool) -> None:
             return
         if not request:
             return
+        if LOOK_NEW.search(request) or LOOK_BACK.search(request):
+            _relook(project, -1 if LOOK_BACK.search(request) else 1, web_export)
+            continue
         try:
             result = do_tweak(project, request, llm, web_export=web_export, on_layer=_report_layer)
         except (LLMError, StudioError) as e:
@@ -169,6 +193,15 @@ def _chat(project: Path, llm, web_export: bool) -> None:
             _say(f"  {c}")
         if result.ok and web_export:
             _say("  the browser tab reloads with the new version")
+
+
+def _relook(project: Path, step: int, web_export: bool) -> bool:
+    result = do_relook(project, step, web_export=web_export, on_layer=_report_layer)
+    look = load_session(project).get("look", 0)
+    if result.ok:
+        _say(f"  look {look}" + (" (the original)" if look == 0 else "")
+             + ": say \"new look\" for another, \"old look\" to go back")
+    return result.ok
 
 
 def share(args) -> int:
@@ -222,6 +255,8 @@ def tweak(args) -> int:
     llm = OpenAICompatible()
     project = args.project.resolve()
     _say(f"Tweaking {project} ...")
+    if LOOK_NEW.search(args.request) or LOOK_BACK.search(args.request):
+        return 0 if _relook(project, -1 if LOOK_BACK.search(args.request) else 1, not args.no_web) else 1
     try:
         result = do_tweak(project, args.request, llm, web_export=not args.no_web, on_layer=_report_layer,
                           recorder=_recorder(args))
