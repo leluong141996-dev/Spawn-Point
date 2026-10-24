@@ -367,16 +367,30 @@ def ai_art_from_env() -> bool:
 
 
 def assemble(brief: GameBrief, layer: int = 2, seed: int = 0, chunks: list[str] | None = None,
-             ai_art: bool = False) -> dict:
+             ai_art: bool = False, look: int = 0) -> dict:
     """`chunks` pins the platformer level layout (to keep the map across tweaks); `ai_art` asks for
-    image-model sprites in layer 2 (generated ones are the fallback)."""
-    return _Assembler(brief, layer, seed, chunks, ai_art).graph()
+    image-model sprites in layer 2 (generated ones are the fallback); `look` picks another look for the same game
+    (other colours and details for every character, nothing else changes)."""
+    return _Assembler(brief, layer, seed, chunks, ai_art, look).graph()
+
+
+def look_color(color: str, look: int) -> str:
+    """The colour a character wears in look number `look` (0: the theme's own)."""
+    if not look:
+        return color
+    import colorsys
+    r, g, b = (int(color[i:i + 2], 16) / 255 for i in (1, 3, 5))
+    h, sat, v = colorsys.rgb_to_hsv(r, g, b)
+    r, g, b = colorsys.hsv_to_rgb((h + 0.17 * look) % 1.0, max(sat, 0.35), max(v, 0.45))
+    return "#%02x%02x%02x" % (round(r * 255), round(g * 255), round(b * 255))
 
 
 class _Assembler:
     def __init__(self, brief: GameBrief, layer: int, seed: int, chunks: list[str] | None = None,
-                 ai_art: bool = False):
+                 ai_art: bool = False, look: int = 0):
         self.ai_art = ai_art
+        self.look = look
+        self.art_seed = seed + 1009 * look  # sprites' own randomness (hair, spots, features) for this look
         self.b = brief
         self.layer = layer
         self.seed = seed
@@ -1416,21 +1430,21 @@ class _Assembler:
             if farm_kind is None and (ent["shape"].get("type") == "none" or "Market" in comps or "Warp" in comps):
                 continue  # invisible helpers (survivor nests, plots, roads, doorways) and self-drawn stalls
             if farm_kind is not None:  # the cozy farm's own art (sprites/farm.py)
-                gen_farm: dict[str, Any] = {"kind": farm_kind, "seed": self.seed,
-                                            "color": ent["shape"]["color"] if farm_kind == "farmer"
+                gen_farm: dict[str, Any] = {"kind": farm_kind, "seed": self.art_seed,
+                                            "color": look_color(ent["shape"]["color"], self.look) if farm_kind == "farmer"
                                             else ent.pop("farm_color", None) or farm_art.SPRITES[farm_kind][3]}
                 ent["sprite"] = {"generate": gen_farm}
                 del ent["shape"]
                 continue
             kind = sprite_kind(name, ent, archetypes.get(name), self.b, self.platformer)
-            color = ent["shape"]["color"]
+            color = look_color(ent["shape"]["color"], self.look)
             if ai_art:
                 subject = self.b.player.character if name == "Player" else name
                 words = " ".join(re.findall(r"[A-Z][a-z0-9]*|[a-z0-9]+", subject)).lower()
                 ent["sprite"] = {"ai": {"prompt": f"{words}, {self.b.palette} color palette, game: {self.b.title}",
-                                        "kind": kind, "color": color, "seed": self.seed}}
+                                        "kind": kind, "color": color, "seed": self.art_seed}}
             else:
-                gen: dict[str, Any] = {"kind": kind, "color": color, "seed": self.seed}
+                gen: dict[str, Any] = {"kind": kind, "color": color, "seed": self.art_seed}
                 if self.b.genre == "shmup" and name == self.b.boss:
                     gen["size"] = 3  # the same art, three times bigger
                 if name == "Player":

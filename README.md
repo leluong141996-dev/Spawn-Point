@@ -40,11 +40,11 @@ spawnpoint create "a ninja platformer where you collect stars"
 Design:
   “Star Quest” — platformer, palette night, goal collect_all, medium, difficulty 2
   player: Ninja (stomp); jump 3.5 tiles; speed normal; feel snappy; juice normal
-  [L0 core loop] ok in 5.6s
-  ▶ playing at http://localhost:8060/  (the page reloads as layers land)
-  [L1 goals & enemies] ok in 5.1s
-  [L2 feel & polish] ok in 5.2s
-Done in 25.9s
+  ▶ meet the cast at http://localhost:8060/  (the game opens there when it is built)
+  [L0 core loop] ok in 3.0s
+  [L1 goals & enemies] ok in 2.8s
+  [L2 feel & polish] ok in 5.6s
+Done in 17.9s
 
 Change it with words, e.g. "make the jump higher", "add more enemies", "make it harder", "cho nhảy cao hơn".
 change> cho nhảy cao hơn
@@ -54,7 +54,8 @@ change>
 Share it:   spawnpoint share out/star-quest   (a zip for itch.io or your friends)
 ```
 
-The game opens in your browser as soon as the first layer is built. Prompts can be in English or Vietnamese.
+While it builds, your browser shows the game's cast (the hero, the enemies, the boss, the pickups) and then switches
+to the game. Prompts can be in English or Vietnamese.
 
 ## Change it with words
 
@@ -69,6 +70,7 @@ you asked for changes, and the level layout is kept.
 | "make it harder", "dễ hơn" | the difficulty: enemy health, numbers, the level |
 | "night colors", "a winter farm" | the theme and its art |
 | "make the boss a dragon", "add a card called Meteor" | card games: the boss, the cards |
+| "new look", "đổi hình" (and "old look") | other colours and details for every character; the same game |
 
 For finer control, `spawnpoint studio` opens a web cockpit where you right-click anything in the game to edit it.
 

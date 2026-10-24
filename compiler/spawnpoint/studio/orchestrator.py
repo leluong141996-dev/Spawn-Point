@@ -105,11 +105,14 @@ def create(prompt: str, out_dir: Path | Callable[[GameBrief], Path], llm: ChatMo
            brief: GameBrief | None = None, web_export: bool = True,
            on_layer: LayerCallback | None = None, on_brief: Callable[[GameBrief, list[str]], None] | None = None,
            manifest: Manifest | None = None, recorder: Recorder | None = None, playtest: bool = False,
-           on_progress: Callable[[str], None] | None = None) -> StudioResult:
+           on_progress: Callable[[str], None] | None = None,
+           on_plan: Callable[[dict, Path], None] | None = None, web_from_layer: int = 0) -> StudioResult:
+    """`on_plan(graph, out_dir)` gets the finished game's graph (layer 2) before anything is built, e.g. to show its
+    cast while the layers build; `web_from_layer` exports to the web only from that layer on."""
     result = None
     try:
         result = _create(prompt, out_dir, recorder.wrap(llm) if recorder else llm, seed, creative, brief, web_export,
-                         on_layer, on_brief, manifest, recorder)
+                         on_layer, on_brief, manifest, recorder, on_plan, web_from_layer)
         if playtest and result.ok and result.brief.genre in ("bubble", "farm", "tower_defense"):
             if on_progress:
                 on_progress(f"playtest skipped: the bots do not play {result.brief.genre.replace('_', ' ')} games")
@@ -124,7 +127,7 @@ def create(prompt: str, out_dir: Path | Callable[[GameBrief], Path], llm: ChatMo
 
 
 def _create(prompt, out_dir, llm, seed, creative, brief, web_export, on_layer, on_brief, manifest,
-            recorder: Recorder | None) -> StudioResult:
+            recorder: Recorder | None, on_plan=None, web_from_layer: int = 0) -> StudioResult:
     manifest = manifest or manifest_mod.load()
     t0 = time.perf_counter()
     timings: dict[str, float] = {}
@@ -143,6 +146,8 @@ def _create(prompt, out_dir, llm, seed, creative, brief, web_export, on_layer, o
 
     seed, chunks = choose_seed(brief, default_seed(prompt) if seed is None else seed, manifest)
     ai_art = ai_art_from_env()
+    if on_plan:
+        on_plan(assemble(brief, LAYERS[-1], seed, chunks, ai_art=ai_art), out_dir)
     result = StudioResult(out_dir, brief, notes, seed, usage=llm.usage)
     creative_result = None
     for layer in LAYERS:
@@ -158,7 +163,7 @@ def _create(prompt, out_dir, llm, seed, creative, brief, web_export, on_layer, o
                     rec.accepted = not h["errors"]
                     rec.target = h["patch"] if not h["errors"] else None
                     rec.corrected = bool(h["errors"])
-        report = _build_layer(layer, graph, out_dir, manifest, web_export)
+        report = _build_layer(layer, graph, out_dir, manifest, web_export and layer >= web_from_layer)
         result.layers.append(report)
         if on_layer:
             on_layer(report)
@@ -168,7 +173,7 @@ def _create(prompt, out_dir, llm, seed, creative, brief, web_export, on_layer, o
     timings["total"] = time.perf_counter() - t0
     result.timings = timings
     _save_session(out_dir, {"prompt": prompt, "english": english, "brief": brief.model_dump(), "seed": seed,
-                            "chunks": chunks, "ai_art": ai_art,
+                            "chunks": chunks, "ai_art": ai_art, "look": 0,
                             "creative_patch": creative_result.patch if creative_result else None,
                             "model": llm.name, "history": []})
     return result
@@ -272,6 +277,29 @@ def tweak(out_dir: Path, request: str, llm: ChatModel, *, web_export: bool = Tru
                        meta={"op": "tweak", "request": request, "changes": result.changes if result else None})
 
 
+def relook(out_dir: Path, step: int = 1, web_export: bool = True, on_layer: LayerCallback | None = None,
+           manifest: Manifest | None = None) -> StudioResult:
+    """Another look for the same game (step +1), or the previous one (step -1): every character gets other colours
+    and details; the design, the level and any tuning stay. No LLM call."""
+    manifest = manifest or manifest_mod.load()
+    t0 = time.perf_counter()
+    session = load_session(out_dir)
+    brief = GameBrief.model_validate(session["brief"])
+    look = max(0, session.get("look", 0) + step)
+    graph = finalize_graph(assemble(brief, LAYERS[-1], session["seed"], session.get("chunks"),
+                                    ai_art=bool(session.get("ai_art")), look=look), session, manifest)
+    result = StudioResult(out_dir, brief, [], session["seed"], changes=[f"look {look}"])
+    report = _build_layer(LAYERS[-1], graph, out_dir, manifest, web_export)
+    result.layers.append(report)
+    if on_layer:
+        on_layer(report)
+    result.timings = {"total": time.perf_counter() - t0}
+    if report.build.ok:
+        session["look"] = look
+        _save_session(out_dir, session)
+    return result
+
+
 def _newest_weapon(old: GameBrief, new: GameBrief) -> GameBrief:
     """A hero carries one weapon. When a tweak adds the other one ("give the fox a sword" to a shooter), the weapon
     just asked for replaces the old one (the normalizer alone would keep the gun and drop the request)."""
@@ -334,7 +362,8 @@ def _tweak(out_dir, request, llm, web_export, on_layer, manifest, recorder: Reco
     timings = {"design": time.perf_counter() - t0}
 
     result = StudioResult(out_dir, new, notes, seed, changes=changes, usage=llm.usage)
-    graph = finalize_graph(assemble(new, LAYERS[-1], seed, chunks, ai_art=bool(session.get("ai_art"))), session,
+    graph = finalize_graph(assemble(new, LAYERS[-1], seed, chunks, ai_art=bool(session.get("ai_art")),
+                                    look=session.get("look", 0)), session,
                            manifest)
     report = _build_layer(LAYERS[-1], graph, out_dir, manifest, web_export)
     result.layers.append(report)
