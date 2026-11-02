@@ -1,0 +1,1238 @@
+{
+ "type": "object",
+ "$defs": {
+  "BubbleW": {
+   "properties": {
+    "genre": {
+     "const": "bubble",
+     "title": "Genre",
+     "type": "string"
+    },
+    "title": {
+     "maxLength": 40,
+     "title": "Title",
+     "type": "string"
+    },
+    "palette": {
+     "default": "night",
+     "enum": [
+      "night",
+      "forest",
+      "desert",
+      "neon",
+      "candy",
+      "ocean",
+      "lava",
+      "snow"
+     ],
+     "title": "Palette",
+     "type": "string"
+    },
+    "art_style": {
+     "default": "pixel",
+     "enum": [
+      "pixel",
+      "cartoon"
+     ],
+     "title": "Art Style",
+     "type": "string"
+    },
+    "character": {
+     "default": "Hero",
+     "maxLength": 24,
+     "title": "Character",
+     "type": "string"
+    },
+    "item": {
+     "default": "Egg",
+     "maxLength": 24,
+     "title": "Item",
+     "type": "string"
+    },
+    "length": {
+     "default": "medium",
+     "enum": [
+      "short",
+      "medium",
+      "long"
+     ],
+     "title": "Length",
+     "type": "string"
+    },
+    "difficulty": {
+     "default": 2,
+     "maximum": 5,
+     "minimum": 1,
+     "title": "Difficulty",
+     "type": "integer"
+    }
+   },
+   "required": [
+    "genre",
+    "title"
+   ],
+   "title": "BubbleW",
+   "type": "object",
+   "additionalProperties": false
+  },
+  "Card": {
+   "properties": {
+    "name": {
+     "maxLength": 24,
+     "title": "Name",
+     "type": "string"
+    },
+    "kind": {
+     "enum": [
+      "strike",
+      "heavy",
+      "multi_hit",
+      "sweep",
+      "block",
+      "heal",
+      "draw",
+      "poison",
+      "weaken",
+      "rage"
+     ],
+     "title": "Kind",
+     "type": "string"
+    }
+   },
+   "required": [
+    "name",
+    "kind"
+   ],
+   "title": "Card",
+   "type": "object",
+   "additionalProperties": false
+  },
+  "CardFoe": {
+   "properties": {
+    "name": {
+     "maxLength": 24,
+     "title": "Name",
+     "type": "string"
+    },
+    "archetype": {
+     "enum": [
+      "brute",
+      "guard",
+      "caster",
+      "swarm"
+     ],
+     "title": "Archetype",
+     "type": "string"
+    }
+   },
+   "required": [
+    "name",
+    "archetype"
+   ],
+   "title": "CardFoe",
+   "type": "object",
+   "additionalProperties": false
+  },
+  "CardsW": {
+   "properties": {
+    "genre": {
+     "const": "cards",
+     "title": "Genre",
+     "type": "string"
+    },
+    "title": {
+     "maxLength": 40,
+     "title": "Title",
+     "type": "string"
+    },
+    "palette": {
+     "default": "night",
+     "enum": [
+      "night",
+      "forest",
+      "desert",
+      "neon",
+      "candy",
+      "ocean",
+      "lava",
+      "snow"
+     ],
+     "title": "Palette",
+     "type": "string"
+    },
+    "art_style": {
+     "default": "pixel",
+     "enum": [
+      "pixel",
+      "cartoon"
+     ],
+     "title": "Art Style",
+     "type": "string"
+    },
+    "hero": {
+     "default": "Hero",
+     "maxLength": 24,
+     "title": "Hero",
+     "type": "string"
+    },
+    "hero_class": {
+     "default": "warrior",
+     "enum": [
+      "warrior",
+      "mage",
+      "rogue"
+     ],
+     "title": "Hero Class",
+     "type": "string"
+    },
+    "cards": {
+     "items": {
+      "$ref": "#/$defs/Card"
+     },
+     "maxItems": 6,
+     "title": "Cards",
+     "type": "array"
+    },
+    "enemies": {
+     "items": {
+      "$ref": "#/$defs/CardFoe"
+     },
+     "maxItems": 4,
+     "title": "Enemies",
+     "type": "array"
+    },
+    "boss": {
+     "default": "",
+     "maxLength": 24,
+     "title": "Boss",
+     "type": "string"
+    },
+    "length": {
+     "default": "medium",
+     "enum": [
+      "short",
+      "medium",
+      "long"
+     ],
+     "title": "Length",
+     "type": "string"
+    },
+    "difficulty": {
+     "default": 2,
+     "maximum": 5,
+     "minimum": 1,
+     "title": "Difficulty",
+     "type": "integer"
+    }
+   },
+   "required": [
+    "genre",
+    "title"
+   ],
+   "title": "CardsW",
+   "type": "object",
+   "additionalProperties": false
+  },
+  "FarmPest": {
+   "properties": {
+    "name": {
+     "maxLength": 24,
+     "title": "Name",
+     "type": "string"
+    },
+    "archetype": {
+     "enum": [
+      "walker",
+      "chaser"
+     ],
+     "title": "Archetype",
+     "type": "string"
+    },
+    "count": {
+     "default": 3,
+     "maximum": 20,
+     "minimum": 0,
+     "title": "Count",
+     "type": "integer"
+    },
+    "health": {
+     "default": 1,
+     "maximum": 20,
+     "minimum": 1,
+     "title": "Health",
+     "type": "integer"
+    },
+    "speed": {
+     "default": "normal",
+     "enum": [
+      "slow",
+      "normal",
+      "fast"
+     ],
+     "title": "Speed",
+     "type": "string"
+    }
+   },
+   "required": [
+    "name",
+    "archetype"
+   ],
+   "title": "FarmPest",
+   "type": "object",
+   "additionalProperties": false
+  },
+  "FarmW": {
+   "properties": {
+    "genre": {
+     "const": "farm",
+     "title": "Genre",
+     "type": "string"
+    },
+    "title": {
+     "maxLength": 40,
+     "title": "Title",
+     "type": "string"
+    },
+    "palette": {
+     "default": "night",
+     "enum": [
+      "night",
+      "forest",
+      "desert",
+      "neon",
+      "candy",
+      "ocean",
+      "lava",
+      "snow"
+     ],
+     "title": "Palette",
+     "type": "string"
+    },
+    "art_style": {
+     "default": "pixel",
+     "enum": [
+      "pixel",
+      "cartoon"
+     ],
+     "title": "Art Style",
+     "type": "string"
+    },
+    "character": {
+     "default": "Farmer",
+     "maxLength": 24,
+     "title": "Character",
+     "type": "string"
+    },
+    "abilities": {
+     "items": {
+      "enum": [
+       "dash",
+       "sword"
+      ],
+      "type": "string"
+     },
+     "maxItems": 2,
+     "title": "Abilities",
+     "type": "array"
+    },
+    "crops": {
+     "items": {
+      "type": "string"
+     },
+     "maxItems": 3,
+     "title": "Crops",
+     "type": "array"
+    },
+    "enemies": {
+     "items": {
+      "$ref": "#/$defs/FarmPest"
+     },
+     "maxItems": 4,
+     "title": "Enemies",
+     "type": "array"
+    },
+    "score_target": {
+     "default": 100,
+     "maximum": 10000,
+     "minimum": 10,
+     "title": "Score Target",
+     "type": "integer"
+    },
+    "survive_seconds": {
+     "default": 60,
+     "maximum": 600,
+     "minimum": 10,
+     "title": "Survive Seconds",
+     "type": "integer"
+    },
+    "length": {
+     "default": "medium",
+     "enum": [
+      "short",
+      "medium",
+      "long"
+     ],
+     "title": "Length",
+     "type": "string"
+    },
+    "difficulty": {
+     "default": 2,
+     "maximum": 5,
+     "minimum": 1,
+     "title": "Difficulty",
+     "type": "integer"
+    }
+   },
+   "required": [
+    "genre",
+    "title"
+   ],
+   "title": "FarmW",
+   "type": "object",
+   "additionalProperties": false
+  },
+  "Invader": {
+   "properties": {
+    "name": {
+     "maxLength": 24,
+     "title": "Name",
+     "type": "string"
+    },
+    "count": {
+     "default": 3,
+     "maximum": 20,
+     "minimum": 0,
+     "title": "Count",
+     "type": "integer"
+    },
+    "health": {
+     "default": 1,
+     "maximum": 20,
+     "minimum": 1,
+     "title": "Health",
+     "type": "integer"
+    },
+    "speed": {
+     "default": "normal",
+     "enum": [
+      "slow",
+      "normal",
+      "fast"
+     ],
+     "title": "Speed",
+     "type": "string"
+    }
+   },
+   "required": [
+    "name"
+   ],
+   "title": "Invader",
+   "type": "object",
+   "additionalProperties": false
+  },
+  "PlatformerEnemy": {
+   "properties": {
+    "name": {
+     "maxLength": 24,
+     "title": "Name",
+     "type": "string"
+    },
+    "archetype": {
+     "enum": [
+      "walker",
+      "hopper",
+      "chaser",
+      "shooter",
+      "turret"
+     ],
+     "title": "Archetype",
+     "type": "string"
+    },
+    "count": {
+     "default": 3,
+     "maximum": 20,
+     "minimum": 0,
+     "title": "Count",
+     "type": "integer"
+    },
+    "health": {
+     "default": 1,
+     "maximum": 20,
+     "minimum": 1,
+     "title": "Health",
+     "type": "integer"
+    },
+    "speed": {
+     "default": "normal",
+     "enum": [
+      "slow",
+      "normal",
+      "fast"
+     ],
+     "title": "Speed",
+     "type": "string"
+    }
+   },
+   "required": [
+    "name",
+    "archetype"
+   ],
+   "title": "PlatformerEnemy",
+   "type": "object",
+   "additionalProperties": false
+  },
+  "PlatformerPlayer": {
+   "properties": {
+    "character": {
+     "default": "Hero",
+     "maxLength": 24,
+     "title": "Character",
+     "type": "string"
+    },
+    "abilities": {
+     "items": {
+      "enum": [
+       "double_jump",
+       "dash",
+       "stomp",
+       "shoot",
+       "sword"
+      ],
+      "type": "string"
+     },
+     "maxItems": 4,
+     "title": "Abilities",
+     "type": "array"
+    },
+    "jump_tiles": {
+     "default": 3.5,
+     "maximum": 8.0,
+     "minimum": 1.5,
+     "title": "Jump Tiles",
+     "type": "number"
+    },
+    "speed": {
+     "default": "normal",
+     "enum": [
+      "slow",
+      "normal",
+      "fast"
+     ],
+     "title": "Speed",
+     "type": "string"
+    },
+    "health": {
+     "default": 3,
+     "maximum": 10,
+     "minimum": 1,
+     "title": "Health",
+     "type": "integer"
+    }
+   },
+   "title": "PlatformerPlayer",
+   "type": "object",
+   "additionalProperties": false
+  },
+  "PlatformerW": {
+   "properties": {
+    "genre": {
+     "const": "platformer",
+     "title": "Genre",
+     "type": "string"
+    },
+    "title": {
+     "maxLength": 40,
+     "title": "Title",
+     "type": "string"
+    },
+    "palette": {
+     "default": "night",
+     "enum": [
+      "night",
+      "forest",
+      "desert",
+      "neon",
+      "candy",
+      "ocean",
+      "lava",
+      "snow"
+     ],
+     "title": "Palette",
+     "type": "string"
+    },
+    "art_style": {
+     "default": "pixel",
+     "enum": [
+      "pixel",
+      "cartoon"
+     ],
+     "title": "Art Style",
+     "type": "string"
+    },
+    "player": {
+     "$ref": "#/$defs/PlatformerPlayer"
+    },
+    "enemies": {
+     "items": {
+      "$ref": "#/$defs/PlatformerEnemy"
+     },
+     "maxItems": 4,
+     "title": "Enemies",
+     "type": "array"
+    },
+    "collectible": {
+     "$ref": "#/$defs/_Pickup"
+    },
+    "health_pickups": {
+     "default": 1,
+     "maximum": 10,
+     "minimum": 0,
+     "title": "Health Pickups",
+     "type": "integer"
+    },
+    "goal": {
+     "default": "collect_all_then_exit",
+     "enum": [
+      "reach_exit",
+      "collect_all",
+      "collect_all_then_exit",
+      "defeat_all",
+      "score_target",
+      "survive",
+      "rescue"
+     ],
+     "title": "Goal",
+     "type": "string"
+    },
+    "score_target": {
+     "default": 100,
+     "maximum": 10000,
+     "minimum": 10,
+     "title": "Score Target",
+     "type": "integer"
+    },
+    "survive_seconds": {
+     "default": 60,
+     "maximum": 600,
+     "minimum": 10,
+     "title": "Survive Seconds",
+     "type": "integer"
+    },
+    "rescue_target": {
+     "default": "Mom",
+     "maxLength": 24,
+     "title": "Rescue Target",
+     "type": "string"
+    },
+    "hazards": {
+     "items": {
+      "enum": [
+       "spikes",
+       "pits"
+      ],
+      "type": "string"
+     },
+     "maxItems": 2,
+     "title": "Hazards",
+     "type": "array"
+    },
+    "length": {
+     "default": "medium",
+     "enum": [
+      "short",
+      "medium",
+      "long"
+     ],
+     "title": "Length",
+     "type": "string"
+    },
+    "difficulty": {
+     "default": 2,
+     "maximum": 5,
+     "minimum": 1,
+     "title": "Difficulty",
+     "type": "integer"
+    },
+    "feel": {
+     "default": "snappy",
+     "enum": [
+      "snappy",
+      "floaty",
+      "heavy"
+     ],
+     "title": "Feel",
+     "type": "string"
+    },
+    "juice": {
+     "default": "normal",
+     "enum": [
+      "subtle",
+      "normal",
+      "wild"
+     ],
+     "title": "Juice",
+     "type": "string"
+    }
+   },
+   "required": [
+    "genre",
+    "title"
+   ],
+   "title": "PlatformerW",
+   "type": "object",
+   "additionalProperties": false
+  },
+  "ShmupEnemy": {
+   "properties": {
+    "name": {
+     "maxLength": 24,
+     "title": "Name",
+     "type": "string"
+    },
+    "archetype": {
+     "enum": [
+      "drifter",
+      "weaver",
+      "diver",
+      "gunship"
+     ],
+     "title": "Archetype",
+     "type": "string"
+    },
+    "count": {
+     "default": 3,
+     "maximum": 20,
+     "minimum": 0,
+     "title": "Count",
+     "type": "integer"
+    },
+    "health": {
+     "default": 1,
+     "maximum": 20,
+     "minimum": 1,
+     "title": "Health",
+     "type": "integer"
+    },
+    "speed": {
+     "default": "normal",
+     "enum": [
+      "slow",
+      "normal",
+      "fast"
+     ],
+     "title": "Speed",
+     "type": "string"
+    }
+   },
+   "required": [
+    "name",
+    "archetype"
+   ],
+   "title": "ShmupEnemy",
+   "type": "object",
+   "additionalProperties": false
+  },
+  "ShmupW": {
+   "properties": {
+    "genre": {
+     "const": "shmup",
+     "title": "Genre",
+     "type": "string"
+    },
+    "title": {
+     "maxLength": 40,
+     "title": "Title",
+     "type": "string"
+    },
+    "palette": {
+     "default": "night",
+     "enum": [
+      "night",
+      "forest",
+      "desert",
+      "neon",
+      "candy",
+      "ocean",
+      "lava",
+      "snow"
+     ],
+     "title": "Palette",
+     "type": "string"
+    },
+    "art_style": {
+     "default": "pixel",
+     "enum": [
+      "pixel",
+      "cartoon"
+     ],
+     "title": "Art Style",
+     "type": "string"
+    },
+    "ship": {
+     "default": "Ship",
+     "maxLength": 24,
+     "title": "Ship",
+     "type": "string"
+    },
+    "enemies": {
+     "items": {
+      "$ref": "#/$defs/ShmupEnemy"
+     },
+     "maxItems": 4,
+     "title": "Enemies",
+     "type": "array"
+    },
+    "boss": {
+     "default": "",
+     "maxLength": 24,
+     "title": "Boss",
+     "type": "string"
+    },
+    "goal": {
+     "default": "defeat_boss",
+     "enum": [
+      "defeat_boss",
+      "score_target",
+      "survive"
+     ],
+     "title": "Goal",
+     "type": "string"
+    },
+    "score_target": {
+     "default": 100,
+     "maximum": 10000,
+     "minimum": 10,
+     "title": "Score Target",
+     "type": "integer"
+    },
+    "survive_seconds": {
+     "default": 60,
+     "maximum": 600,
+     "minimum": 10,
+     "title": "Survive Seconds",
+     "type": "integer"
+    },
+    "health": {
+     "default": 3,
+     "maximum": 10,
+     "minimum": 1,
+     "title": "Health",
+     "type": "integer"
+    },
+    "speed": {
+     "default": "normal",
+     "enum": [
+      "slow",
+      "normal",
+      "fast"
+     ],
+     "title": "Speed",
+     "type": "string"
+    },
+    "length": {
+     "default": "medium",
+     "enum": [
+      "short",
+      "medium",
+      "long"
+     ],
+     "title": "Length",
+     "type": "string"
+    },
+    "difficulty": {
+     "default": 2,
+     "maximum": 5,
+     "minimum": 1,
+     "title": "Difficulty",
+     "type": "integer"
+    },
+    "juice": {
+     "default": "normal",
+     "enum": [
+      "subtle",
+      "normal",
+      "wild"
+     ],
+     "title": "Juice",
+     "type": "string"
+    }
+   },
+   "required": [
+    "genre",
+    "title"
+   ],
+   "title": "ShmupW",
+   "type": "object",
+   "additionalProperties": false
+  },
+  "TopdownEnemy": {
+   "properties": {
+    "name": {
+     "maxLength": 24,
+     "title": "Name",
+     "type": "string"
+    },
+    "archetype": {
+     "enum": [
+      "chaser",
+      "shooter",
+      "turret"
+     ],
+     "title": "Archetype",
+     "type": "string"
+    },
+    "count": {
+     "default": 3,
+     "maximum": 20,
+     "minimum": 0,
+     "title": "Count",
+     "type": "integer"
+    },
+    "health": {
+     "default": 1,
+     "maximum": 20,
+     "minimum": 1,
+     "title": "Health",
+     "type": "integer"
+    },
+    "speed": {
+     "default": "normal",
+     "enum": [
+      "slow",
+      "normal",
+      "fast"
+     ],
+     "title": "Speed",
+     "type": "string"
+    }
+   },
+   "required": [
+    "name",
+    "archetype"
+   ],
+   "title": "TopdownEnemy",
+   "type": "object",
+   "additionalProperties": false
+  },
+  "TopdownPlayer": {
+   "properties": {
+    "character": {
+     "default": "Hero",
+     "maxLength": 24,
+     "title": "Character",
+     "type": "string"
+    },
+    "abilities": {
+     "items": {
+      "enum": [
+       "dash",
+       "shoot",
+       "sword"
+      ],
+      "type": "string"
+     },
+     "maxItems": 3,
+     "title": "Abilities",
+     "type": "array"
+    },
+    "speed": {
+     "default": "normal",
+     "enum": [
+      "slow",
+      "normal",
+      "fast"
+     ],
+     "title": "Speed",
+     "type": "string"
+    },
+    "health": {
+     "default": 3,
+     "maximum": 10,
+     "minimum": 1,
+     "title": "Health",
+     "type": "integer"
+    }
+   },
+   "title": "TopdownPlayer",
+   "type": "object",
+   "additionalProperties": false
+  },
+  "TopdownW": {
+   "properties": {
+    "genre": {
+     "const": "topdown",
+     "title": "Genre",
+     "type": "string"
+    },
+    "title": {
+     "maxLength": 40,
+     "title": "Title",
+     "type": "string"
+    },
+    "palette": {
+     "default": "night",
+     "enum": [
+      "night",
+      "forest",
+      "desert",
+      "neon",
+      "candy",
+      "ocean",
+      "lava",
+      "snow"
+     ],
+     "title": "Palette",
+     "type": "string"
+    },
+    "art_style": {
+     "default": "pixel",
+     "enum": [
+      "pixel",
+      "cartoon"
+     ],
+     "title": "Art Style",
+     "type": "string"
+    },
+    "player": {
+     "$ref": "#/$defs/TopdownPlayer"
+    },
+    "enemies": {
+     "items": {
+      "$ref": "#/$defs/TopdownEnemy"
+     },
+     "maxItems": 4,
+     "title": "Enemies",
+     "type": "array"
+    },
+    "collectible": {
+     "$ref": "#/$defs/_Pickup"
+    },
+    "health_pickups": {
+     "default": 1,
+     "maximum": 10,
+     "minimum": 0,
+     "title": "Health Pickups",
+     "type": "integer"
+    },
+    "goal": {
+     "default": "collect_all",
+     "enum": [
+      "collect_all",
+      "collect_all_then_exit",
+      "defeat_all",
+      "score_target",
+      "survive"
+     ],
+     "title": "Goal",
+     "type": "string"
+    },
+    "score_target": {
+     "default": 100,
+     "maximum": 10000,
+     "minimum": 10,
+     "title": "Score Target",
+     "type": "integer"
+    },
+    "survive_seconds": {
+     "default": 60,
+     "maximum": 600,
+     "minimum": 10,
+     "title": "Survive Seconds",
+     "type": "integer"
+    },
+    "hazards": {
+     "items": {
+      "const": "spikes",
+      "type": "string"
+     },
+     "maxItems": 1,
+     "title": "Hazards",
+     "type": "array"
+    },
+    "level_ups": {
+     "default": false,
+     "title": "Level Ups",
+     "type": "boolean"
+    },
+    "length": {
+     "default": "medium",
+     "enum": [
+      "short",
+      "medium",
+      "long"
+     ],
+     "title": "Length",
+     "type": "string"
+    },
+    "difficulty": {
+     "default": 2,
+     "maximum": 5,
+     "minimum": 1,
+     "title": "Difficulty",
+     "type": "integer"
+    },
+    "feel": {
+     "default": "snappy",
+     "enum": [
+      "snappy",
+      "floaty",
+      "heavy"
+     ],
+     "title": "Feel",
+     "type": "string"
+    },
+    "juice": {
+     "default": "normal",
+     "enum": [
+      "subtle",
+      "normal",
+      "wild"
+     ],
+     "title": "Juice",
+     "type": "string"
+    }
+   },
+   "required": [
+    "genre",
+    "title"
+   ],
+   "title": "TopdownW",
+   "type": "object",
+   "additionalProperties": false
+  },
+  "TowerDefenseW": {
+   "properties": {
+    "genre": {
+     "const": "tower_defense",
+     "title": "Genre",
+     "type": "string"
+    },
+    "title": {
+     "maxLength": 40,
+     "title": "Title",
+     "type": "string"
+    },
+    "palette": {
+     "default": "night",
+     "enum": [
+      "night",
+      "forest",
+      "desert",
+      "neon",
+      "candy",
+      "ocean",
+      "lava",
+      "snow"
+     ],
+     "title": "Palette",
+     "type": "string"
+    },
+    "art_style": {
+     "default": "pixel",
+     "enum": [
+      "pixel",
+      "cartoon"
+     ],
+     "title": "Art Style",
+     "type": "string"
+    },
+    "enemies": {
+     "items": {
+      "$ref": "#/$defs/Invader"
+     },
+     "maxItems": 4,
+     "title": "Enemies",
+     "type": "array"
+    },
+    "towers": {
+     "items": {
+      "type": "string"
+     },
+     "maxItems": 3,
+     "title": "Towers",
+     "type": "array"
+    },
+    "length": {
+     "default": "medium",
+     "enum": [
+      "short",
+      "medium",
+      "long"
+     ],
+     "title": "Length",
+     "type": "string"
+    },
+    "difficulty": {
+     "default": 2,
+     "maximum": 5,
+     "minimum": 1,
+     "title": "Difficulty",
+     "type": "integer"
+    }
+   },
+   "required": [
+    "genre",
+    "title"
+   ],
+   "title": "TowerDefenseW",
+   "type": "object",
+   "additionalProperties": false
+  },
+  "_Pickup": {
+   "properties": {
+    "name": {
+     "default": "Coin",
+     "maxLength": 24,
+     "title": "Name",
+     "type": "string"
+    },
+    "count": {
+     "default": 10,
+     "maximum": 60,
+     "minimum": 0,
+     "title": "Count",
+     "type": "integer"
+    }
+   },
+   "title": "_Pickup",
+   "type": "object",
+   "additionalProperties": false
+  }
+ },
+ "properties": {
+  "brief": {
+   "type": "object",
+   "oneOf": [
+    {
+     "$ref": "#/$defs/PlatformerW"
+    },
+    {
+     "$ref": "#/$defs/TopdownW"
+    },
+    {
+     "$ref": "#/$defs/BubbleW"
+    },
+    {
+     "$ref": "#/$defs/FarmW"
+    },
+    {
+     "$ref": "#/$defs/TowerDefenseW"
+    },
+    {
+     "$ref": "#/$defs/ShmupW"
+    },
+    {
+     "$ref": "#/$defs/CardsW"
+    }
+   ]
+  },
+  "new_level": {
+   "type": "boolean"
+  }
+ },
+ "required": [
+  "brief",
+  "new_level"
+ ],
+ "additionalProperties": false
+}

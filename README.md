@@ -7,8 +7,9 @@
 For beginners and game jams: free, runs on your own computer, and every sprite, tile, effect and sound is drawn by code,
 so there are no assets to find and no licenses to worry about. The result is a real Godot 4 project you can keep building.
 
-> **Status: finished.** Spawn Point works and stays available, but I'm no longer developing it. What I built, what
-> worked and why I stopped: [the retrospective](docs/retrospective.md).
+> **Status: active again.** I paused Spawn Point in October ([why](docs/retrospective.md)), but people keep downloading
+> the model, so I'm back. **What are you building with it?** Tell me in
+> [Discussions](https://github.com/leluong141996-dev/Spawn-Point/discussions): that decides what comes next.
 
 [![CI](https://github.com/leluong141996-dev/Spawn-Point/actions/workflows/ci.yml/badge.svg)](https://github.com/leluong141996-dev/Spawn-Point/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/spawnpoint-studio)](https://pypi.org/project/spawnpoint-studio/)
@@ -131,7 +132,8 @@ your sentence ──► small model: a design (JSON) ──► compiler + tested
 
 ## Learn more
 
-- [Retrospective](docs/retrospective.md): what I built in two and a half weeks, what worked, and why I stopped
+- [Use the model on its own](model-kit/README.md): the prompts, the JSON schemas and a short example
+- [Retrospective](docs/retrospective.md): what I built in two and a half weeks, what worked, and why I paused
 - [How it works](docs/how-it-works.md): the design, the assembler, the layers, the model, diagnostics
 - [Install details](docs/install.md): requirements, GPUs, Ollama, other APIs
 - [Genres in depth](docs/genres.md): the card game and the cozy farm

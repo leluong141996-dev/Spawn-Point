@@ -2,6 +2,10 @@
 
 [← back to the README](../README.md)
 
+> **Update, November 2026:** the model kept being downloaded after this was written, and the first stars from
+> strangers came in, so I've picked Spawn Point up again. This time I'm starting by asking: if you use it, tell me what
+> for in [Discussions](https://github.com/leluong141996-dev/Spawn-Point/discussions).
+
 **Status: finished.** Spawn Point works and stays available (PyPI, the model on Hugging Face, the browser demos), but
 I'm no longer developing it. This page is what I built in about two and a half weeks (October 7 to 24, 2026), what
 worked, and why I stopped.

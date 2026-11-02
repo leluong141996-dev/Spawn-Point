@@ -207,3 +207,14 @@ def test_shmup_wire_round_trip_through_a_session(v5, tmp_path, manifest):
     assert tweak(out, "harder, bigger boss", llm, web_export=False, manifest=manifest).ok
     s2 = load_session(out)["brief"]
     assert s2["boss"] == "Dreadnought" and s2["difficulty"] == 4
+
+
+def test_model_kit_matches_the_prompts_and_schemas():
+    """model-kit/ (uploaded next to the model) is what the tool sends; rerun scripts/model-kit.py after a change."""
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2]
+    done = subprocess.run([sys.executable, str(root / "scripts" / "model-kit.py"), "--check"], capture_output=True, text=True)
+    assert done.returncode == 0, done.stdout
