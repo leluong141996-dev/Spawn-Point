@@ -1,9 +1,9 @@
 """Cozy farm art: the ground of a whole farm map and the farm's objects, animals and crops, drawn in a
 16-pixel tile language and shown at 2 screen pixels per art pixel (one 16 px art tile = one 32 px world tile).
 
-The look: soft green grass with tufts and little flowers, dirt paths with rounded, bumpy edges and a dark rim,
-water with a light shore line and sparkles, and a brown cliff face wherever land drops into the water to the south
-(islands). Everything is drawn here from code; no image files are read.
+The look: green grass thick with clumps of blades and little flowers, dirt paths with rounded, bumpy edges and a
+dark rim, a tilled garden bed under the crop plots, water with pools of deeper blue, a light shore line and sparkles,
+and a brown earth edge wherever land meets the water (a cliff face to the south, on islands). Everything is drawn here from code; no image files are read.
 
     terrain_image(rows, seed)   -> RGBA array of the whole map ground (16 px per cell)
     paint_*(...)                -> the object painters used through generate.py's farm kinds
@@ -41,21 +41,25 @@ SEASONS: dict[str, dict] = {
     "spring": {"grass": GRASS, "light": GRASS_LIGHT, "dark": GRASS_DARK, "edge": GRASS_EDGE, "tuft": TUFT,
                "tuft_light": TUFT_LIGHT, "dirt": DIRT, "dirt_light": DIRT_LIGHT, "dirt_dark": DIRT_DARK,
                "water": WATER, "deep": WATER_DEEP, "shore": WATER_LIGHT, "foam": FOAM, "flowers": FLOWERS,
-               "lilies": True, "mushrooms": True, "tufts": (1, 2, 2, 3)},
+               "lilies": True, "mushrooms": True, "tufts": (1, 2, 2, 3), "clumps": (0, 1, 1, 2)},
     "autumn": {"grass": _c("#d8973f"), "light": _c("#e0a148"), "dark": _c("#d08d3a"), "edge": _c("#7a3f22"),
                "tuft": _c("#a8582a"), "tuft_light": _c("#f0b860"), "dirt": _c("#c98a52"), "dirt_light": _c("#dca06a"),
                "dirt_dark": _c("#a86a3a"), "water": WATER, "deep": WATER_DEEP, "shore": WATER_LIGHT, "foam": FOAM,
                "flowers": [_c("#ffd84a"), _c("#e85a3a"), _c("#f8f4ea")], "lilies": False, "mushrooms": True,
-               "tufts": (1, 1, 2)},
+               "tufts": (1, 1, 2), "clumps": (0, 1, 1)},
     "winter": {"grass": _c("#e8f0f8"), "light": _c("#f2f7fc"), "dark": _c("#e0e9f4"), "edge": _c("#8a9ec0"),
                "tuft": _c("#b8c8dc"), "tuft_light": _c("#ffffff"), "dirt": _c("#b0a294"), "dirt_light": _c("#c8bcb0"),
                "dirt_dark": _c("#8e7e70"), "water": _c("#8cc8ec"), "deep": _c("#78b4e0"), "shore": _c("#c4e8fa"),
-               "foam": _c("#f0faff"), "flowers": [], "lilies": False, "mushrooms": False, "tufts": (0, 1)},
+               "foam": _c("#f0faff"), "flowers": [], "lilies": False, "mushrooms": False, "tufts": (0, 1), "clumps": (0, 0, 1),
+               "bed": (_c("#a08a7a"), _c("#7e6a5e"), _c("#bca898"))},
     "desert": {"grass": _c("#ecca8a"), "light": _c("#f0d29a"), "dark": _c("#e4c080"), "edge": _c("#a87a44"),
                "tuft": _c("#b8a050"), "tuft_light": _c("#d8c070"), "dirt": _c("#c98458"), "dirt_light": _c("#d89a6c"),
                "dirt_dark": _c("#a8683e"), "water": WATER, "deep": WATER_DEEP, "shore": WATER_LIGHT, "foam": FOAM,
-               "flowers": [_c("#ff8fb4"), _c("#ffd84a")], "lilies": True, "mushrooms": False, "tufts": (0, 0, 1)},
+               "flowers": [_c("#ff8fb4"), _c("#ffd84a")], "lilies": True, "mushrooms": False, "tufts": (0, 0, 1),
+               "clumps": (0, 0, 1), "bed": (_c("#b4784a"), _c("#8a5434"), _c("#c88e5c"))},
 }
+
+BED = (_c("#9a6238"), _c("#74462a"), _c("#b07446"))  # a tilled garden bed: earth, its dark rim, light crumbs
 
 # Terrain characters (one per map cell).
 GRASS_C, PATH_C, WATER_C, FIELD_C, SAND_C = ".", ":", "~", ",", "_"
@@ -156,12 +160,12 @@ def terrain_image(rows: list[str], seed: int = 0, season: str = "spring") -> np.
     # grass: two tones in soft patches, specks of darker green
     img[:] = P["grass"]
     patches = _noise(H, W, 24, nrng, 6.0)
-    img[patches > 0.60] = P["light"]
-    img[patches < 0.36] = P["dark"]
+    img[patches > 0.64] = P["light"]
+    img[patches < 0.32] = P["dark"]
     specks = nrng.random((H, W)) < 0.012
     img[specks & land] = P["dark"]
 
-    # tufts and flowers on plain grass cells (fields stay tidy)
+    # tufts, clumps of blades and flowers on plain grass cells (fields stay tidy)
     rnd = _rng("tufts", seed)
     for y in range(hh):
         for x in range(ww):
@@ -169,10 +173,28 @@ def terrain_image(rows: list[str], seed: int = 0, season: str = "spring") -> np.
                 continue
             for _ in range(rnd.choice(P["tufts"])):
                 _tuft(img, x * CELL + rnd.randint(2, 12), y * CELL + rnd.randint(4, 13), rnd, P)
-            if P["flowers"] and rnd.random() < 0.16:
+            for _ in range(rnd.choice(P["clumps"])):
+                _clump(img, x * CELL + rnd.randint(3, 12), y * CELL + rnd.randint(6, 14), rnd, P)
+            if P["flowers"] and rnd.random() < 0.2:
                 col = rnd.choice(P["flowers"])
-                for _ in range(rnd.randint(1, 3)):
-                    _flower(img, x * CELL + rnd.randint(2, 13), y * CELL + rnd.randint(2, 13), col)
+                fx, fy = x * CELL + rnd.randint(3, 12), y * CELL + rnd.randint(3, 12)
+                for _ in range(rnd.randint(2, 4)):  # flowers grow in little patches
+                    _flower(img, fx + rnd.randint(-3, 3), fy + rnd.randint(-3, 3), col)
+
+    # the garden bed: tilled earth under the crop plots (the field minus its outer ring), with a bumpy edge
+    field = grid == FIELD_C
+    inner = field.copy()
+    for dy in (-1, 0, 1):
+        for dx in (-1, 0, 1):
+            inner &= np.roll(np.roll(field, dy, 0), dx, 1)
+    if inner.any():
+        earth, rim_c, crumb = P.get("bed", BED)
+        bed = _dilate(_soft_mask(inner, 2.5, _noise(H, W, 2, nrng, 0.6), 0.55), 3)
+        img[bed] = earth
+        img[bed & (nrng.random((H, W)) < 0.06)] = crumb
+        img[bed & (nrng.random((H, W)) < 0.04)] = rim_c
+        img[bed & (_ring(~bed) | _shift(~bed, -1, 0))] = rim_c   # a dark rim, thicker under the top edge
+        img[_ring(bed)] = P["edge"]
 
     # sand (beaches)
     img[sand] = SAND
@@ -193,8 +215,15 @@ def terrain_image(rows: list[str], seed: int = 0, season: str = "spring") -> np.
     # water: deep middle, light shore line, sparkles; a brown cliff where land drops into it to the south
     dist = _depth(water, 12)
     img[water] = P["water"]
-    deep = water & (dist > 9) & (_noise(H, W, 14, nrng, 4.0) > 0.52)
-    img[deep] = P["deep"]
+    deep = np.zeros_like(water)
+    yy, xx = np.mgrid[0:H, 0:W]
+    open_water = np.argwhere(water & (dist > 5))
+    for k in nrng.choice(len(open_water), size=min(len(open_water), max(1, len(open_water) // 260)), replace=False) \
+            if len(open_water) else []:
+        cy, cx = open_water[k]
+        r = nrng.uniform(1.5, 6.5)
+        deep |= (yy - cy) ** 2 + (xx - cx) ** 2 <= r * r
+    img[deep & water & (dist > 3)] = P["deep"]
     img[water & (dist <= 2)] = P["shore"]
     cliff = np.zeros_like(water)
     for k in range(1, 7):
@@ -208,6 +237,10 @@ def terrain_image(rows: list[str], seed: int = 0, season: str = "spring") -> np.
     img[water & ~cliff & _shift(cliff, 1, 0)] = P["foam"]                 # foam at the foot of the cliff
     img[_ring(water) & land & ~cliff] = P["edge"]                   # the grass lip around the water
     img[_ring(land) & water & ~cliff] = P["foam"]                         # a thin light line on the water side
+    beside = _shift(land, 0, 1) | _shift(land, 0, -1)
+    side = water & ~cliff & (beside | _shift(beside, 0, 1) | _shift(beside, 0, -1)) & ~_shift(land, -1, 0) & ~_shift(land, 1, 0)
+    img[side] = CLIFF                                               # earth showing where the land ends east and west
+    img[side & beside] = CLIFF_DARK
     sparkle = water & ~cliff & (dist > 3) & (nrng.random((H, W)) < 0.004)
     for y, x in zip(*np.nonzero(sparkle)):
         _sparkle(img, x, y, P)
@@ -223,8 +256,15 @@ def terrain_image(rows: list[str], seed: int = 0, season: str = "spring") -> np.
                     _lily(img, cx + rnd.randint(-3, 3), cy + rnd.randint(-3, 3), rnd)
                 elif 2 < dist[cy, cx] <= 6 and rnd.random() < 0.12:
                     _reeds(img, cx + rnd.randint(-5, 5), cy + rnd.randint(-2, 4))
-            elif P["mushrooms"] and grid[y, x] == GRASS_C and rnd.random() < 0.025:
-                _mushroom(img, x * CELL + rnd.randint(3, 12), y * CELL + rnd.randint(5, 13))
+            elif grid[y, x] == GRASS_C:
+                px, py, roll = x * CELL + rnd.randint(3, 12), y * CELL + rnd.randint(6, 13), rnd.random()
+                if P["mushrooms"] and roll < 0.025:
+                    for k in range(rnd.randint(1, 3)):  # a little ring of them
+                        _mushroom(img, px + k * 3 - 2, py + (k % 2))
+                elif roll < 0.045:
+                    _stone(img, px, py, rnd.random() < 0.5)
+                elif roll < 0.07 and season != "winter":
+                    _sprig(img, px, py, P, rnd.random() < 0.4 and season == "spring")
     _indoors(img, grid)
     return img
 
@@ -331,6 +371,79 @@ def _tuft(img: np.ndarray, x: int, y: int, rnd: random.Random, P: dict) -> None:
     for dx, dy, col in ((0, 0, t), (-1, -1, t), (1, -1, t), (-2, -2, tl), (2, -2, tl), (0, -2, tl if rnd.random() < 0.5 else t)):
         if 0 <= y + dy < h and 0 <= x + dx < w:
             img[y + dy, x + dx] = col
+
+
+CLUMP = ("...l...",
+         ".l.d.l.",
+         ".d.d.d.",
+         "d.ddd.d",
+         ".ddddd.")
+CLUMP_SMALL = ("l...l",
+               "d.l.d",
+               ".ddd.")
+
+
+def _clump(img: np.ndarray, x: int, y: int, rnd: random.Random, P: dict) -> None:
+    """A clump of grass blades standing on (x, y): dark blades, light tips."""
+    shape = CLUMP if rnd.random() < 0.5 else CLUMP_SMALL
+    h, w = img.shape[:2]
+    top, half = y - len(shape) + 1, len(shape[0]) // 2
+    for r, row in enumerate(shape):
+        for c, ch in enumerate(row):
+            yy, xx = top + r, x - half + c
+            if ch != "." and 0 <= yy < h and 0 <= xx < w:
+                img[yy, xx] = P["tuft"] if ch == "d" else P["tuft_light"]
+
+
+STONE_ART = {"big": ("..OOO..",
+                     ".OLLSO.",
+                     "OLSSSDO",
+                     "OSSSDDO",
+                     ".ODDDO."),
+             "small": (".OO.",
+                       "OLSO",
+                       "ODDO")}
+
+
+def _stone(img: np.ndarray, x: int, y: int, big: bool) -> None:
+    """A grey stone sitting in the grass, lit from the top left."""
+    col = {"O": OUTLINE, "L": _c("#e4e4ec"), "S": _c("#b4b4c4"), "D": _c("#7e7e94")}
+    shape = STONE_ART["big" if big else "small"]
+    h, w = img.shape[:2]
+    for r, row in enumerate(shape):
+        for c, ch in enumerate(row):
+            yy, xx = y - len(shape) + 1 + r, x - len(row) // 2 + c
+            if ch in col and 0 <= yy < h and 0 <= xx < w:
+                img[yy, xx] = col[ch]
+
+
+SPRIG = ("..L.L..",
+         ".LDLDL.",
+         "LDDLDDL",
+         ".DDDDD.",
+         "..DDD..")
+
+
+def _sprig(img: np.ndarray, x: int, y: int, P: dict, bluebells: bool) -> None:
+    """A leafy weed (a fern, or bluebells in spring) with a dark outline, a little bigger than a clump."""
+    leaf, dark = P["tuft_light"], P["tuft"]
+    h, w = img.shape[:2]
+    top = y - len(SPRIG) + 1
+    solid = set()
+    for r, row in enumerate(SPRIG):
+        for c, ch in enumerate(row):
+            if ch != ".":
+                solid.add((top + r, x - 3 + c))
+                if 0 <= top + r < h and 0 <= x - 3 + c < w:
+                    img[top + r, x - 3 + c] = leaf if ch == "L" else dark
+    for yy, xx in {(a + dy, b + dx) for a, b in solid for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1))} - solid:
+        if 0 <= yy < h and 0 <= xx < w:
+            img[yy, xx] = P["edge"]
+    if bluebells:
+        for bx, by in ((x - 2, top - 1), (x + 2, top), (x, top - 2)):
+            if 0 <= by < h and 0 <= bx + 1 < w:
+                img[by, bx] = _c("#6a7ae8")
+                img[by, bx + 1] = _c("#9aa8ff")
 
 
 def _flower(img: np.ndarray, x: int, y: int, col: RGBA) -> None:
@@ -1271,16 +1384,19 @@ def _outline_dark(g: Fig, col: RGBA = _c("#1e3a24")) -> None:
 
 
 def soil_tile(wet: bool) -> np.ndarray:
-    """A 16x16 tilled patch: rounded, with furrows; darker when watered."""
-    base, dark, light = (_c("#6a3e24"), _c("#4a2a18"), _c("#7e4c2c")) if wet else (_c("#9a6238"), _c("#74462a"), _c("#b47a48"))
+    """A 16x16 tilled patch: ridges and furrows over the whole tile, so plots side by side make one dug patch on the
+    garden bed; darker when watered."""
+    base, dark, light = (_c("#5a3420"), _c("#3e2414"), _c("#704428")) if wet else (_c("#86522e"), _c("#62381e"), _c("#a26a3e"))
     g = Fig(CELL, CELL)
-    g.rect(1, 1, 14, 14, base)
-    for p in ((1, 1), (14, 1), (1, 14), (14, 14)):
-        g.px[p[1], p[0]] = (0, 0, 0, 0)
-    for y in (4, 8, 12):
-        g.rect(2, y, 13, y, dark)
-        g.rect(2, y - 1, 13, y - 1, light)
-    g.rect(1, 14, 14, 14, dark)
+    g.rect(0, 0, 15, 15, base)
+    for y in (2, 6, 10, 14):
+        g.rect(0, y, 15, y, dark)          # the furrow
+        g.rect(0, y - 1, 15, y - 1, light)  # the lit top of the ridge above it
+        for x in range((y * 3) % 5, 16, 5):
+            g.set(x, y - 2, light)           # crumbs
+    if wet:
+        for x, y in ((3, 4), (11, 8), (6, 12)):
+            g.set(x, y, _c("#8a6a52"))       # a glint of water
     return g.px
 
 
