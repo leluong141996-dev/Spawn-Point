@@ -21,10 +21,11 @@ so there are no assets to find and no licenses to worry about. The result is a r
 ⭐ **If Spawn Point drew something fun or useful, a star helps other people find it. If it drew something wrong, [open an issue](https://github.com/leluong141996-dev/Spawn-Point/issues/new) with your prompt: the model's tests grow from prompts that broke.**
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/cards-fight.gif" width="48%" alt="A card battle in a willow forest: a ranger plays cards against a piranha plant and a wolf">
-  <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/cards-run.gif" width="48%" alt="A card game run at night: the map, an event, a knight fighting skeletons and bats">
+  <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/farm-field.gif" width="48%" alt="A cozy island farm: the farmer tills, plants and waters the garden bed inside the fenced field">
+  <img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/farm-animals.gif" width="48%" alt="The animal pen: chickens, a chick and a cow by the red coop, the farmer collecting eggs and milk">
 </p>
-<p align="center"><sub>New in 0.4: a Slay the Spire style card game from one sentence ("game thẻ bài, hiệp sĩ đánh lũ xương khô, trùm là Lich").</sub></p>
+<p align="center"><sub>A cozy island farm from one sentence ("game nông trại trên đảo, trồng cà rốt và dâu tây"): plant, water, harvest,
+look after the animals, sell at the market. Every pixel is drawn by code. <a href="docs/genres.md">More genres</a>, including a Slay the Spire style card game.</sub></p>
 
 <p align="center"><b><a href="https://leluong141996-dev.github.io/Spawn-Point/">▶ Play the demos in your browser</a></b>: a Slay the Spire style card game, a Mario-style platformer, a
 knight with a sword, tower defense, a ninja rescue, a dinosaur-egg bubble shooter, a survivor with level-ups, a cozy
