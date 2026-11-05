@@ -1343,6 +1343,9 @@ func _draw_intent(f: Dictionary, at: Vector2) -> void:
 
 
 ## Plays a skill effect (a strip from sprites/fx.py) over a fighter.
+const FX_FPS := 20.0  # effect strips are drawn at this rate (sprites/fx.py FPS)
+
+
 func _play_fx(effect: String, node: Node, delay := 0.0) -> void:
 	var tex := _art("fx_" + effect)
 	if tex == null or node == null or not is_instance_valid(node) or not is_inside_tree():
@@ -1361,7 +1364,7 @@ func _play_fx(effect: String, node: Node, delay := 0.0) -> void:
 	if delay > 0.0:
 		t.tween_interval(delay)
 		t.tween_callback(func() -> void: s.visible = true)
-	t.tween_property(s, ^"frame", s.hframes - 1, maxf(0.05, 0.07 * s.hframes)).from(0)
+	t.tween_property(s, ^"frame", s.hframes - 1, maxf(0.05, s.hframes / FX_FPS)).from(0)
 	t.tween_callback(s.queue_free)
 
 
