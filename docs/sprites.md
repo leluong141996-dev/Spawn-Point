@@ -29,6 +29,15 @@ Ground tiles are drawn for their neighbours (grass on top, outlined exposed edge
 varied interiors, capped one-way planks), and pixel-art levels get pixel effects: skidding dust, hit sparks and a
 screen shake in whole pixels.
 
+**Skill effects** (`sprites/vfx.py`, used by the card game's `sprites/fx.py`) are drawn into two buffers, opaque
+colour that fades by ordered dither and additive light on top, with simulated particles: sparks that streak and
+bounce, fire that cools into smoke, smoke that swells and thins, embers, motes and twinkling stars, all stepped at
+120 Hz. The toolkit is ported from [pixelfx](https://github.com/patch-gg/pixelfx) (MIT, Patch and Hugo Duprez), whose
+particles adapt [Sprite Fusion's open-source pixel art VFX](https://www.spritefusion.com/pixel-art-vfx) (MIT, Hugo
+Duprez).
+
+<p align="center"><img src="https://raw.githubusercontent.com/leluong141996-dev/Spawn-Point/main/docs/media/card-effects.gif" width="92%" alt="The ten card skill effects playing at twice their size: slash, fire, ice, bolt, poison, heal, shield, buff, curse and hit"></p>
+
 **Collision comes from the pixels.** Hitboxes, hurtboxes, pickups, hazards and static bodies use the
 sprite's traced outline (`CollisionPolygon2D`); moving bodies keep a smooth capsule/circle fitted to
 the sprite's opaque bounds, so characters never snag on tile seams.

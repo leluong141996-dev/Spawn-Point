@@ -19,7 +19,7 @@ Rest sites heal or upgrade a card (Strike becomes Strike+), shops sell cards, re
 relics change the rules (one to start with per class) and potions are drunk in a fight. The art is pixel art drawn
 from code: a painted backdrop per theme (a willow forest, a haunted night, desert ruins, a frozen peak, a volcano, a
 beach, a candy land, a neon city) with drifting leaves, snow or embers, parchment cards, skill effects (slashes, fire,
-ice, lightning, poison), a pixel font, and the same chibi heroes and monsters as the other games, drawn big.
+ice, lightning, poison) drawn with light and simulated sparks, flame and smoke, a pixel font, and the same chibi heroes and monsters as the other games, drawn big.
 
 ## A cozy farm from one sentence
 
