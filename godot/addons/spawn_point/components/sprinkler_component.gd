@@ -54,5 +54,6 @@ func water_around() -> int:
 			if (SP.component(e, &"FarmPlot") as FarmPlotComponent).water():
 				n += 1
 	if n > 0:
-		FX.burst(_entity.global_position + Vector2(0, -8), Color("#7fd0ff"), 12, 120.0, 0.5, 2.0, 120.0)
+		if not FX.play("splash", _entity.global_position + Vector2(0, -6)):
+			FX.burst(_entity.global_position + Vector2(0, -8), Color("#7fd0ff"), 12, 120.0, 0.5, 2.0, 120.0)
 	return n

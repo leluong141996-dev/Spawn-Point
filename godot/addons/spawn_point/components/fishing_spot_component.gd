@@ -57,7 +57,8 @@ func use(bite_scale := 1.0) -> String:
 			return "cast"
 		State.BITE:
 			state = State.IDLE
-			FX.burst(bobber_position(), Color("#e6fbff"), 10, 120.0, 0.4, 2.5, 300.0)
+			if not FX.play("splash", bobber_position()):
+				FX.burst(bobber_position(), Color("#e6fbff"), 10, 120.0, 0.4, 2.5, 300.0)
 			caught.emit(catch_name)
 			return catch_name
 		_:

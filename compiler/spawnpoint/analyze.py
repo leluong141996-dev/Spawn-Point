@@ -136,6 +136,11 @@ class _Analyzer:
 
         for name, req in s.art.items():
             self.scenery_images[f"art_{name}"] = sc.to_image(_draw_art(req))
+        if s.art_style == "pixel":  # world effects for the FX autoload (it falls back to plain particles without them)
+            from .sprites import fx
+            for name in (*fx.WORLD, "hit"):
+                if f"art_fx_{name}" not in self.scenery_images:
+                    self.scenery_images[f"art_fx_{name}"] = sc.to_image(fx.strip(name))
         if s.backdrop != "none":  # one painted picture behind the whole screen (card battles)
             from .sprites import battle
             self.scenery_images["scenery_ground"] = sc.to_image(battle.backdrop(s.backdrop, s.seed))

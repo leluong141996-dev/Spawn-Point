@@ -663,6 +663,10 @@ class _Assembler:
                     item, hits, amount, chips = spec["gather"]
                     ent["components"]["Gatherable"] = {"item": item, "hits": hits, "amount": amount, "chip_color": chips,
                                                        **({"leaves": "Stump"} if kind.startswith("tree") else {})}
+                if kind == "tree_blossom" and season == "spring":  # petals drift down under the blossom
+                    ent["components"]["AmbientFx"] = {"effect": "petals", "offset": [0, -24]}
+                elif kind == "tree_oak" and season != "winter":  # fireflies round the oaks after dusk
+                    ent["components"]["AmbientFx"] = {"effect": "fireflies", "offset": [0, -36], "night_only": True}
                 self.entities[name] = ent
             place(name, c)
         if fm.door_mat is not None:  # the farmhouse door and the mat inside are linked

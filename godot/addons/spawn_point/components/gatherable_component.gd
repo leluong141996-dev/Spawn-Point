@@ -66,5 +66,6 @@ func hit() -> String:
 		stump.position = _entity.position
 		_entity.get_parent().add_child.call_deferred(stump)
 	FX.burst(pos + Vector2(0, -10), chip_color, 14, 160.0, 0.5, 3.0, 300.0)
+	FX.play("dust", pos)
 	_entity.queue_free()
 	return item

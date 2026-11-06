@@ -213,6 +213,7 @@ func _work_plot(plot: FarmPlotComponent) -> String:
 			return ""
 		var c := plot.harvest()
 		basket[c] = int(basket.get(c, 0)) + 1
+		FX.play("harvest", plot.get_parent().global_position + Vector2(0, -6))
 		FX.float_text(plot.get_parent().global_position + Vector2(0, -18), "+1 " + crop_list[c].name, crop_list[c].color)
 		return "harvest"
 	if plot.is_empty():
@@ -228,6 +229,7 @@ func _work_plot(plot: FarmPlotComponent) -> String:
 		plot.water()
 		return "plant"
 	if plot.water():
+		FX.play("splash", plot.get_parent().global_position + Vector2(0, -4))
 		if has_upgrade("can"):
 			for p in _plots_around(plot):
 				p.water()
@@ -286,6 +288,7 @@ func add_goods(item: String, n := 1, where := Vector2.INF) -> int:
 	goods_basket[item] = int(goods_basket.get(item, 0)) + put
 	var pos := where if where != Vector2.INF else _entity.global_position
 	FX.float_text(pos + Vector2(0, -24), "+%d %s" % [put, item], Color("#fffaf0"))
+	FX.play("collect", pos + Vector2(0, -12))
 	return put
 
 

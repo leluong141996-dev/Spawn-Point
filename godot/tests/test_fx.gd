@@ -88,3 +88,41 @@ func test_pixel_art_shake_is_whole_pixels_and_never_rotates() -> void:
 	assert_true(cam.rotation != 0.0 or cam.offset != cam.offset.round(), "smooth shake for other styles:")
 	FX.pixel_art = true
 	cam.queue_free()
+
+
+func _strip(frames_n: int) -> Texture2D:
+	var img := Image.create(8 * frames_n, 8, false, Image.FORMAT_RGBA8)
+	img.fill(Color.WHITE)
+	return ImageTexture.create_from_image(img)
+
+
+func test_play_falls_back_without_a_strip_and_cleans_up_with_one() -> void:
+	FX._strips.erase("test_none")
+	assert_false(FX.play("test_none", Vector2(10, 10)), "no strip in this game, so the caller uses particles:")
+	FX._strips["test_pop"] = _strip(4)
+	var parent: Node = World.level if World.level else get_tree().current_scene
+	var before := parent.get_child_count()
+	assert_true(FX.play("test_pop", Vector2(10, 10)))
+	var s := parent.get_child(parent.get_child_count() - 1) as Sprite2D
+	assert_eq(s.hframes, 4, "one frame per square of the strip:")
+	await frames(30)  # 4 frames at 20 fps
+	assert_eq(parent.get_child_count(), before, "a one-shot removes itself:")
+	FX._strips.erase("test_pop")
+
+
+func test_ambient_fx_loops_and_hides_by_day() -> void:
+	FX._strips["fireflies"] = _strip(6)
+	var host := Node2D.new()
+	add_child(host)
+	var amb := AmbientFxComponent.new()
+	amb.effect = "fireflies"
+	amb.night_only = true
+	host.add_child(amb)
+	await frames(2)
+	var s := host.get_child(host.get_child_count() - 1) as Sprite2D
+	assert_true(s != null and s.hframes == 6, "the loop plays on the host:")
+	assert_eq(s.modulate.a, 0.0, "without a farm clock it stays hidden:")
+	await frames(20)
+	assert_true(is_instance_valid(s), "a loop keeps going:")
+	host.queue_free()
+	FX._strips.erase("fireflies")

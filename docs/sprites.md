@@ -29,7 +29,8 @@ Ground tiles are drawn for their neighbours (grass on top, outlined exposed edge
 varied interiors, capped one-way planks), and pixel-art levels get pixel effects: skidding dust, hit sparks and a
 screen shake in whole pixels.
 
-**Skill effects** (`sprites/vfx.py`, used by the card game's `sprites/fx.py`) are drawn into two buffers, opaque
+**Effects** (`sprites/vfx.py`, used by `sprites/fx.py`: the card game's skills, and in every pixel-art game an
+enemy popping, landing dust, pickup sparkles, a harvest, splashes, falling petals and fireflies) are drawn into two buffers, opaque
 colour that fades by ordered dither and additive light on top, with simulated particles: sparks that streak and
 bounce, fire that cools into smoke, smoke that swells and thins, embers, motes and twinkling stars, all stepped at
 120 Hz. The toolkit is ported from [pixelfx](https://github.com/patch-gg/pixelfx) (MIT, Patch and Hugo Duprez), whose

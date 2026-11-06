@@ -222,3 +222,18 @@ def test_the_logo_draws(tmp_path):
     assert ic.shape == (32, 32, 4) and (ic[..., 3] == 255).sum() > 900
     paths = logo.write(tmp_path)
     assert {p.name for p in paths} >= {"logo.png", "favicon.ico", "logo-icon-256.png"}
+
+
+def test_blossom_trees_shed_petals_and_oaks_get_fireflies_at_night(manifest):
+    for seed in range(6):
+        g = assemble(_farm_brief(), 2, seed=seed)
+        ents = g["entities"]
+        if "CherryTree" in ents and "Oak" in ents:
+            break
+    assert ents["CherryTree"]["components"]["AmbientFx"]["effect"] == "petals"
+    assert ents["Oak"]["components"]["AmbientFx"] == {"effect": "fireflies", "offset": [0, -36], "night_only": True}
+    winter = assemble(_farm_brief(palette="snow"), 2, seed=1)["entities"]
+    assert not any("AmbientFx" in e.get("components", {}) for e in winter.values()), "no petals or fireflies in winter"
+    a = analyze(g, manifest)
+    assert a.ok, [str(d) for d in a.diagnostics]
+    assert {"art_fx_petals", "art_fx_fireflies", "art_fx_pop", "art_fx_harvest"} <= set(a.scenery_images)

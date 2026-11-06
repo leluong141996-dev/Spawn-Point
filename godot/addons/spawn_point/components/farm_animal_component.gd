@@ -179,7 +179,8 @@ func _grow_up() -> void:
 	var grown := (load(path) as PackedScene).instantiate() as Node2D
 	grown.position = _body.position
 	_body.get_parent().add_child.call_deferred(grown)
-	FX.burst(_body.global_position + Vector2(0, -8), Color("#fff1a8"), 10, 90.0, 0.4, 2.5, 200.0)
+	if not FX.play("pop", _body.global_position + Vector2(0, -8)):
+		FX.burst(_body.global_position + Vector2(0, -8), Color("#fff1a8"), 10, 90.0, 0.4, 2.5, 200.0)
 	grew_up.emit()
 	_body.queue_free()
 
