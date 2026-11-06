@@ -29,6 +29,7 @@ func _start() -> void:
 	_sprite = FX.loop(effect, get_parent(), offset)
 	if _sprite and night_only:
 		_sprite.modulate.a = 0.0
+		_sprite.self_modulate = Color(2.4, 2.2, 1.4)  # overbright, so the night tint leaves a warm glow, not grey
 	set_process(_sprite != null and night_only)
 
 
