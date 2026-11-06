@@ -96,3 +96,27 @@ func test_four_direction_sprites_follow_the_facing() -> void:
 	mv.move_vector = Vector2.ZERO
 	await frames(40)
 	assert_eq(String(spr.animation), "idle", "standing, facing down")
+
+
+func test_things_that_loop_in_place_start_at_their_own_frame() -> void:
+	var picked := {}
+	for x in [0, 32, 64, 96, 128]:
+		var e := make_entity("Tree%d" % x, "static", SP.TEAM_NEUTRAL, Vector2(10, 10), {}, Vector2(x, 64))
+		var spr := _with_sprite(e)
+		var sf := SpriteFrames.new()  # a six-frame swaying idle
+		var img := Image.create(4, 4, false, Image.FORMAT_RGBA8)
+		img.fill(Color.WHITE)
+		var tex := ImageTexture.create_from_image(img)
+		for i in 6:
+			sf.add_frame(&"default", tex)
+		sf.rename_animation(&"default", &"idle")
+		sf.set_animation_loop(&"idle", true)
+		sf.set_animation_speed(&"idle", 3.0)
+		spr.sprite_frames = sf
+		spr.play(&"idle")
+		picked[x] = spr
+	await frames(3)
+	var starts := {}
+	for x in picked:
+		starts[(picked[x] as AnimatedSprite2D).frame] = true
+	assert_true(starts.size() > 1, "trees in a row do not sway in step")

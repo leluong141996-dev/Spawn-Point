@@ -13,6 +13,8 @@ import random
 from collections import deque
 from dataclasses import dataclass, field
 
+from ..sprites.farm import FENCE_KINDS, fence_kind
+
 Cell = tuple[int, int]
 
 FARM_MAPS = {"short": (30, 20), "medium": (34, 22), "long": (40, 26)}
@@ -53,9 +55,11 @@ class CozyFarm:
         return out
 
 
+# Trees that also come smaller: a wood mixes big and small ones (chosen by the cell, so the map stays the same).
+SMALL_TREES = ("tree_oak", "tree_fruit", "tree_blossom", "tree_maple", "tree_pine")
 # Objects the assembler turns into entities.
-OBJECT_KINDS = ("farmhouse", "coop", "fence_h", "fence_v", "fence_post", "tree_oak", "tree_pine", "tree_blossom",
-                "tree_fruit", "tree_maple", "tree_snowy_pine", "tree_bare", "tree_palm", "cactus", "boulder", "stump",
+OBJECT_KINDS = ("farmhouse", "coop", *FENCE_KINDS, "tree_oak", "tree_pine", "tree_blossom",
+                "tree_fruit", "tree_maple", *(f"{t}_small" for t in SMALL_TREES), "tree_snowy_pine", "tree_bare", "tree_palm", "cactus", "boulder", "stump",
                 "flower_bush", "hay", "barrel", "well", "scarecrow", "signpost", "workbench", "shop", "sprinkler",
                 "bed", "fireplace", "table", "chair", "dresser", "potted_plant")
 # What grows around the farm in each season: (tree kinds, weights), and the small things scattered between them.
@@ -245,6 +249,8 @@ def cozy_farm(seed: int, length: str = "medium", plot_target: int = 12, island: 
                 continue
             if rng.random() < chance:
                 kind = rng.choices(trees_of, weights)[0]
+                if kind in SMALL_TREES and (x * 7 + y * 13) % 5 < 2:
+                    kind += "_small"
                 trees.append(c)
                 put(kind, c)
             elif rng.random() < 0.05:
@@ -263,6 +269,7 @@ def cozy_farm(seed: int, length: str = "medium", plot_target: int = 12, island: 
     _clear_paths(farm)
     if rng.random() < 0.5:  # the house on the right instead
         _mirror(farm)
+    _join_fences(farm)
     _add_interior(farm)
     return farm
 
@@ -318,17 +325,20 @@ def _add_interior(farm: CozyFarm) -> None:
 
 
 def _fence(objects: list[tuple[str, Cell]], x0: int, y0: int, x1: int, y1: int, gate: Cell) -> None:
-    """A rectangle of fence with one gap; corners are posts."""
+    """A rectangle of fence with one gap (the pieces are joined up later, see _join_fences)."""
     for x in range(x0, x1 + 1):
-        for y in (y0, y1):
-            if (x, y) == gate:
-                continue
-            corner = x in (x0, x1)
-            objects.append(("fence_post" if corner else "fence_h", (x, y)))
-    for y in range(y0 + 1, y1):
-        for x in (x0, x1):
-            if (x, y) != gate:
-                objects.append(("fence_v", (x, y)))
+        for y in range(y0, y1 + 1):
+            if (x in (x0, x1) or y in (y0, y1)) and (x, y) != gate:
+                objects.append(("fence_post", (x, y)))
+
+
+def _join_fences(farm: CozyFarm) -> None:
+    """Each fence piece joins the fence next to it: rails run toward every side with fence, so corners turn,
+    runs stay unbroken and the posts by a gate end the rail."""
+    cells = {c for k, c in farm.objects if k in FENCE_KINDS}
+    sides = ((0, -1, "n"), (1, 0, "e"), (0, 1, "s"), (-1, 0, "w"))
+    farm.objects = [(fence_kind("".join(d for dx, dy, d in sides if (c[0] + dx, c[1] + dy) in cells)), c)
+                    if k in FENCE_KINDS else (k, c) for k, c in farm.objects]
 
 
 def _clear_paths(farm: CozyFarm) -> None:

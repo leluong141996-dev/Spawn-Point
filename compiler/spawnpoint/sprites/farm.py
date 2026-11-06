@@ -12,6 +12,8 @@ and a brown earth edge wherever land meets the water (a cliff face to the south,
 
 from __future__ import annotations
 
+import colorsys
+import math
 import random
 import zlib
 
@@ -577,90 +579,292 @@ def paint_coop(g: Fig, color: str, anim: str, i: int) -> None:
     _out(g)
 
 
-def _fence_post(g: Fig, x: int, y: int) -> None:
-    g.rect(x, y, x + 3, y + 10, WOOD)
-    g.rect(x + 3, y + 1, x + 3, y + 10, WOOD_DARK)
-    g.rect(x, y, x + 3, y, WOOD_LIGHT)
-    g.set(x + 1, y + 1, _c("#ffb050"))
+# Fences join their neighbours: one painter draws a post with rails toward each side that has fence next to it
+# (n, e, s, w), and farmgen picks the piece from the cells around it. Every piece fills its whole cell, so rails
+# meet rails at the cell edges and a run of fence reads as one line.
+F_OUT, F_DEEP, F_DARK, F_BASE, F_LIGHT, F_CAP = (_c("#1c0a18"), _c("#32131e"), _c("#4a2123"), _c("#8a3625"),
+                                                 _c("#ae4924"), _c("#c46120"))
+GROUND_SHADOW = (0, 0, 0, 77)
+FENCE_DIRS = ("", "n", "e", "s", "w", "ne", "ns", "nw", "es", "ew", "sw", "nes", "new", "nsw", "esw", "nesw")
 
 
-def paint_fence_h(g: Fig, color: str, anim: str, i: int) -> None:
-    g.rect(0, 6, 15, 7, WOOD)
-    g.rect(0, 10, 15, 11, WOOD)
-    g.rect(0, 7, 15, 7, WOOD_DARK)
-    g.rect(0, 11, 15, 11, WOOD_DARK)
-    _fence_post(g, 6, 3)
-    _out(g)
+def fence_kind(dirs: str) -> str:
+    """The sprite kind of a fence piece joined toward `dirs` (letters in n, e, s, w order)."""
+    return {"ew": "fence_h", "ns": "fence_v", "": "fence_post"}.get(dirs, f"fence_{dirs}")
 
 
-def paint_fence_v(g: Fig, color: str, anim: str, i: int) -> None:
-    g.rect(6, 0, 7, 15, WOOD)
-    g.rect(7, 0, 7, 15, WOOD_DARK)
-    _fence_post(g, 5, 3)
-    _out(g)
+FENCE_KINDS = {fence_kind(d): d for d in FENCE_DIRS}  # kind -> the sides it joins
 
 
-def paint_fence_post(g: Fig, color: str, anim: str, i: int) -> None:
-    _fence_post(g, 6, 3)
-    _out(g)
+def _rail(g: Fig, x0: int, x1: int, y: int) -> None:
+    """A horizontal rail four pixels tall: outline, lit top, shaded underside, outline."""
+    g.rect(x0, y, x1, y, F_OUT)
+    g.rect(x0, y + 1, x1, y + 1, F_LIGHT)
+    g.rect(x0, y + 2, x1, y + 2, F_DARK)
+    g.rect(x0, y + 3, x1, y + 3, F_OUT)
 
 
-def _canopy(g: Fig, cx: float, cy: float, r: float, base: RGBA, dark: RGBA, light: RGBA, rnd: random.Random,
-            sway: int = 0) -> None:
-    """A round, lumpy tree crown: overlapping blobs, a shaded underside, lit leaf clusters."""
-    blobs = [(cx + sway, cy - r * 0.35, r * 0.75), (cx - r * 0.5 + sway, cy, r * 0.62), (cx + r * 0.5 + sway, cy, r * 0.62),
-             (cx + sway, cy + r * 0.25, r * 0.7)]
-    for bx, by, br in blobs:
-        g.ellipse(bx, by + 1, br, br * 0.9, dark)
-    for bx, by, br in blobs:
-        g.ellipse(bx, by - 1, br * 0.92, br * 0.82, base)
-    for _ in range(int(r * 1.6)):  # little lit leaf clumps toward the top-left
-        a = rnd.random() * 3.14
-        lx, ly = cx - r * 0.55 * abs(np.cos(a)) + rnd.random() * r * 0.6 + sway, cy - r * 0.7 + rnd.random() * r * 0.8
-        g.ellipse(lx, ly, 1.6, 1.2, light)
-    for _ in range(int(r)):  # dark leaf notches
-        g.set(cx - r + rnd.random() * r * 2 + sway, cy - r * 0.2 + rnd.random() * r * 0.9, dark)
+def paint_fence(g: Fig, dirs: str) -> None:
+    """One 16x16 fence piece: a post in the middle, rails to the joined sides, a soft shadow on the grass."""
+    n, e, s, w = ("n" in dirs), ("e" in dirs), ("s" in dirs), ("w" in dirs)
+    x0, x1 = (0 if w else 6), (15 if e else 9)
+    if e or w:
+        g.rect(x0, 13, x1, 14, GROUND_SHADOW)  # the rails' shadow
+    g.rect(4, 14, 11, 15, GROUND_SHADOW)
+    if n:  # a rail running up to the post above (seen from the top: a narrow beam)
+        g.rect(6, 0, 9, 2, F_OUT)
+        g.rect(7, 0, 8, 2, F_BASE)
+        g.set(7, 0, F_LIGHT)
+    if s:
+        g.rect(6, 13, 9, 15, F_OUT)
+        g.rect(7, 13, 8, 15, F_DARK)
+    for y in (4, 9):
+        if w:
+            _rail(g, 0, 5, y)
+        if e:
+            _rail(g, 10, 15, y)
+    # the post: outline, body, shaded right side, a lit cap with the end grain
+    g.rect(5, 1, 10, 14, F_OUT)
+    g.rect(6, 2, 9, 13, F_BASE)
+    g.rect(9, 3, 9, 13, F_DARK)
+    g.rect(6, 12, 9, 13, F_DARK)
+    g.rect(6, 2, 9, 3, F_CAP)
+    g.set(7, 2, F_LIGHT)
+    g.set(8, 3, F_LIGHT)
+    g.rect(6, 4, 9, 4, F_DEEP)
+    g.set(7, 7, F_DARK)  # a knot
+    g.set(6, 10, F_LIGHT)
 
 
-def _trunk(g: Fig, x: int, top: int, bottom: int) -> None:
-    g.ellipse(x, bottom, 7, 2, _c("#2c5a30", 120))  # shadow on the grass
-    g.rect(x - 3, top, x + 2, bottom - 1, WOOD)
-    g.rect(x + 1, top, x + 2, bottom - 1, WOOD_DARK)
-    g.rect(x - 3, top, x - 3, bottom - 1, WOOD_LIGHT)
-    g.poly([(x - 6, bottom), (x - 3, bottom - 4), (x - 2, bottom)], WOOD)  # roots
-    g.poly([(x + 6, bottom), (x + 2, bottom - 4), (x + 1, bottom)], WOOD_DARK)
+# Trees. A leafy crown is a heap of leaf clumps, each lit from the top left with a shaded underside and a dark rim
+# where it overlaps the clump behind it; the crown's edge is ragged with leaf tips, the bottom of the crown opens on
+# the dark underside where the branches fork from the trunk, and the trunk flares into roots over a soft shadow.
+# In the wind the clumps sway a pixel each way, the top ones most and each a little out of step (six frames).
+BARK_OUT, BARK_DEEP, BARK_DARK, BARK, BARK_LIGHT = (_c("#1c0a18"), _c("#4a2123"), _c("#8a3625"), _c("#ae4924"),
+                                                   _c("#c46120"))
+TREE_FRAMES, TREE_FPS = 6, 3
 
 
-def paint_tree(g: Fig, color: str, anim: str, i: int, kind: str = "oak", seed: int = 0) -> None:
-    rnd = _rng("tree", kind, seed)
-    sway = (0, 0, 1, 0)[i % 4] if anim == "idle" else 0
-    w = g.w
-    cx = w // 2
+def _hsv(c: RGBA) -> tuple[float, float, float]:
+    return colorsys.rgb_to_hsv(c[0] / 255, c[1] / 255, c[2] / 255)
+
+
+def _from_hsv(h: float, s: float, v: float, a: int = 255) -> RGBA:
+    r, g, b = colorsys.hsv_to_rgb(h % 1.0, min(1.0, max(0.0, s)), min(1.0, max(0.0, v)))
+    return int(r * 255 + 0.5), int(g * 255 + 0.5), int(b * 255 + 0.5), a
+
+
+def _toward(h: float, target: float, amount: float) -> float:
+    """A hue moved `amount` toward `target` the short way round (shadows go cool, lights go warm)."""
+    d = (target - h + 0.5) % 1.0 - 0.5
+    return h + math.copysign(min(abs(d), amount), d)
+
+
+def foliage(color: str) -> dict[str, RGBA]:
+    """Six tones of leaves from one colour: light, base, shade, deep, the dark underside and the outline."""
+    h, s, v = _hsv(_c(color))
+    s = min(s, 0.72)  # a red maple stays a warm red, not a hot one
+    return {"light": _from_hsv(_toward(h, 0.15, 0.025), s * 0.9, v * 1.1),
+            "base": _from_hsv(_toward(h, 0.72, 0.02), s * 1.2, v * 0.86),
+            "shade": _from_hsv(_toward(h, 0.72, 0.06), s * 1.3, v * 0.68),
+            "deep": _from_hsv(_toward(h, 0.72, 0.12), s * 1.35, v * 0.5),
+            "under": _from_hsv(_toward(h, 0.72, 0.15), s * 1.1, v * 0.34),
+            "out": _from_hsv(_toward(h, 0.72, 0.22), s * 1.4, v * 0.19)}
+
+
+def _ring_of(px: np.ndarray) -> np.ndarray:
+    a = px[..., 3] > 0
+    p = np.pad(a, 1)
+    return (p[:-2, 1:-1] | p[2:, 1:-1] | p[1:-1, :-2] | p[1:-1, 2:]) & ~a
+
+
+def _over(dst: np.ndarray, src: np.ndarray) -> None:
+    """Opaque pixels of `src` over `dst` (soft shadows blend)."""
+    solid = src[..., 3] == 255
+    dst[solid] = src[solid]
+    soft = (src[..., 3] > 0) & ~solid & (dst[..., 3] == 0)
+    dst[soft] = src[soft]
+
+
+def _trunk_layer(w: int, h: int, cx: int, top: int, bottom: int, rnd: random.Random, wide: int = 3) -> np.ndarray:
+    """A trunk that flares into three roots at the ground, lit on the left, with a groove or two of bark."""
+    t = Fig(w, h)
+    flare = 4
+    for y in range(top, bottom + 1):
+        k = max(0, y - (bottom - flare))  # rows into the flare
+        half = wide + (k * k) / 4.0
+        t.rect(cx - half, y, cx + half - 1, y, BARK)
+        t.rect(cx + half - 2, y, cx + half - 1, y, BARK_DARK)
+        t.set(cx - half, y, BARK_LIGHT)
+    for x0, x1 in ((cx - 2, cx - 4), (cx + 1, cx + 3)):  # the clefts between the roots
+        t.line(x0, bottom - flare + 1, x1, bottom, BARK_OUT)
+    t.rect(cx - 1, bottom - 1, cx, bottom, BARK_DARK)
+    for x in (cx - 2, cx + 1):  # bark grooves
+        y0 = top + rnd.randint(4, 7)
+        t.rect(x, y0, x, y0 + rnd.randint(2, 3), BARK_DEEP)
+    t.rect(cx - wide, top, cx + wide - 1, top + 3, BARK_DEEP)  # in the crown's shade
+    t.px[_ring_of(t.px)] = BARK_OUT
+    return t.px
+
+
+def _sway(i: int, amp: float, phase: float) -> int:
+    return int(round(amp * math.sin(2 * math.pi * i / TREE_FRAMES + phase)))
+
+
+def _fruit(base: str) -> list[tuple[int, int, RGBA]]:
+    d, b, l = _ramp(base)
+    return [(1, 0, b), (2, 0, b), (0, 1, b), (1, 1, l), (2, 1, b), (3, 1, b), (0, 2, b), (1, 2, b), (2, 2, b),
+            (3, 2, d), (1, 3, d), (2, 3, d)]
+
+
+def _blossom(petal: RGBA, heart: RGBA) -> list[tuple[int, int, RGBA]]:
+    return [(1, 0, petal), (0, 1, petal), (1, 1, heart), (2, 1, petal), (1, 2, petal)]
+
+
+TREE_SIZES = {"big": (15.5, 14.5, 13.5, 4, 41), "small": (19.0, 11.5, 10.5, 3, 41)}  # crown cy, rx, ry; trunk half width, ground
+LEAF_MOTIF = ((1, 0, "a"), (2, 0, "a"), (0, 1, "a"), (1, 1, "a"), (2, 1, "a"), (3, 1, "b"), (1, 2, "b"), (2, 2, "c"))
+
+
+def _crown(w: int, h: int, cx: float, cy: float, rx: float, ry: float, rnd: random.Random, P: dict[str, RGBA]) -> np.ndarray:
+    """The still crown: a scalloped oval filled with overlapping leaves lit from the top left, a shaded lower edge
+    and ragged leaf tips round the top and sides."""
+    ys, xs = np.mgrid[0:h, 0:w]
+    X, Y = xs + 0.5, ys + 0.5
+    m = ((X - cx) / (rx - 1.5)) ** 2 + ((Y - cy) / (ry - 1.5)) ** 2 <= 1
+    n = 9
+    for k in range(n):  # bumps round the edge
+        a = 2 * math.pi * (k + rnd.uniform(-0.25, 0.25)) / n
+        bx, by, r = cx + (rx - 3.4) * math.cos(a), cy + (ry - 3.4) * math.sin(a), rnd.uniform(3.2, 4.3)
+        m |= ((X - bx) / r) ** 2 + ((Y - by) / r) ** 2 <= 1
+    img = np.zeros((h, w, 4), dtype=np.uint8)
+    img[m] = P["base"]
+    tones = {"light": {"a": P["light"], "b": P["base"], "c": P["shade"]},
+             "mid": {"a": P["base"], "b": P["base"], "c": P["shade"]},
+             "dark": {"a": P["shade"], "b": P["shade"], "c": P["deep"]}}
+    for row, ay in enumerate(range(int(cy - ry), int(cy + ry) + 1, 3)):  # leaves in staggered rows
+        for ax in range(int(cx - rx) - 2 + (2 if row % 2 else 0), int(cx + rx) + 1, 4):
+            jx, jy = ax + rnd.randint(0, 1), ay + rnd.randint(-1, 0)
+            score = -0.55 * (jx - cx) / rx - (jy - cy) / ry + rnd.uniform(-0.4, 0.4)
+            tone = tones["light" if score > 0.3 else "mid" if score > -0.5 else "dark"]
+            for ox, oy, role in LEAF_MOTIF:
+                x, y = jx + ox, jy + oy
+                if 0 <= x < w and 0 <= y < h and m[y, x]:
+                    img[y, x] = tone[role]
+    for y0, steps in ((cy + ry * 0.5, (("light", "base"), ("base", "shade"))),
+                      (cy + ry * 0.78, (("shade", "deep"), ("base", "deep")))):
+        low = np.zeros((h, w), dtype=bool)
+        low[int(y0):] = True
+        for a, b in steps:  # the crown's lower edge is in its own shade
+            img[low & np.all(img == P[a], axis=-1)] = P[b]
+    for x in range(w):  # leaf tips: up along the top, out along the sides
+        col = np.nonzero(m[:, x])[0]
+        if len(col) and col[0] > 0 and (x * 5 + 1) % 3 == 0 and col[0] < cy:
+            img[col[0] - 1, x] = P["light"] if x < cx else P["base"]
+    for y in range(h):
+        row_ = np.nonzero(m[y])[0]
+        if len(row_) and y < cy + ry * 0.55 and (y * 7) % 3 == 0:
+            if row_[0] > 0:
+                img[y, row_[0] - 1] = P["base"]
+            if row_[-1] < w - 1:
+                img[y, row_[-1] + 1] = P["shade"]
+    return img
+
+
+def _sheared(img: np.ndarray, bands: list[tuple[int, int, int]]) -> np.ndarray:
+    """Rows moved sideways, (first row, end row, dx) per band: the crown bending in the wind."""
+    out = img.copy()
+    for y0, y1, dx in bands:
+        if dx:
+            out[y0:y1] = np.roll(img[y0:y1], dx, axis=1)
+    return out
+
+
+def paint_tree(g: Fig, color: str, anim: str, i: int, kind: str = "oak", seed: int = 0, size: str = "big") -> None:
     if kind == "pine":
-        _trunk(g, cx, 30, 39)
-        d, b, l = _ramp(color)
-        for k, (y, half) in enumerate(((4, 4), (10, 7), (17, 10), (24, 12))):
-            g.poly([(cx + sway, y - 4), (cx - half - 1 + sway * (k < 2), y + 7), (cx + half + 1 + sway * (k < 2), y + 7)], d)
-            g.poly([(cx + sway, y - 4), (cx - half + sway * (k < 2), y + 6), (cx + half - 2 + sway * (k < 2), y + 6)], b)
-            g.line(cx - 1 + sway, y - 2, cx - half + 2, y + 5, l)
-        _out(g)
+        paint_pine(g, color, anim, i, seed=seed, size=size)
         return
-    _trunk(g, cx, 24, 39)
-    if kind == "blossom":
-        d, b, l = _ramp(color)
-    else:
-        d, b, l = _ramp(color)
-    _canopy(g, cx, 15, 14, b, d, l, rnd, sway)
+    rnd = _rng("tree", kind, size, seed)
+    P = foliage(color)
+    w, h = g.w, g.h
+    cx = w / 2
+    cy, rx, ry, wide, ground = TREE_SIZES[size]
+    crown = _crown(w, h, cx, cy, rx, ry, rnd, P)
+    solid = crown[..., 3] > 0
+
+    def stamp(fx: float, fy: float, motif: list[tuple[int, int, RGBA]]) -> None:
+        for ox, oy, k in motif:
+            X, Y = int(fx) + ox, int(fy) + oy
+            if 0 <= X < w and 0 <= Y < h and solid[Y, X]:
+                crown[Y, X] = k
+
     if kind == "fruit":
-        fruit = _ramp(FRUIT_COLORS[seed % len(FRUIT_COLORS)])
-        for _ in range(7):
-            fx, fy = cx - 10 + rnd.random() * 20 + sway, 8 + rnd.random() * 14
-            g.ellipse(fx, fy, 1.6, 1.6, fruit[1])
-            g.set(fx - 0.5, fy - 0.5, fruit[2])
-    if kind == "blossom":
-        for _ in range(12):
-            g.set(cx - 12 + rnd.random() * 24 + sway, 4 + rnd.random() * 20, WHITE)
-    _out(g)
+        fruit = _fruit(FRUIT_COLORS[seed % len(FRUIT_COLORS)])
+        for fx, fy in ((cx - 9, cy - 4), (cx + 3, cy - 9), (cx + 7, cy - 1), (cx - 3, cy + 1), (cx - 11, cy + 4),
+                       (cx + 5, cy + 5), (cx - 2, cy - 5)):
+            stamp(fx + rnd.randint(0, 1), fy, fruit)
+        for fx, fy in ((cx - 6, cy - 9), (cx + 8, cy - 6), (cx + 1, cy + 3)):
+            stamp(fx, fy, _blossom(WHITE, _c("#ffd84a")))
+    elif kind == "blossom":
+        for _ in range(18):
+            fx, fy = cx + rnd.uniform(-rx + 2, rx - 3), cy + rnd.uniform(-ry + 2, ry * 0.5)
+            stamp(fx, fy, _blossom(WHITE if rnd.random() < 0.55 else P["light"],
+                                   _c("#ffe070") if rnd.random() < 0.5 else P["shade"]))
+    cf = Fig(w, h)
+    cf.px = crown
+    top = int(cy + ry * 0.45)
+    cf.ellipse(cx, cy + ry * 0.86, 5.5, 2.6, P["under"])  # the dark underside where the trunk goes in
+    for side in (-1, 1):  # two branches forking out of the trunk into the lower crown
+        x0, y0, x1, y1 = cx - 0.5 + side * 2, cy + ry * 0.92, cx + side * 6.5, cy + ry * 0.55
+        cf.line(x0, y0, x1, y1, BARK_OUT, 2)
+        cf.line(x0 + (0 if side < 0 else 1), y0, x1 + (0 if side < 0 else 1), y1, BARK if side < 0 else BARK_DARK, 1)
+    if anim == "idle":  # the top of the crown sways most, the middle follows a little behind
+        s_top, s_mid = _sway(i, 1.0, 0.0), _sway(i, 0.6, -1.0)
+        crown = _sheared(crown, [(0, int(cy - ry * 0.25), s_top), (int(cy - ry * 0.25), int(cy + ry * 0.3), s_mid)])
+    crown[_ring_of(crown)] = P["out"]
+    g.ellipse(cx, ground, wide * 2.4, 2.4, GROUND_SHADOW)
+    _over(g.px, _trunk_layer(w, h, int(cx), top, ground, rnd, wide))
+    _over(g.px, crown)
+
+
+def paint_pine(g: Fig, color: str, anim: str, i: int, seed: int = 0, size: str = "big", snow: bool = False) -> None:
+    """A fir: tiers of boughs with ragged hems, lit on the left; the top tiers sway in the wind."""
+    rnd = _rng("pine", size, seed)
+    P = foliage(color)
+    w, h = g.w, g.h
+    cx = w / 2
+    ground = h - 3
+    tiers = ((3, 4.5), (9, 7.0), (16, 9.5), (24, 11.5)) if size == "big" else ((8, 4.0), (14, 6.5), (21, 9.0))
+    g.ellipse(cx, ground, 8, 2.4, GROUND_SHADOW)
+    _over(g.px, _trunk_layer(w, h, int(cx), tiers[-1][0] + 6, ground, rnd, 2))
+    crown = np.zeros((h, w, 4), dtype=np.uint8)
+    ys, xs = np.mgrid[0:h, 0:w]
+    for k, (y, half) in enumerate(tiers):
+        dx = _sway(i, (1.0, 1.0, 0.6, 0.0)[k], -0.4 * k) if anim == "idle" else 0
+        tx = cx + dx
+        bottom = y + 8
+        hem = np.array([((x * 7 + k * 3) % 4 == 0) * 1.0 for x in range(w)])  # ragged lower edge
+        inside = (ys + 0.5 >= y - 4) & (ys + 0.5 <= bottom - hem[xs]) & (np.abs(xs + 0.5 - tx) <= half * (ys + 0.5 - (y - 4)) / 12 + 0.5)
+        crown[inside] = P["base"]
+        right = inside & (xs + 0.5 - tx > (ys + 0.5 - y) * 0.15 + 0.5)
+        crown[right] = P["shade"]
+        crown[inside & (ys + 0.5 > bottom - 2 - hem[xs])] = P["deep"]
+        for j in range(3):  # lit needles on the left
+            lx, ly = int(round(tx - 1 - j * half / 4)), int(round(y - 1 + j * 2.4))
+            if 0 <= lx < w and 0 <= ly < h and inside[ly, lx]:
+                crown[ly, lx] = P["light"]
+                if lx + 1 < w and inside[ly, lx + 1]:
+                    crown[ly, lx + 1] = P["light"]
+        if snow:  # snow on each tier's top, a little blue in its shade
+            cap = inside & (ys + 0.5 < y + 1 + (np.abs(xs + 0.5 - tx) * 0.35)) & (ys + 0.5 > y - 4)
+            crown[cap] = SNOW
+            crown[cap & (xs + 0.5 > tx + 1)] = SNOW_SHADE
+            for x in range(int(tx - half * 0.7), int(tx + half * 0.7)):
+                if (x + k) % 3 == 0:
+                    yy = int(bottom - 3)
+                    if 0 <= x < w and inside[yy, x]:
+                        crown[yy, x] = SNOW
+    crown[_ring_of(crown)] = P["out"]
+    _over(g.px, crown)
 
 
 FRUIT_COLORS = ["#ff9a2a", "#e83a3a", "#ffd84a"]
@@ -668,41 +872,67 @@ SNOW, SNOW_SHADE = _c("#f8fbff"), _c("#c8d8ec")
 
 
 def paint_snowy_pine(g: Fig, color: str, anim: str, i: int, seed: int = 0) -> None:
-    paint_tree(g, color, anim, i, kind="pine", seed=seed)
-    cx = g.w // 2
-    for y, half in ((4, 4), (10, 7), (17, 10), (24, 12)):  # snow on each tier
-        g.poly([(cx, y - 4), (cx - half + 1, y + 3), (cx + half - 2, y + 3)], SNOW)
-        g.line(cx + 1, y - 2, cx + half - 3, y + 3, SNOW_SHADE)
-    _out(g)
+    paint_pine(g, color, "still", i, seed=seed, snow=True)
 
 
 def paint_bare_tree(g: Fig, color: str, anim: str, i: int, seed: int = 0) -> None:
-    cx = g.w // 2
-    _trunk(g, cx, 18, 39)
-    for (x0, y0, x1, y1) in ((cx, 20, cx - 9, 8), (cx, 18, cx + 8, 6), (cx - 4, 13, cx - 11, 12), (cx + 4, 12, cx + 12, 13),
-                             (cx, 18, cx + 1, 3), (cx - 6, 10, cx - 5, 4), (cx + 5, 9, cx + 7, 2)):
-        g.line(x0, y0, x1, y1, WOOD, 2 if y0 > 15 else 1)
-    for (x, y) in ((cx - 9, 7), (cx + 8, 5), (cx + 1, 2), (cx - 11, 11), (cx + 12, 12)):
-        g.rect(x - 1, y, x + 1, y, SNOW)
-    _out(g)
+    """A winter tree: forked branches with snow along their tops."""
+    rnd = _rng("bare", seed)
+    w, h = g.w, g.h
+    cx, ground = w // 2, h - 3
+    g.ellipse(cx, ground, 9, 2.4, GROUND_SHADOW)
+    _over(g.px, _trunk_layer(w, h, cx, 20, ground, rnd, 3))
+    b = Fig(w, h)
+    limbs = [((cx - 1, 22), (cx - 9, 10), 2), ((cx + 1, 21), (cx + 9, 8), 2), ((cx, 21), (cx + 1, 4), 2),
+             ((cx - 6, 14), (cx - 12, 12), 1), ((cx + 6, 13), (cx + 13, 13), 1), ((cx - 8, 11), (cx - 7, 4), 1),
+             ((cx + 8, 10), (cx + 6, 3), 1), ((cx + 1, 9), (cx - 3, 2), 1), ((cx + 1, 8), (cx + 5, 1), 1)]
+    for (x0, y0), (x1, y1), wd in limbs:
+        b.line(x0, y0, x1, y1, BARK if wd > 1 else BARK_DARK, wd)
+    tops = []
+    for (x0, y0), (x1, y1), wd in limbs:  # snow on the upper side of each limb
+        n = max(abs(x1 - x0), abs(y1 - y0))
+        for k in range(2, n + 1, 2):
+            x, y = int(round(x0 + (x1 - x0) * k / n)), int(round(y0 + (y1 - y0) * k / n)) - 1
+            tops.append((x, y))
+    b.px[_ring_of(b.px)] = BARK_OUT
+    for x, y in tops:
+        if 0 <= x < w and 0 <= y < h:
+            b.px[y, x] = SNOW
+    _over(g.px, b.px)
 
 
 def paint_palm(g: Fig, color: str, anim: str, i: int, seed: int = 0) -> None:
-    d, b, l = _ramp(color)
-    sway = (0, 1, 0, -1)[i % 4] if anim == "idle" else 0
-    cx = g.w // 2
-    g.ellipse(cx, 39, 7, 2, _c("#2c5a30", 110))
-    for k, y in enumerate(range(12, 39, 3)):  # a curved, ringed trunk
-        x = cx + (12 - y) / 8.0
-        g.rect(x - 2, y, x + 1, y + 2, _c("#b88a50") if k % 2 else _c("#a07440"))
-    top = (cx + 1 + sway, 11)
-    for dx, dy in ((-13, 5), (13, 5), (-10, -3), (10, -3), (-3, -8), (5, 9)):
-        tip = (top[0] + dx, top[1] + dy)
-        g.line(top[0], top[1], tip[0], tip[1], d, 3)
-        g.line(top[0], top[1] - 1, tip[0], tip[1] - 1, b, 2)
+    """A palm: a curved ringed trunk and drooping fronds that sway, coconuts under the crown."""
+    P = foliage(color)
+    w, h = g.w, g.h
+    cx, ground = w // 2, h - 3
+    sway = _sway(i, 1.0, 0.0) if anim == "idle" else 0
+    g.ellipse(cx, ground, 8, 2.4, GROUND_SHADOW)
+    t = Fig(w, h)
+    for k, y in enumerate(range(13, ground + 1)):
+        x = cx + 2 - (y - 13) ** 0.5 * 0.9 + (ground - y) * 0.05
+        t.rect(x - 2, y, x + 1, y, _c("#c8945a") if (y // 2) % 2 else _c("#a87444"))
+        t.set(x + 1, y, _c("#8a5a34"))
+    t.px[_ring_of(t.px)] = BARK_OUT
+    _over(g.px, t.px)
+    top = (cx + 1 + sway, 12)
+    f = Fig(w, h)
+    for dx, dy, droop in ((-14, 3, 4), (14, 3, 4), (-11, -4, 3), (11, -5, 3), (-3, -10, 1), (5, -9, 1)):
+        n = 10
+        for k in range(n + 1):  # a frond: an arc that droops toward its tip, thinning out
+            u = k / n
+            x = top[0] + dx * u + (sway if u > 0.6 else 0)
+            y = top[1] + dy * u + droop * u * u * 2
+            wd = 3 if u < 0.6 else 2
+            f.rect(x - 1, y - 1, x - 2 + wd, y - 2 + wd, P["base"])
+            f.set(x, y + 1, P["shade"])
+            if k % 2 == 0 and u > 0.2:
+                f.set(x, y - 1, P["light"])
+    f.px[_ring_of(f.px)] = P["out"]
     for fx in (-2, 1):
-        g.ellipse(top[0] + fx, top[1] + 3, 1.6, 1.6, _c("#7a4a2a"))
-    _out(g)
+        f.ellipse(top[0] + fx, top[1] + 3, 1.7, 1.7, _c("#7a4a2a"))
+        f.set(top[0] + fx - 1, top[1] + 2, _c("#a8703a"))
+    _over(g.px, f.px)
 
 
 def paint_cactus(g: Fig, color: str, anim: str, i: int) -> None:
@@ -723,14 +953,21 @@ def paint_cactus(g: Fig, color: str, anim: str, i: int) -> None:
 
 
 def paint_stump(g: Fig, color: str, anim: str, i: int) -> None:
-    g.ellipse(8, 13, 7, 2.2, _c("#2c5a30", 110))
-    g.rect(3, 6, 12, 12, WOOD)
-    g.rect(10, 6, 12, 12, WOOD_DARK)
-    g.ellipse(7.5, 6, 5, 2.4, _c("#e0b47a"))
-    g.ellipse(7.5, 6, 2.5, 1.2, _c("#c08a52"))
-    g.poly([(1, 13), (4, 9), (5, 13)], WOOD)
-    g.poly([(14, 13), (11, 9), (10, 13)], WOOD_DARK)
-    _out(g)
+    """What a felled tree leaves: a sawn top with rings, roots splayed into the grass."""
+    t = Fig(g.w, g.h)
+    t.rect(4, 6, 11, 12, BARK)
+    t.rect(10, 6, 11, 12, BARK_DARK)
+    t.rect(4, 7, 4, 11, BARK_LIGHT)
+    t.poly([(4, 9), (1, 13.5), (6, 13.5)], BARK)  # roots
+    t.poly([(11, 9), (14.5, 13.5), (9, 13.5)], BARK_DARK)
+    t.line(7, 10, 6, 13, BARK_OUT)
+    t.ellipse(7.5, 6, 4.4, 2.2, _c("#e8b070"))  # the sawn top and its rings
+    t.ellipse(7.5, 6, 2.8, 1.3, _c("#c88850"))
+    t.ellipse(7.5, 6, 1.2, 0.6, _c("#e8b070"))
+    t.rect(4, 7, 11, 7, BARK_DEEP)
+    t.px[_ring_of(t.px)] = BARK_OUT
+    g.ellipse(8, 13.5, 7, 2, GROUND_SHADOW)
+    _over(g.px, t.px)
 
 
 def paint_boulder(g: Fig, color: str, anim: str, i: int) -> None:
@@ -991,68 +1228,118 @@ def paint_potted_plant(g: Fig, color: str, anim: str, i: int) -> None:
 
 # animals ------------------------------------------------------------------------------------------
 
-def paint_chicken(g: Fig, color: str, anim: str, i: int) -> None:
+# Farm animals: soft white coats shaded cool grey-blue, warm patches, a dark plum outline and a soft shadow.
+COAT, COAT_SHADE, COAT_DEEP = _c("#fffaf2"), _c("#c7cfde"), _c("#8a9db8")
+COMB, COMB_DARK = _c("#eb262e"), _c("#a8121c")
+BEAK, BEAK_DARK = _c("#ff9d0e"), _c("#ee6a0e")
+ANIMAL_OUT = _c("#1c0a18")
+
+
+def _coat(color: str) -> tuple[RGBA, RGBA, RGBA, RGBA]:
+    """light, base, shade, deep of an animal's coat: near-white coats shade cool, others shade from their colour."""
+    if sum(_c(color)[:3]) > 640:
+        return WHITE, COAT, COAT_SHADE, COAT_DEEP
     d, b, l = _ramp(color)
+    return l, b, d, tuple(int(c * 0.7) for c in d[:3]) + (255,)
+
+
+def _animal_out(g: Fig) -> None:
+    g.px[_ring_of(g.px) & (g.px[..., 3] == 0)] = ANIMAL_OUT
+
+
+def paint_chicken(g: Fig, color: str, anim: str, i: int) -> None:
+    L, B, S, D = _coat(color)
     k = i % 4
     peck = anim == "idle" and i % 2 == 1
     hop = (0, 1, 0, 1)[k] if anim == "run" else 0
-    g.ellipse(8, 15, 5, 1.2, _c("#2c5a30", 110))
-    g.rect(6, 12, 6, 14, _c("#f0a030"))  # legs
-    g.rect(9, 12 + (hop if anim == "run" else 0), 9, 14, _c("#f0a030"))
-    g.ellipse(7, 9 - hop, 5.4, 4, b)  # body
-    g.ellipse(3, 7 - hop, 2.4, 2.8, d)  # tail
-    g.ellipse(6, 10 - hop, 3.4, 2.2, d)  # wing
-    g.rect(5, 9 - hop, 8, 9 - hop, l)
-    hx, hy = (12, 7 - hop) if not peck else (13, 10 - hop)
-    g.ellipse(hx, hy - 1, 2.6, 2.6, b)
-    g.rect(hx - 1, hy - 4, hx, hy - 3, _c("#e83a3a"))  # comb
-    g.set(hx + 2, hy - 1, _c("#f0a030"))
-    g.set(hx + 3, hy - 1, _c("#f0a030"))
-    g.set(hx + 1, hy - 2, BLACK)
-    g.set(hx + 1, hy, _c("#e83a3a"))
-    _out(g)
+    body = Fig(g.w, g.h)
+    lift = ((1, 0), (0, 0), (0, 1), (0, 0))[k] if anim == "run" else (0, 0)
+    for x, up in ((6, lift[0]), (9, lift[1])):  # legs and toes
+        body.rect(x, 12 - hop, x, 13 - up, BEAK)
+        body.rect(x - 1, 14 - up, x + 1, 14 - up, BEAK_DARK)
+    body.ellipse(3.2, 6.6 - hop, 2.2, 3.2, S)  # tail feathers, up at the back
+    body.ellipse(3.6, 6.0 - hop, 1.4, 2.4, B)
+    body.set(2, 3 - hop, D)
+    body.set(4, 3 - hop, S)
+    body.ellipse(7.5, 9.5 - hop, 5.6, 3.7, B)  # body
+    body.rect(3, 11 - hop, 12, 12 - hop, S)  # the underside in shade
+    body.ellipse(7.5, 12.4 - hop, 4.2, 1.0, S)
+    body.rect(5, 7 - hop, 9, 7 - hop, L)  # lit back
+    body.ellipse(6.6, 9.6 - hop, 3.0, 1.8, S)  # wing
+    body.rect(5, 8 - hop, 8, 8 - hop, B)
+    body.set(4, 10 - hop, D)
+    hx, hy = (12, 6 - hop) if not peck else (13, 9 - hop)
+    body.ellipse(hx, hy, 2.6, 2.6, B)  # head
+    body.set(hx - 1, hy - 1, L)
+    for dx, dy in ((-1, -3), (0, -3), (1, -3), (0, -4)):  # comb
+        body.set(hx + dx, hy + dy, COMB)
+    body.set(hx - 1, hy - 2, COMB_DARK)
+    body.rect(hx + 2, hy, hx + 3, hy, BEAK)  # beak and wattle
+    body.set(hx + 3, hy + 1, BEAK_DARK)
+    body.set(hx + 1, hy + 2, COMB)
+    body.set(hx + 1, hy - 1, ANIMAL_OUT)  # eye
+    _animal_out(body)
+    g.ellipse(7.5, 14.6, 5.2, 1.3, GROUND_SHADOW)
+    _over(g.px, body.px)
 
 
 def paint_chick(g: Fig, color: str, anim: str, i: int) -> None:
     hop = (0, 1)[i % 2] if anim == "run" else 0
-    g.ellipse(6, 10, 3.5, 1, _c("#2c5a30", 110))
-    g.ellipse(5.5, 7 - hop, 3.6, 3, _c("#ffd84a"))
-    g.ellipse(7.5, 4.5 - hop, 2.4, 2.2, _c("#ffd84a"))
-    g.ellipse(4.5, 7 - hop, 1.8, 1.2, _c("#f0b830"))
-    g.set(8, 4 - hop, BLACK)
-    g.set(10, 5 - hop, _c("#f08a20"))
-    g.rect(4, 9, 4, 10, _c("#f08a20"))
-    g.rect(7, 9, 7, 10, _c("#f08a20"))
-    _out(g)
+    yel, yel_l, yel_d = _c("#ffd84a"), _c("#fff08a"), _c("#e0a830")
+    body = Fig(g.w, g.h)
+    body.rect(4, 9, 4, 10, BEAK)
+    body.rect(7, 9 - hop, 7, 10, BEAK)
+    body.ellipse(5.5, 7 - hop, 3.6, 2.9, yel)  # body
+    body.rect(3, 8 - hop, 8, 9 - hop, yel_d)
+    body.ellipse(7.6, 4.4 - hop, 2.5, 2.3, yel)  # head
+    body.set(7, 3 - hop, yel_l)
+    body.set(5, 6 - hop, yel_l)
+    body.ellipse(4.6, 7 - hop, 1.6, 1.1, yel_d)  # wing
+    body.set(8, 4 - hop, ANIMAL_OUT)
+    body.rect(10, 5 - hop, 10, 5 - hop, BEAK_DARK)
+    _animal_out(body)
+    g.ellipse(6, 11, 3.8, 0.9, GROUND_SHADOW)
+    _over(g.px, body.px)
 
 
 def paint_cow(g: Fig, color: str, anim: str, i: int) -> None:
-    d, b, l = _ramp(color)
+    pd, pb, pl = _ramp(color)
     k = i % 4
     step = ((1, -1), (0, 0), (-1, 1), (0, 0))[k] if anim == "run" else (0, 0)
     chew = anim == "idle" and i % 2 == 1
-    g.ellipse(16, 23, 12, 1.6, _c("#2c5a30", 110))
-    for x, s, col in ((7, step[0], _c("#e8e0d8")), (11, step[1], _c("#d8d0c8")), (20, step[1], _c("#e8e0d8")), (24, step[0], _c("#d8d0c8"))):
-        g.rect(x + s, 16, x + 1 + s, 21, col)
-        g.rect(x + s, 21, x + 1 + s, 22, BLACK)
-    g.ellipse(15, 12, 11, 6, WHITE)  # body
-    g.ellipse(11, 10, 4, 3, b)  # patches in the coat colour
-    g.ellipse(19, 14, 3.4, 2.4, b)
-    g.ellipse(16, 8, 2, 1.4, b)
-    g.ellipse(14, 17, 2.5, 1, _c("#ffb0b8"))  # udder
-    g.line(4, 10, 2, 15, d)  # tail
-    g.set(2, 16, b)
+    pink, pink_d = _c("#ffa399"), _c("#ff7073")
+    body = Fig(g.w, g.h)
+    for x, s, col in ((7, step[0], COAT), (11, step[1], COAT_SHADE), (20, step[1], COAT), (24, step[0], COAT_SHADE)):
+        body.rect(x + s, 16, x + 1 + s, 20, col)  # legs and hooves
+        body.rect(x + s, 21, x + 1 + s, 22, _c("#3a2a30"))
+    body.ellipse(15, 12, 11, 6, COAT)  # body
+    body.ellipse(15, 16.6, 9.5, 1.6, COAT_SHADE)  # the belly in shade
+    body.rect(8, 7, 20, 7, WHITE)  # the lit back
+    for (x, y, rx, ry) in ((10.5, 10, 4, 3), (19.5, 13.5, 3.4, 2.4), (16, 7.6, 2.2, 1.4)):  # patches
+        body.ellipse(x, y, rx, ry, pb)
+        body.ellipse(x + 0.8, y + 0.9, rx * 0.75, ry * 0.6, pd)
+        body.set(x - rx * 0.4, y - ry * 0.4, pl)
+    body.ellipse(14, 17, 2.5, 1, pink)  # udder
+    body.set(14, 18, pink_d)
+    body.line(4, 10, 2, 15, COAT_SHADE)  # tail with a tuft
+    body.rect(1, 15, 2, 16, pb)
     hy = 9 + (1 if chew else 0)
-    g.ellipse(26, hy, 4.4, 4, WHITE)  # head
-    g.ellipse(25, hy - 2, 2.2, 1.6, b)
-    g.ellipse(28.5, hy + 2, 2.6, 2, _c("#ffb0b8"))  # muzzle
-    g.set(28, hy + 2, d)
-    g.set(30, hy + 2, d)
-    g.set(26, hy - 1, BLACK)
-    g.rect(22, hy - 4, 23, hy - 3, _c("#f0e6c8"))  # horns
-    g.rect(28, hy - 5, 29, hy - 4, _c("#f0e6c8"))
-    g.rect(21, hy - 2, 22, hy - 1, b)  # ear
-    _out(g)
+    body.ellipse(26, hy, 4.4, 4, COAT)  # head
+    body.rect(23, hy + 1, 26, hy + 2, COAT_SHADE)
+    body.ellipse(25, hy - 2, 2.2, 1.6, pb)
+    body.ellipse(28.5, hy + 2, 2.6, 2, pink)  # muzzle
+    body.rect(27, hy + 3, 30, hy + 3, pink_d)
+    body.set(28, hy + 2, pink_d)
+    body.set(30, hy + 2, pink_d)
+    body.set(26, hy - 1, ANIMAL_OUT)  # eye
+    body.set(25, hy - 2, WHITE)
+    body.rect(22, hy - 4, 23, hy - 3, _c("#f0e6c8"))  # horns
+    body.rect(28, hy - 5, 29, hy - 4, _c("#f0e6c8"))
+    body.rect(20, hy - 2, 22, hy - 1, pb)  # ear
+    body.set(21, hy - 1, pink)
+    _animal_out(body)
+    g.ellipse(16, 23, 12, 1.4, GROUND_SHADOW)
+    _over(g.px, body.px)
 
 
 # pests, in the same 16 px style (side views, facing right) ---------------------------------------
@@ -1261,117 +1548,249 @@ def crop_kind(name: str) -> str:
     return "berry"
 
 
-def _sprout(g: Fig, h: int) -> None:
-    g.rect(7, 14 - h, 8, 14, LEAF_DARK)
-    g.ellipse(5.5, 13 - h, 2, 1.2, LEAF)
-    g.ellipse(9.5, 12 - h, 2, 1.2, LEAF_LIGHT)
+# Crops. Each kind of plant has a body drawn by hand in a little pixel grammar (L light, B base, M mid, D deep
+# leaf), one body per stage, outlined in dark teal over a soft shadow; ripe plants carry their produce, outlined in
+# its own dark. Stages: 0 seeds in a mound, 1 sprout, 2 young, 3 grown, 4 ripe.
+CROP_LEAF = {"L": _c("#7bc04e"), "B": _c("#4ba837"), "M": _c("#2f8a3e"), "D": _c("#106d54")}
+CROP_OUT = _c("#052a3a")
+CROP_SOIL = (_c("#b07848"), _c("#d8a068"), _c("#4a2a18"))  # a mound of earth: base, lit top, outline
+
+PLANT_ART: dict[str, tuple[tuple[str, ...], ...]] = {
+    "sprout": (("....LL..LL....",
+                "....BLL.LB....",
+                ".....BBMB.....",
+                ".......D......"),),
+    "bush": (("......LL......",
+              ".....LLBB.....",
+              "..LL..BM..LL..",
+              ".LLBB.MD.LBBM.",
+              "..BBMMMDMMBM..",
+              "....MMDDMM....",
+              "......DD......"),
+             ("......LLL.......",
+              "...LL.LBBB.LL...",
+              "..LLBBLBMBLLBB..",
+              ".LLBBMBBMMBBBMM.",
+              ".LBBMMLLBMMLBBM.",
+              "..BMMLLBBBMLLBM.",
+              ".LLBMBBBMMDLBBM.",
+              ".LBBMMMMDDBBMMD.",
+              "..BMMDMMDMBMMD..",
+              "...MMDDMDDDMD...",
+              ".....DD.DD......")),
+    "blades": (("........L.....",
+                "...L....B.....",
+                "...BL..LB.....",
+                "....B.LB..L...",
+                "....BMB.MB....",
+                ".....MMMM.....",
+                "......MM......"),
+               ("..........L.....",
+                "...L......B.....",
+                "...BL....LB.....",
+                "....B..L.B..L...",
+                "....BL.B.B.LB...",
+                ".....B.BLB.B....",
+                ".....BMBBMMB....",
+                "......BMBMB.....",
+                "......MMBMM.....",
+                ".......MMM......",
+                ".......MDM......")),
+    "fronds": (("....L...L.....",
+                "...LBL.LBL....",
+                "....B.M.B.....",
+                "..L..BMB..L...",
+                ".LBL.MMM.LBL..",
+                "..B.MMMMM.B...",
+                ".....MDDM....."),
+               ("......L..L......",
+                ".....LBLLBL.....",
+                "..L...BMMB...L..",
+                ".LBL.L.MM.L.LBL.",
+                "..B.LBLMMLBL.B..",
+                "...B..BMMB..B...",
+                ".L..BMMMMMMB..L.",
+                "LBL..MMBBMM..LBL",
+                ".B.MMMBMMBMMM.B.",
+                "..MMMMMMMMMMMM..",
+                "....MDDMMDDM....")),
+    "corn": (("......L.......",
+              "...L..B..L....",
+              "...BL.B.LB....",
+              "....BLBLB.....",
+              ".....BMB......",
+              "......M.......",
+              "......D......."),
+             ("......L.........",
+              "......B.........",
+              "...L..BL...L....",
+              "...BL.BB..LB....",
+              "....BLMB.LB.....",
+              "......MBLB......",
+              "..LL..MB........",
+              "..LBB.MB..LL....",
+              "....BBMMBLBB....",
+              "......MM.BB.....",
+              "......MM........",
+              "......DM........",
+              "......DD........")),
+    "wheat": (("..L...L...L...",
+               "..B..LB..LB...",
+               "..BL.BB.LB....",
+               "...B.BM.B.....",
+               "...BMBMMB.....",
+               "....MMMM......",
+               ".....MD......."),
+              ("..L...L...L.....",
+               "..B..LB..LB..L..",
+               ".LB..BB..BB.LB..",
+               ".BB..BB..BB.BB..",
+               ".BB..BM.LBM.BM..",
+               "..BL.BM.BM.LB...",
+               "..BB.BM.BM.BM...",
+               "...BMBMMBMBM....",
+               "...MMBMMMMMM....",
+               "....MMMMMMM.....",
+               ".....MMDDM......")),
+    "vine": (("..............",
+              "..LL......LL..",
+              ".LLBB....LLBB.",
+              "..BMMM..MMMM..",
+              "....MMMMDM....",
+              "......DD......"),
+             ("................",
+              "..LLB......LLB..",
+              ".LLBBM....LLBBM.",
+              ".LBBMM.LL.LBBMM.",
+              "..BMMDLLBB.BMMD.",
+              "...MDMBBMMMMDD..",
+              ".LL.MMMMMDDM.LL.",
+              "LLBBMMDDMMDMLLBB",
+              ".BMMD..DD...BMMD",
+              "..DD........DD..")),
+    "cabbage": (("..............",
+                 "....L..L......",
+                 "...LBLLBL.....",
+                 "..LBBMMBBL....",
+                 "..BMMDDMMB....",
+                 "...MDDDDM.....",
+                 ".....DD......."),
+                ("................",
+                 "......L..L......",
+                 "..L..LBLLBL..L..",
+                 ".LBL.BBMMBB.LBL.",
+                 ".BBBLBMMMMBLBBB.",
+                 ".BMBBBMDDMBBBMB.",
+                 "..MMBBMDDMBBMM..",
+                 ".LMMMBMMMMBMMML.",
+                 "LBBMMMMDDMMMMBBL",
+                 ".BMMDDMMMMDDMMB.",
+                 "..DD..DDDD..DD..")),
+}
+FAMILY = {"strawberry": "bush", "tomato": "bush", "eggplant": "bush", "blueberry": "bush", "berry": "bush",
+          "potato": "bush", "onion": "blades", "carrot": "fronds", "turnip": "fronds", "corn": "corn",
+          "wheat": "wheat", "pumpkin": "vine", "cabbage": "cabbage"}
+
+
+def _stamp(px: np.ndarray, art: tuple[str, ...], bottom: int, colors: dict[str, RGBA]) -> None:
+    """Pixel-grammar rows into the frame, centred, the last row on `bottom`."""
+    h, w = px.shape[:2]
+    top = bottom - len(art) + 1
+    for r, row in enumerate(art):
+        x0 = (w - len(row)) // 2
+        for k, ch in enumerate(row):
+            if ch in colors and 0 <= top + r < h and 0 <= x0 + k < w:
+                px[top + r, x0 + k] = colors[ch]
+
+
+def _outlined(px: np.ndarray, col: RGBA) -> np.ndarray:
+    px = px.copy()
+    px[_ring_of(px)] = col
+    return px
+
+
+def _produce(kind: str, color: str) -> tuple[dict[str, RGBA], list[tuple[str, ...]], list[tuple[int, int]]]:
+    """What a ripe plant carries: colours, a little picture (p base, q light, r dark, g leaf), and where it hangs."""
+    d, b, l = _ramp(color)
+    cols = {"p": b, "q": l, "r": d, "g": CROP_LEAF["L"], "w": WHITE, "s": _c("#ffe0a0")}
+    berry = ("pp", "qp")
+    if kind == "strawberry":
+        return cols, [("gg.", "ppr", "sp.", ".r.")], [(2, 8), (10, 6), (6, 11), (11, 10)]
+    if kind == "tomato":
+        return cols, [(".g.", "pqp", "ppr", ".r.")], [(3, 7), (10, 5), (7, 10), (11, 10)]
+    if kind == "eggplant":
+        return cols, [("g.", "pp", "qp", "pr", "r.")], [(3, 8), (10, 7), (7, 10)]
+    if kind == "potato":
+        return {**cols, "p": _c("#c8986a"), "q": _c("#e0b888"), "r": _c("#8a6040")}, [(".pp.", "qppr", ".rr.")], [(2, 12), (10, 12)]
+    if kind == "onion":
+        return {**cols, "p": _c("#f4ece0"), "q": WHITE, "r": _c("#d8c8b0")}, [(".pp.", "qppp", "pppr", ".rr.")], [(6, 11)]
+    if kind == "carrot":
+        return cols, [("pqpp", "pppr", ".pr.")], [(6, 12)]
+    if kind == "turnip":
+        return {**cols, "q": WHITE}, [(".qq.", "qqpp", "pppr", ".rr.")], [(6, 11)]
+    if kind == "corn":
+        return cols, [(".g", "qp", "pp", "pr", "gr")], [(9, 4), (3, 7)]
+    if kind == "wheat":
+        return cols, [("q", "p", "p")], [(2, 5), (5, 4), (8, 5), (11, 4), (3, 9), (9, 9)]
+    if kind == "pumpkin":
+        return cols, [("...gg...", ".pprppp.", "pqprpppr", "pqprpppr", "pppprppr", ".rrrrrr.")], [(4, 9)]
+    if kind == "cabbage":
+        return {**cols, "p": _c("#c8f0a0"), "q": _c("#eeffd8"), "r": _c("#8ad860")}, [("..qq..", ".qpqpq", "qppqpr", "pqpprr", ".rrrr.")], [(5, 6)]
+    return cols, [berry], [(3, 7), (10, 5), (6, 10), (11, 10), (4, 11)]  # blueberries, berries
 
 
 def paint_crop(g: Fig, kind: str, color: str, stage: int) -> None:
     """One growth stage (0 seeds .. 4 ripe) of a crop, standing on a 16x16 soil tile."""
-    d, b, l = _ramp(color)
-    if stage == 0:  # seeds in the furrow
-        for x in (4, 8, 11):
-            g.rect(x, 11, x + 1, 11, _c("#e8d2a0"))
+    w, h = g.w, g.h
+    base_y = 13
+    if stage == 0:  # a little mound of earth with the seeds showing
+        mound = Fig(w, h)
+        _stamp(mound.px, ("...qqq...", ".qqbbbqq.", "qbbbbbbbb", "bbbbbbbbb"), base_y, {"q": CROP_SOIL[1], "b": CROP_SOIL[0]})
+        d, b, l = _ramp(color)
+        seed = _c("#f0d8a0") if sum(b[:3]) > 600 else b
+        for x, y in ((5, 11), (8, 10), (10, 11)):
+            mound.px[y, x] = seed
+            mound.px[y, x + 1] = d
+        g.rect(4, base_y + 1, 12, base_y + 1, GROUND_SHADOW)
+        _over(g.px, _outlined(mound.px, CROP_SOIL[2]))
         return
+    fam = FAMILY.get(kind, "bush")
     if stage == 1:
-        _sprout(g, 2)
-        return
-    tall = kind in ("corn", "wheat")
-    if kind == "corn":
-        hgt = (6, 10, 13)[stage - 2]
-        g.rect(7, 15 - hgt, 8, 15, LEAF_DARK)
-        for y in range(15 - hgt + 2, 15, 3):
-            g.line(8, y, 12, y - 2, LEAF)
-            g.line(7, y + 1, 3, y - 1, LEAF_LIGHT)
-        if stage == 4:
-            g.ellipse(10, 15 - hgt + 4, 1.6, 3, b)
-            g.set(10, 15 - hgt + 1, LEAF_LIGHT)
-        return
-    if kind == "wheat":
-        hgt = (5, 8, 11)[stage - 2]
-        for x in (4, 7, 10, 12):
-            col = (b if stage == 4 else LEAF)
-            g.rect(x, 15 - hgt, x, 15, LEAF_DARK if stage < 4 else d)
-            g.rect(x - 1 if x > 4 else x, 15 - hgt, x, 15 - hgt + 3, col)
-        return
-    if stage == 2:
-        g.ellipse(8, 11, 4, 2.4, LEAF)
-        g.rect(7, 9, 8, 13, LEAF_DARK)
-        g.ellipse(6, 10, 1.6, 1, LEAF_LIGHT)
-        return
-    # a leafy plant
-    if kind in ("carrot", "onion", "turnip", "potato"):
-        g.line(8, 13, 5, 5, LEAF_DARK)
-        g.line(8, 13, 8, 4, LEAF)
-        g.line(8, 13, 11, 5, LEAF)
-        g.ellipse(5, 6, 1.5, 1.5, LEAF_LIGHT)
-        g.ellipse(11, 6, 1.5, 1.5, LEAF_LIGHT)
-        if stage == 4:
-            if kind == "carrot":
-                g.poly([(5, 12), (11, 12), (8, 16)], b)
-                g.rect(6, 12, 10, 12, l)
-            elif kind == "onion":
-                g.ellipse(8, 13, 3, 2.2, _c("#f4ece0"))
-                g.set(7, 12, WHITE)
-            elif kind == "turnip":
-                g.ellipse(8, 13, 3, 2.4, b)
-                g.ellipse(8, 11.5, 2.4, 1.2, WHITE)
-            else:
-                g.ellipse(5, 13, 2.2, 1.6, _c("#b8885a"))
-                g.ellipse(11, 13.5, 2.2, 1.6, _c("#a87a4a"))
-        return
-    if kind in ("cabbage",):
-        g.ellipse(8, 11, 5.4, 4, LEAF_DARK)
-        g.ellipse(8, 10.5, 4.6, 3.4, LEAF)
-        if stage == 4:
-            g.ellipse(8, 10, 3.2, 2.6, _c("#c8f0a0"))
-            g.rect(7, 9, 8, 11, LEAF_LIGHT)
-        return
-    if kind == "pumpkin":
-        g.line(3, 10, 13, 10, LEAF_DARK)
-        g.ellipse(4, 8, 2.4, 1.8, LEAF)
-        g.ellipse(12, 8, 2.4, 1.8, LEAF)
-        if stage == 4:
-            g.ellipse(8, 11, 5, 3.6, b)
-            g.rect(7, 8, 8, 14, d)
-            g.rect(4, 10, 4, 12, d)
-            g.rect(11, 10, 11, 12, d)
-            g.ellipse(6, 10, 1.4, 1, l)
-            g.rect(7, 6, 8, 7, LEAF_DARK)
-        else:
-            g.ellipse(8, 11, 2, 1.6, LEAF_LIGHT)
-        return
-    # bushes and vines with fruit: strawberry, tomato, eggplant, blueberry, berry
-    g.ellipse(8, 10, 5.5, 4.4, LEAF_DARK)
-    g.ellipse(8, 9.5, 4.8, 3.8, LEAF)
-    g.ellipse(6, 8, 2, 1.4, LEAF_LIGHT)
-    if kind == "tomato":
-        g.rect(7, 3, 8, 14, WOOD)  # a stake
-    if stage == 4:
-        spots = [(5, 11), (10, 10), (8, 7), (11, 13), (4, 8)]
-        for fx, fy in spots[: (3 if kind in ("eggplant", "tomato") else 5)]:
-            if kind == "eggplant":
-                g.ellipse(fx, fy + 1, 1.4, 2.2, b)
-            else:
-                g.ellipse(fx, fy, 1.5, 1.5, b)
-            g.set(fx - 0.6, fy - 0.6, l)
-            if kind == "strawberry":
-                g.set(fx, fy - 2, LEAF_LIGHT)
+        art = PLANT_ART["blades"][0][3:] if fam in ("blades", "wheat", "corn") else PLANT_ART["sprout"][0]
     else:
-        g.set(5, 11, WHITE)
-        g.set(10, 9, WHITE)
+        art = PLANT_ART[fam][0 if stage == 2 else 1]
+    plant = Fig(w, h)
+    _stamp(plant.px, art, base_y, CROP_LEAF)
+    if stage == 4:
+        if kind == "wheat":  # the whole field turns gold
+            gold = _ramp(color)
+            for a, b in (("L", 2), ("B", 1), ("M", 0)):
+                plant.px[np.all(plant.px == CROP_LEAF[a], axis=-1)] = gold[b]
+        cols, pics, spots = _produce(kind, color)
+        fruit = Fig(w, h)
+        for (x, y), pic in zip(spots, pics * len(spots)):
+            for r, row in enumerate(pic):
+                for k, ch in enumerate(row):
+                    if ch in cols and 0 <= y + r < h and 0 <= x + k < w:
+                        fruit.px[y + r, x + k] = cols[ch]
+        plant.px = _outlined(plant.px, CROP_OUT)
+        dark = tuple(int(c * 0.45) for c in _ramp(color)[0][:3]) + (255,)
+        _over(plant.px, _outlined(fruit.px, dark if kind not in ("onion", "turnip", "cabbage", "potato") else _c("#3a2a24")))
+    else:
+        plant.px = _outlined(plant.px, CROP_OUT)
+    cols_ = np.nonzero((plant.px[..., 3] > 0).any(axis=0))[0]
+    if len(cols_):
+        g.rect(cols_[0] + 1, base_y + 1, cols_[-1] - 1, base_y + 2, GROUND_SHADOW)
+    _over(g.px, plant.px)
 
 
 def crop_sheet(name: str, color: str) -> np.ndarray:
-    """Five 16x16 growth stages side by side (seeds, sprout, young, grown, ripe), transparent background, outlined."""
+    """Five 16x16 growth stages side by side (seeds, sprout, young, grown, ripe), transparent background."""
     kind = crop_kind(name)
     out = np.zeros((CELL, CELL * 5, 4), dtype=np.uint8)
     for stage in range(5):
         g = Fig(CELL, CELL)
         paint_crop(g, kind, color, stage)
-        if stage > 0:
-            _outline_dark(g)
         out[:, stage * CELL:(stage + 1) * CELL] = g.px
     return out
 
@@ -1400,67 +1819,59 @@ def soil_tile(wet: bool) -> np.ndarray:
     return g.px
 
 
+# Produce icons in the same pixel grammar: p base, q light, h shine, r dark, s seeds or eyes, g G d leaves.
+CROP_ICONS: dict[str, tuple[str, ...]] = {
+    "strawberry": ("......gGg.....", "....GgGGdG....", "..pppGdGpp....", ".ppqqpppppr...", ".pqhpppsppr...",
+                   ".pqpspppppr...", "..ppppsppsr...", "..pspppppr....", "...ppppsrr....", "....ppprr.....",
+                   ".....prr......"),
+    "tomato": (".....gGg......", "...GgGdGGd....", "..ppGdpdGpp...", ".pqqpppppppr..", ".pqhppppppprr.",
+               ".pqppppppppr..", ".ppppppppprr..", "..pppppppprr..", "...pppppprr...", ".....rrrr....."),
+    "eggplant": ("..gG..........", ".GgGd.........", ".dGdpp........", "..ppqhp.......", "..pqhppp......",
+                 "...pqpppp.....", "...ppppppp....", "....ppppppr...", ".....pppppr...", "......ppprr...",
+                 ".......rrr...."),
+    "blueberry": (".....gG.......", "....GgGd......", "..pp.dd.pp....", ".pqhp..pqhp...", ".pqppr.pqppr..",
+                  ".rpprr.rpprr..", "..rr.pp..rr...", ".....qhp......", "....pqppr.....", "....rpprr.....",
+                  ".....rrr......"),
+    "potato": ("....pppppp....", "..ppqqppppp...", ".pqqhpppsppr..", ".pqppppppppr..", ".ppsppppppprr.",
+               ".pppppppsprr..", "..ppppppprr...", "...rrrrrrr...."),
+    "onion": (".....gG.......", ".....gGd......", "......Gd......", "....ppppp.....", "..ppqhpppp....",
+              ".pqqhpppppr...", ".pqppppppprr..", ".ppppppppprr..", "..ppppppprr...", "...pppppprr...",
+              ".....rrrr.....", "......r......."),
+    "carrot": ("..........gG..", "........gGgd..", ".......GgGd...", "......pppd....", ".....pqhpr....",
+               "....pqpppr....", "....pqppr.....", "...pqpppr.....", "...pppprr.....", "..ppprr.......",
+               "..pprr........", ".prr.........."),
+    "turnip": (".....gGd......", "....gGdGd.....", "......d.......", "....wwwww.....", "..wwhwwwww....",
+               ".wwhwwwwwwp...", ".pwwwwwwwwp...", ".pppppppppr...", "..pppppppr....", "...pppppr.....",
+               ".....pr......."),
+    "corn": ("......qh......", ".....qpqp.....", ".....pqpp.....", "....GpqppG....", "....gGpqpGd...",
+             "...gGdpqpdGd..", "...gGdpppdGd..", "...gGddppdGd..", "....gGdpdGd...", ".....gGdGd....",
+             "......GdG....."),
+    "wheat": ("..q...q...q...", ".qpq.qpq.qpq..", ".pqp.pqp.pqp..", ".qpq.qpq.qpq..", "..p...p...p...",
+              "..r..rr..r....", "...r.rr.r.....", "....rrrr......", "....GddG......", "....rrrr......",
+              "...r.rr.r.....", "..r..rr..r...."),
+    "pumpkin": ("......dG......", ".....dGd......", "...ppprpppp...", "..pqqprppprp..", ".pqhpprpppprp.",
+                ".pqppprppppr..", ".ppppprpppprr.", ".ppppprppprrr.", "..pppprppprr..", "...rrrrrrrr..."),
+    "cabbage": ("....GgGGgG....", "..GgwwwwwgG...", ".Ggwhwwwwwgd..", ".gwhwGwwGwwd..", "Ggwwwwdwwwwgd.",
+                "Ggwwwwdwwwwgd.", ".gwwGwdwGwwd..", ".dgwwwwwwwgd..", "..ddgwwwgdd...", "....dddddd...."),
+}
+CROP_ICONS["berry"] = CROP_ICONS["blueberry"]
+
+
 def crop_icon(name: str, color: str) -> np.ndarray:
-    """A 16x16 produce icon (the harvested crop) with a light outline, for the hotbar and pop-ups."""
+    """A 16x16 produce icon (the harvested crop): dark outline, then a white ring, for the hotbar and pop-ups."""
     kind = crop_kind(name)
     d, b, l = _ramp(color)
+    cols = {"p": b, "q": l, "r": d, "h": WHITE, "s": _c("#ffe0a0"), "g": CROP_LEAF["L"], "G": CROP_LEAF["B"],
+            "d": CROP_LEAF["D"], "w": _c("#f4f0e8")}
+    if kind == "potato":
+        cols["s"] = d
+    if kind == "cabbage":
+        cols.update({"w": _c("#9fd868"), "h": _c("#e0ffc0")})
     g = Fig(CELL, CELL)
-    if kind == "carrot":
-        g.poly([(4, 5), (11, 5), (8, 15)], b)
-        g.rect(5, 6, 9, 6, l)
-        g.line(7, 5, 5, 1, LEAF)
-        g.line(8, 5, 10, 1, LEAF_DARK)
-    elif kind == "corn":
-        g.ellipse(8, 8, 3, 6, b)
-        g.rect(7, 3, 7, 13, l)
-        g.poly([(3, 15), (6, 6), (8, 15)], LEAF)
-        g.poly([(13, 15), (10, 6), (8, 15)], LEAF_DARK)
-    elif kind == "wheat":
-        for x in (5, 8, 11):
-            g.line(x, 14, 8, 6, d)
-            g.ellipse(x, 5, 1.4, 3, b)
-    elif kind == "pumpkin":
-        g.ellipse(8, 9, 6.5, 5, b)
-        for x in (5, 8, 11):
-            g.rect(x, 5, x, 13, d)
-        g.ellipse(6, 7, 1.6, 1.2, l)
-        g.rect(7, 2, 8, 4, LEAF_DARK)
-    elif kind == "cabbage":
-        g.ellipse(8, 9, 6, 5, LEAF)
-        g.ellipse(8, 8, 3.6, 3, _c("#c8f0a0"))
-        g.line(8, 5, 8, 13, LEAF_DARK)
-    elif kind == "onion":
-        g.ellipse(8, 10, 4.4, 4, _c("#f4ece0"))
-        g.line(8, 6, 6, 1, LEAF)
-        g.line(8, 6, 10, 1, LEAF_DARK)
-        g.set(6, 9, WHITE)
-    elif kind in ("potato",):
-        g.ellipse(8, 9, 5.4, 4, _c("#c8986a"))
-        g.set(6, 8, _c("#8a6040"))
-        g.set(10, 10, _c("#8a6040"))
-        g.ellipse(6, 7, 1.4, 1, _c("#e0b888"))
-    elif kind == "eggplant":
-        g.ellipse(8, 10, 3.6, 5, b)
-        g.rect(6, 3, 10, 5, LEAF)
-        g.ellipse(7, 8, 1, 1.6, l)
-    elif kind == "turnip":
-        g.ellipse(8, 10, 4.6, 4, b)
-        g.ellipse(8, 8, 3.6, 2, WHITE)
-        g.line(8, 6, 6, 1, LEAF)
-        g.line(8, 6, 10, 1, LEAF_DARK)
-    else:  # strawberry, tomato, berries
-        g.ellipse(8, 9.5, 5.4, 5, b)
-        g.ellipse(6, 7.5, 1.6, 1.4, l)
-        g.rect(6, 3, 10, 4, LEAF)
-        g.rect(8, 1, 8, 3, LEAF_DARK)
-        if kind == "strawberry":
-            for p in ((6, 10), (9, 9), (8, 12), (10, 12)):
-                g.set(p[0], p[1], _c("#ffe0a0"))
-    _outline_dark(g, _c("#2a1e2e"))
-    a = g.px[..., 3] > 0
-    p = np.pad(a, 1)
-    ring = (p[:-2, 1:-1] | p[2:, 1:-1] | p[1:-1, :-2] | p[1:-1, 2:]) & ~a
-    g.px[ring] = WHITE
+    art = CROP_ICONS.get(kind, CROP_ICONS["berry"])
+    _stamp(g.px, art, 1 + len(art) + (14 - len(art)) // 2, cols)
+    g.px[_ring_of(g.px)] = _c("#2a1e2e")
+    g.px[_ring_of(g.px)] = WHITE
     return g.px
 
 
@@ -1511,8 +1922,9 @@ def item_icon(item: str) -> np.ndarray:
 
 # --- the farm sprite kinds (generate.py routes these here) ---------------------------------------
 
-def _tree(kind: str):
-    return lambda g, color, anim, i, seed=0: paint_tree(g, color, anim, i, kind=kind, seed=seed)
+def _tree(kind: str, size: str = "big"):
+    return lambda g, color, anim, i, seed=0: paint_tree(g, color, anim, i, kind="oak" if kind == "maple" else kind,
+                                                        seed=seed, size=size)
 
 
 def _farmer(g: Fig, color: str, anim: str, i: int, seed: int = 0) -> None:
@@ -1525,14 +1937,14 @@ def _farmer(g: Fig, color: str, anim: str, i: int, seed: int = 0) -> None:
 SPRITES: dict[str, tuple[tuple[int, int], dict[str, tuple[int, float, bool]], object, str]] = {
     "farmhouse": ((80, 72), {"idle": (1, 1, False)}, paint_farmhouse, "#b4472e"),
     "coop": ((40, 40), {"idle": (1, 1, False)}, paint_coop, "#c0503a"),
-    "tree_oak": ((32, 40), {"idle": (4, 2, True)}, _tree("oak"), "#5cb84a"),
-    "tree_fruit": ((32, 40), {"idle": (4, 2, True)}, _tree("fruit"), "#5cb84a"),
-    "tree_blossom": ((32, 40), {"idle": (4, 2, True)}, _tree("blossom"), "#ffa8c8"),
-    "tree_pine": ((24, 40), {"idle": (4, 2, True)}, _tree("pine"), "#2f8a5a"),
-    "tree_maple": ((32, 40), {"idle": (4, 2, True)}, _tree("oak"), "#d8402a"),
-    "tree_snowy_pine": ((24, 40), {"idle": (1, 1, False)}, paint_snowy_pine, "#2f7a5a"),
-    "tree_bare": ((32, 40), {"idle": (1, 1, False)}, paint_bare_tree, "#9a5e36"),
-    "tree_palm": ((32, 40), {"idle": (4, 2, True)}, paint_palm, "#4caf50"),
+    **{f"tree_{k}{suffix}": ((32, 44), {"idle": (TREE_FRAMES, TREE_FPS, True)}, _tree(k, size), col)
+       for k, col in (("oak", "#5cb84a"), ("fruit", "#5cb84a"), ("blossom", "#ffa8c8"), ("maple", "#d8402a"))
+       for suffix, size in (("", "big"), ("_small", "small"))},
+    "tree_pine": ((24, 44), {"idle": (TREE_FRAMES, TREE_FPS, True)}, _tree("pine"), "#2f8a5a"),
+    "tree_pine_small": ((24, 44), {"idle": (TREE_FRAMES, TREE_FPS, True)}, _tree("pine", "small"), "#2f8a5a"),
+    "tree_snowy_pine": ((24, 44), {"idle": (1, 1, False)}, paint_snowy_pine, "#2f7a5a"),
+    "tree_bare": ((32, 44), {"idle": (1, 1, False)}, paint_bare_tree, "#9a5e36"),
+    "tree_palm": ((32, 44), {"idle": (TREE_FRAMES, TREE_FPS, True)}, paint_palm, "#4caf50"),
     "cactus": ((16, 24), {"idle": (1, 1, False)}, paint_cactus, "#5aa048"),
     "well": ((24, 30), {"idle": (1, 1, False)}, paint_well, "#b4472e"),
     "bed": ((16, 32), {"idle": (1, 1, False)}, paint_bed, "#4a7ad0"),
@@ -1552,9 +1964,8 @@ SPRITES: dict[str, tuple[tuple[int, int], dict[str, tuple[int, float, bool]], ob
     "shop": ((32, 32), {"idle": (1, 1, False)}, paint_shop, "#3a8ad0"),
     "sprinkler": ((16, 16), {"idle": (4, 6, True)}, paint_sprinkler, "#a8a8b8"),
     "flower_bush": ((16, 16), {"idle": (1, 1, False)}, paint_flower_bush, "#ff8fb4"),
-    "fence_h": ((16, 16), {"idle": (1, 1, False)}, paint_fence_h, "#9a5e36"),
-    "fence_v": ((16, 16), {"idle": (1, 1, False)}, paint_fence_v, "#9a5e36"),
-    "fence_post": ((16, 16), {"idle": (1, 1, False)}, paint_fence_post, "#9a5e36"),
+    **{k: ((16, 16), {"idle": (1, 1, False)}, (lambda g, color, anim, i, d=d: paint_fence(g, d)), "#8a3625")
+       for k, d in FENCE_KINDS.items()},
     "chicken": ((16, 16), {"idle": (2, 2, True), "run": (4, 8, True)}, paint_chicken, "#f4ece0"),
     "crow": ((16, 16), {"idle": (2, 2, True), "run": (4, 10, True), "hurt": (1, 1, False)}, paint_crow, "#3a3448"),
     "fox": ((18, 16), {"idle": (2, 2, True), "run": (4, 10, True), "hurt": (1, 1, False)}, paint_fox, "#e07a2a"),
@@ -1566,6 +1977,10 @@ SPRITES: dict[str, tuple[tuple[int, int], dict[str, tuple[int, float, bool]], ob
                                        "run_up": (4, 8, True), "idle_side": (4, 3, True), "run_side": (4, 8, True),
                                        "hurt": (1, 1, False)}, _farmer, "#e8503a"),
 }
+
+
+# Pieces placed by their whole frame rather than by what is drawn on it, so neighbouring pieces line up.
+FULL_FRAME = set(FENCE_KINDS)
 
 
 def frames(kind: str, color: str, seed: int = 0) -> dict[str, list[np.ndarray]]:

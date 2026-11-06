@@ -862,7 +862,10 @@ def generate(name: str, kind: str, color: str, features: list[str] | None = None
             fr = {a: [np.kron(f, np.ones((2, 2, 1), dtype=np.uint8)) for f in fs] for a, fs in fr.items()}
         sheet, anim_set = build_sheet(fr, fps, loop)
         size = (spec.size[0] * 2, spec.size[1] * 2) if fine else spec.size
-        return finalize(name, sheet, size, anim_set, 1 if fine else scale, spec.anchor)
+        s = finalize(name, sheet, size, anim_set, 1 if fine else scale, spec.anchor)
+        if kind in farm.FULL_FRAME:  # a piece that joins its neighbours stands on its whole cell
+            s.bounds = (0, 0, size[0], size[1])
+        return s
     feats = list(features) if features is not None else features_for(name)
     rng_seed = zlib.crc32(f"{name}:{kind}:{seed}".encode())
     extra = {"one_eye": random.Random(rng_seed).random() < 0.3}

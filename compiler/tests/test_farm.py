@@ -66,7 +66,11 @@ def test_crop_growth_stages_and_icons():
     sheet = F.crop_sheet("Pumpkin", "#ff9a2a")
     assert sheet.shape == (16, 80, 4)
     sizes = [(sheet[:, i * 16:(i + 1) * 16, 3] > 0).sum() for i in range(5)]
-    assert all(s > 0 for s in sizes) and sizes[4] > sizes[1] > sizes[0], "the plant grows"
+    assert all(s > 0 for s in sizes) and sizes[4] > sizes[3] > sizes[2] > sizes[1], "the plant grows from the sprout up"
+    for kind in F.CROP_KINDS:  # every kind of crop draws all its stages and its produce
+        sheet = F.crop_sheet(kind.title(), "#e83a4a")
+        assert all((sheet[:, i * 16:(i + 1) * 16, 3] == 255).sum() > 6 for i in range(5)), kind
+        assert (F.crop_icon(kind.title(), "#e83a4a")[..., 3] == 255).sum() > 60, kind
     for item in ("egg", "milk", "wood", "stone"):
         assert (F.item_icon(item)[..., 3] > 0).sum() > 30
     assert (F.crop_icon("Carrot", "#ff8a2a")[..., 3] > 0).sum() > 30
@@ -231,9 +235,49 @@ def test_blossom_trees_shed_petals_and_oaks_get_fireflies_at_night(manifest):
         if "CherryTree" in ents and "Oak" in ents:
             break
     assert ents["CherryTree"]["components"]["AmbientFx"]["effect"] == "petals"
-    assert ents["Oak"]["components"]["AmbientFx"] == {"effect": "fireflies", "offset": [0, -36], "night_only": True}
+    assert ents["Oak"]["components"]["AmbientFx"] == {"effect": "fireflies", "offset": [0, -48], "night_only": True}
     winter = assemble(_farm_brief(palette="snow"), 2, seed=1)["entities"]
     assert not any("AmbientFx" in e.get("components", {}) for e in winter.values()), "no petals or fireflies in winter"
     a = analyze(g, manifest)
     assert a.ok, [str(d) for d in a.diagnostics]
     assert {"art_fx_petals", "art_fx_fireflies", "art_fx_pop", "art_fx_harvest"} <= set(a.scenery_images)
+
+
+@pytest.mark.parametrize("seed", range(6))
+def test_fences_join_into_unbroken_runs(seed):
+    farm = farmgen.cozy_farm(seed, "medium")
+    pieces = {c: k for k, c in farm.objects if k in F.FENCE_KINDS}
+    sides = {"n": (0, -1), "e": (1, 0), "s": (0, 1), "w": (-1, 0)}
+    for (x, y), kind in pieces.items():  # a piece joins exactly the sides that have fence
+        want = "".join(d for d, (dx, dy) in sides.items() if (x + dx, y + dy) in pieces)
+        assert F.FENCE_KINDS[kind] == want, ((x, y), kind)
+    kinds = set(pieces.values())
+    assert {"fence_h", "fence_v", "fence_es", "fence_sw", "fence_ne", "fence_nw"} <= kinds, "runs and four corners"
+    assert kinds & {"fence_e", "fence_w", "fence_n", "fence_s"}, "the posts by a gate end the rail"
+
+
+def test_fence_pieces_fill_their_cell_so_rails_meet():
+    from spawnpoint.sprites.generate import generate
+    for kind in ("fence_h", "fence_e", "fence_sw", "fence_v"):
+        s = generate("Fence", kind, "#8a3625")
+        assert s.bounds == (0, 0, 16, 16), kind  # placed by the whole cell, not by what is drawn
+    h = F.frames("fence_h", "#8a3625")["idle"][0]
+    assert (h[5:12, 0, 3] == 255).any() and (h[5:12, 15, 3] == 255).any(), "rails run to both edges"
+    e = F.frames("fence_e", "#8a3625")["idle"][0]
+    assert not (e[5:12, 0, 3] == 255).any() and (e[5:12, 15, 3] == 255).any(), "an end post has rails on one side"
+
+
+def test_trees_sway_and_woods_mix_big_and_small_trees():
+    for kind in ("tree_oak", "tree_fruit", "tree_blossom", "tree_pine", "tree_palm", "tree_oak_small"):
+        idle = F.frames(kind, F.SPRITES[kind][3])["idle"]
+        assert len(idle) == F.TREE_FRAMES
+        assert not np.array_equal(idle[0], idle[1]), f"{kind} moves in the wind"
+        assert np.array_equal(idle[0][-12:], idle[2][-12:]), f"{kind}: the trunk stays put"
+    big = (F.frames("tree_oak", "#5cb84a")["idle"][0][..., 3] == 255).sum()
+    small = (F.frames("tree_oak_small", "#5cb84a")["idle"][0][..., 3] == 255).sum()
+    assert small < big * 0.85
+    farm = farmgen.cozy_farm(3, "medium")
+    kinds = [k for k, _ in farm.objects if k.startswith("tree")]
+    assert any(k.endswith("_small") for k in kinds) and any(not k.endswith("_small") for k in kinds)
+    ents = assemble(_farm_brief(), 2, seed=3)["entities"]
+    assert "SmallOak" in ents or "SmallPine" in ents or "SmallAppleTree" in ents
