@@ -7,7 +7,10 @@ The hit spark follows pixelfx's hit-spark (https://github.com/patch-gg/pixelfx, 
 spark spray and light pop adapt Sprite Fusion's open-source impact (https://www.spritefusion.com/pixel-art-vfx/impact,
 MIT, Copyright (c) 2026 Hugo Duprez).
 
-    strip(name) -> RGBA array (size, size * frames, 4); EFFECTS lists names, sizes and frame counts
+World effects (WORLD) play in every pixel-art game through the FX autoload: an enemy popping, landing dust, a pickup
+sparkle, a harvest, a splash, and two loops, petals falling from a blossom tree and fireflies at night.
+
+    strip(name) -> RGBA array (size, size * frames, 4); EFFECTS and WORLD list names, sizes and frame counts
 """
 
 from __future__ import annotations
@@ -17,7 +20,7 @@ import random
 
 import numpy as np
 
-from .vfx import (BACK, EMBER, FIRE, FLAKE, GRIT, MOTE, PAL, SMOKE, SMOKES, SPARK, STAR, STREAK, VAPOUR, WHITE, Frame,
+from .vfx import (BACK, DUST, EMBER, FIRE, FLAKE, GRIT, MOTE, PAL, SMOKE, SMOKES, SPARK, STAR, STREAK, VAPOUR, WHITE, Frame,
                   Lights, Particles, bolt, dim, render, sparkle)
 
 FPS = 20  # the card battle plays every strip at this rate
@@ -549,6 +552,194 @@ EFFECTS = {"slash": (64, 9, _Slash), "fire": (64, 16, _Fire), "ice": (64, 14, _I
            "curse": (64, 15, _Curse), "hit": (40, 7, _Hit)}
 
 
+# --- world effects (any pixel-art game) ------------------------------------------------------------
+
+class _Pop:
+    """An enemy defeated: a white flash and ring, a spray of sparks and grit, then soft smoke that swells and clears.
+    Neutral colours, so the FX autoload can add a burst in the enemy's own colour."""
+
+    def __init__(self, R: random.Random) -> None:
+        self.t = 0.0
+        self.ps = Particles(R, ground=14, sparks=[WHITE, (255, 243, 166, 255), (255, 200, 120, 255), (200, 120, 90, 255)])
+        self.lights = Lights()
+        self.lights.add(0, 0, 26, (255, 240, 200, 255), 0.55, 0.2)
+        for _ in range(10):
+            a, v = R.uniform(0, math.tau), R.uniform(90, 200)
+            self.ps.spawn(SPARK, 0, 0, math.cos(a) * v, math.sin(a) * v - 50, R.uniform(0.2, 0.4))
+        for _ in range(6):
+            a, v = R.uniform(-math.pi, 0), R.uniform(40, 110)
+            self.ps.spawn(GRIT, 0, 0, math.cos(a) * v, math.sin(a) * v, R.uniform(0.35, 0.5), (230, 222, 210, 255), 2)
+        for k in range(7):
+            a = k * math.tau / 7 + R.uniform(-0.3, 0.3)
+            self.ps.spawn(SMOKE, math.cos(a) * 4, math.sin(a) * 3, math.cos(a) * 30, math.sin(a) * 20 - 8,
+                          R.uniform(0.45, 0.7), (220, 214, 230, 255), R.uniform(4, 6), 0.03)
+
+    def update(self, dt: float) -> None:
+        self.t += dt
+        self.ps.update(dt)
+        self.lights.update(dt)
+
+    def draw(self, f: Frame, t: float) -> None:
+        self.ps.draw(f, "back")
+        if t < 0.05:
+            f.circle(0, 0, 7 - t * 60, WHITE)
+        if t < 0.16:
+            k = t / 0.16
+            f.ring(0, 0, 5 + k * 16, 1.5, (255, 243, 166, 255), a=1 - k)
+        self.ps.draw(f, "front")
+        self.lights.draw(f)
+
+
+class _Dust:
+    """Landing dust: two soft puffs skid out along the ground and thin away, a few specks kick up."""
+
+    def __init__(self, R: random.Random) -> None:
+        self.ps = Particles(R, ground=10)
+        col = (236, 226, 204, 255)
+        for side in (-1, 1):
+            for k in range(4):
+                self.ps.spawn(DUST, side * (2 + k * 2), 8 - k * 0.6, side * R.uniform(40, 90), R.uniform(-14, -4),
+                              R.uniform(0.3, 0.45), col, R.uniform(2.5, 4.2))
+            for _ in range(2):
+                self.ps.spawn(GRIT, side * 2, 8, side * R.uniform(30, 70), R.uniform(-90, -50), R.uniform(0.3, 0.4),
+                              (200, 188, 160, 255))
+
+    def update(self, dt: float) -> None:
+        self.ps.update(dt)
+
+    def draw(self, f: Frame, t: float) -> None:
+        self.ps.draw(f, "back")
+        self.ps.draw(f, "front")
+
+
+class _Collect:
+    """A pickup: a four-point star flashes, a ring opens, little stars scatter and twinkle out."""
+
+    def __init__(self, R: random.Random) -> None:
+        self.C = PAL["gold"]
+        self.ps = Particles(R)
+        for k in range(6):
+            a = k * math.tau / 6 + R.uniform(-0.2, 0.2)
+            self.ps.spawn(STAR, 0, 0, math.cos(a) * 70, math.sin(a) * 70, R.uniform(0.25, 0.4), self.C[6], R.uniform(1, 2))
+
+    def update(self, dt: float) -> None:
+        self.ps.update(dt)
+
+    def draw(self, f: Frame, t: float) -> None:
+        C = self.C
+        if t < 0.12:
+            sparkle(f, 0, 0, 6 * (1 - t / 0.12) + 1, C[6], C[5], 0.6)
+        if t < 0.2:
+            k = t / 0.2
+            f.ring(0, 0, 3 + k * 11, 1, C[6], a=1 - k)
+            f.glow(0, 0, 12, C[5], 0.4 * (1 - k))
+        self.ps.draw(f)
+
+
+class _Harvest:
+    """A harvest: leaves and soil crumbs pop up and fall, a golden glint and twinkles over the crop."""
+
+    def __init__(self, R: random.Random) -> None:
+        self.C = PAL["gold"]
+        self.ps = Particles(R, ground=12, sparks=[WHITE, self.C[6], self.C[5], self.C[3]])
+        for _ in range(8):
+            a, v = R.uniform(-math.pi * 0.9, -math.pi * 0.1), R.uniform(60, 130)
+            self.ps.spawn(GRIT, 0, 6, math.cos(a) * v, math.sin(a) * v - 40, R.uniform(0.35, 0.5),
+                          R.choice(((92, 184, 74, 255), (138, 216, 96, 255), (154, 98, 56, 255))), 2)
+        for _ in range(4):
+            self.ps.spawn(STAR, R.uniform(-8, 8), R.uniform(-10, 2), 0, -20, R.uniform(0.3, 0.45), self.C[6], R.uniform(1.4, 2.4),
+                          R.uniform(0.0, 0.12))
+
+    def update(self, dt: float) -> None:
+        self.ps.update(dt)
+
+    def draw(self, f: Frame, t: float) -> None:
+        C = self.C
+        if t < 0.15:
+            sparkle(f, 0, -2, 5 * (1 - t / 0.15) + 1, C[6], C[5], 0.55)
+            f.glow(0, 0, 16, C[5], 0.3 * (1 - t / 0.15))
+        self.ps.draw(f)
+
+
+class _Splash:
+    """Water: droplets leap and fall back, a ripple spreads on a flat ring, a glint of light."""
+
+    def __init__(self, R: random.Random) -> None:
+        self.C = PAL["ice"]
+        self.ps = Particles(R, ground=8, sparks=[WHITE, self.C[6], self.C[5], self.C[4]])
+        for _ in range(10):
+            a, v = R.uniform(-math.pi * 0.85, -math.pi * 0.15), R.uniform(80, 170)
+            self.ps.spawn(SPARK, 0, 6, math.cos(a) * v, math.sin(a) * v, R.uniform(0.25, 0.4))
+
+    def update(self, dt: float) -> None:
+        self.ps.update(dt)
+
+    def draw(self, f: Frame, t: float) -> None:
+        C = self.C
+        k = min(1.0, t / 0.4)
+        f.ring(0, 7, 3 + k * 12, 1, C[6], a=1 - k, sy=0.4)
+        if t > 0.1:
+            f.ring(0, 7, 2 + (k - 0.25) * 8, 1, C[5], a=1 - k, sy=0.4)
+        self.ps.draw(f)
+
+
+class _Petals:
+    """A loop under a blossom tree: pink petals drift down, sway and spin, and land; seamless."""
+    PERIOD = 2.4
+
+    def __init__(self, R: random.Random) -> None:
+        self.p = [(R.uniform(-18, 18), R.uniform(0, self.PERIOD), R.uniform(1.6, 2.4), R.uniform(0, math.tau))
+                  for _ in range(10)]
+
+    def update(self, dt: float) -> None:
+        pass
+
+    def draw(self, f: Frame, t: float) -> None:
+        pink, light, deep = (255, 176, 204, 255), (255, 224, 236, 255), (232, 120, 160, 255)
+        for x0, born, life, ph in self.p:
+            age = (t - born) % self.PERIOD
+            if age > life:
+                continue
+            k = age / life
+            x = x0 + math.sin(age * 3 + ph) * 4
+            y = -20 + k * 40
+            spin = math.sin(age * 6 + ph)
+            a = 1.0 if k < 0.85 else 1 - (k - 0.85) / 0.15  # it settles and fades on the ground
+            f.put(x, y, light if spin > 0 else pink, a)  # a petal turning: wide, then edge-on
+            f.put(x + (1 if spin > 0 else -1), y, pink if spin > 0 else deep, a)
+            if abs(spin) < 0.5:
+                f.put(x, y + 1, deep, a)
+
+
+class _Fireflies:
+    """A night loop: fireflies wander in slow loops and blink, each a warm pixel with a soft glow; seamless."""
+    PERIOD = 3.0
+
+    def __init__(self, R: random.Random) -> None:
+        self.flies = [(R.uniform(-22, 22), R.uniform(-22, 18), R.randint(1, 2), R.randint(1, 2), R.uniform(0, math.tau),
+                       R.uniform(5, 10)) for _ in range(6)]
+
+    def update(self, dt: float) -> None:
+        pass
+
+    def draw(self, f: Frame, t: float) -> None:
+        u = t / self.PERIOD * math.tau  # whole turns in a period, so the loop closes
+        for x0, y0, a, b, ph, r in self.flies:
+            x, y = x0 + math.sin(u * a + ph) * r, y0 + math.sin(u * b + ph * 1.7) * r * 0.6
+            blink = 0.5 + 0.5 * math.sin(u * 2 + ph * 3)
+            if blink < 0.15:
+                continue
+            f.put(x, y, (255, 246, 160, 255) if blink > 0.6 else (214, 232, 110, 255))
+            f.glow(x, y, 6, (230, 240, 120, 255), 0.45 * blink)
+
+
+# name -> (frame size, frames at FPS, effect class); loops have whole periods of frames
+WORLD = {"pop": (48, 12, _Pop), "dust": (32, 8, _Dust), "collect": (32, 7, _Collect), "harvest": (40, 10, _Harvest),
+         "splash": (32, 8, _Splash), "petals": (48, int(_Petals.PERIOD * FPS), _Petals),
+         "fireflies": (64, int(_Fireflies.PERIOD * FPS), _Fireflies)}
+LOOPS = {"petals", "fireflies"}
+
+
 def strip(name: str) -> np.ndarray:
-    size, n, make = EFFECTS[name]
+    size, n, make = EFFECTS[name] if name in EFFECTS else WORLD[name]
     return render(make, size, n, FPS, (size / 2, size / 2), seed=sum(map(ord, name)))

@@ -44,6 +44,46 @@
       "doc": "Points the entity's Weapon (and visual) at the mouse, the nearest enemy, or the movement direction."
     },
     {
+      "name": "AmbientFx",
+      "class": "AmbientFxComponent",
+      "script": "res://addons/spawn_point/components/ambient_fx_component.gd",
+      "base": "Node",
+      "hosts": [],
+      "requires": [],
+      "category": "juice",
+      "entity_params": [],
+      "params": [
+        {
+          "name": "effect",
+          "type": "String",
+          "hint": "",
+          "hint_string": "",
+          "default": "petals",
+          "doc": "The loop to play: \"petals\" or \"fireflies\"."
+        },
+        {
+          "name": "offset",
+          "type": "Vector2",
+          "hint": "",
+          "hint_string": "",
+          "default": "(0.0, 0.0)",
+          "doc": "Where it plays, from the entity's position (px)."
+        },
+        {
+          "name": "night_only",
+          "type": "bool",
+          "hint": "",
+          "hint_string": "",
+          "default": false,
+          "doc": "Only after dusk, by the farm's clock ([FarmDaysComponent]); always hidden without one."
+        }
+      ],
+      "state": [],
+      "signals": [],
+      "methods": [],
+      "doc": "A looping world effect on its entity: petals falling under a blossom tree, fireflies round a tree after dusk. Plays the game's effect strip (pixel art games have one); without it, does nothing."
+    },
+    {
       "name": "Animator",
       "class": "AnimatorComponent",
       "script": "res://addons/spawn_point/components/animator_component.gd",

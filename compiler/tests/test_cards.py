@@ -126,7 +126,7 @@ def test_backdrops(theme):
 
 
 def test_effect_strips():
-    for name, (size, n, _p) in fx.EFFECTS.items():
+    for name, (size, n, _p) in {**fx.EFFECTS, **fx.WORLD}.items():
         strip = fx.strip(name)
         assert strip.shape == (size, size * n, 4)
         assert all((strip[:, i * size:(i + 1) * size, 3] > 0).any() for i in range(n)), name

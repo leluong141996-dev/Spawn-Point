@@ -504,7 +504,9 @@ def test_scenery_in_the_plan(manifest):
     sc = plat.plan["scenery"]
     assert sc["sky"] == "res://sprites/scenery_sky.png" and sc["pixel"] == 2
     assert {layer["name"] for layer in sc["layers"]} >= {"clouds", "far", "mid", "near"}
-    assert set(plat.scenery_images) == {"scenery_sky"} | {f"scenery_{layer['name']}" for layer in sc["layers"]}
+    assert {n for n in plat.scenery_images if not n.startswith("art_fx_")} == \
+        {"scenery_sky"} | {f"scenery_{layer['name']}" for layer in sc["layers"]}
+    assert "art_fx_pop" in plat.scenery_images, "pixel-art games carry the world effects"
     for name in ("flat",):
         assert "scenery" not in analyze(minimal(settings={"scenery": name}), manifest).plan
     assert "scenery" not in analyze(minimal(settings={"art_style": "cartoon"}), manifest).plan

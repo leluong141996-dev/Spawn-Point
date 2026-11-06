@@ -62,7 +62,8 @@ func use(farmer: FarmerComponent) -> String:
 		GameState.add_score(-int(o.price))
 		buy(farmer, String(o.key))
 		GameState.message("Bought: %s!" % o.name)
-		FX.burst(_entity.global_position + Vector2(0, -16), Color("#ffec27"), 14, 140.0, 0.5, 3.0, 200.0)
+		if not FX.play("collect", _entity.global_position + Vector2(0, -16)):
+			FX.burst(_entity.global_position + Vector2(0, -16), Color("#ffec27"), 14, 140.0, 0.5, 3.0, 200.0)
 		bought.emit(String(o.key))
 		_shown = -1
 		return "buy"
@@ -106,4 +107,5 @@ func _deliver_animal(entity: String) -> void:
 	var a := (load(path) as PackedScene).instantiate() as Node2D
 	holder.add_child(a)
 	a.global_position = at
-	FX.burst(at, Color("#fff1a8"), 10, 90.0, 0.4, 2.5, 200.0)
+	if not FX.play("pop", at):
+		FX.burst(at, Color("#fff1a8"), 10, 90.0, 0.4, 2.5, 200.0)

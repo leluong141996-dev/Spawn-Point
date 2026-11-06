@@ -185,7 +185,8 @@ func _on_landed(impact_speed: float) -> void:
 	if particles and impact_speed > 250.0:
 		var feet := _feet()
 		if FX.pixel_art:  # two skidding puffs, one each way
-			FX.dust(feet, 0, int(6 + 6 * k))
+			if impact_speed < 500.0 or not FX.play("dust", feet + Vector2(0, -8)):
+				FX.dust(feet, 0, int(6 + 6 * k))
 		else:
 			FX.burst(feet, Color(1, 1, 1, 0.55), int(6 + 8 * k), 90.0 * k + 40.0, 0.35, 3.0, -60.0)
 	if impact_speed > 250.0:
@@ -204,7 +205,7 @@ func _on_dashed() -> void:
 func _on_damaged(_amount: int) -> void:
 	if flash:
 		flash_white()
-	if particles:
+	if particles and not FX.play("hit", _entity.global_position):
 		FX.spark(_entity.global_position, SP.color_of(_entity).lightened(0.4))
 	squash_stretch(squash_amount * 0.8, 0.18)
 	FX.shake(shake_on_hurt)
@@ -213,7 +214,9 @@ func _on_damaged(_amount: int) -> void:
 
 
 func _on_died() -> void:
-	if particles:
+	if particles and FX.play("pop", _entity.global_position):  # the pop, plus chips in the entity's own colour
+		FX.burst(_entity.global_position, SP.color_of(_entity), 12, 220.0, 0.45, 4.0)
+	elif particles:
 		FX.burst(_entity.global_position, SP.color_of(_entity), 28, 260.0, 0.6, 5.0)
 		FX.burst(_entity.global_position, Color.WHITE, 10, 160.0, 0.3, 3.0)
 	FX.shake(shake_on_death)
@@ -228,7 +231,7 @@ func _on_fired() -> void:
 
 
 func _on_collected(_by: Node) -> void:
-	if particles:
+	if particles and not FX.play("collect", _entity.global_position):
 		FX.burst(_entity.global_position, SP.color_of(_entity), 12, 150.0, 0.4, 3.0, 0.0)
 	var c := SP.component(_entity, &"Collectible") as CollectibleComponent
 	if c and c.score > 0:

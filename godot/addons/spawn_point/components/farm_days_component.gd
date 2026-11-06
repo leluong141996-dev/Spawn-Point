@@ -41,6 +41,7 @@ var _sleeping := false
 
 
 func _ready() -> void:
+	add_to_group(&"farm_days")  # night-only effects read the clock
 	_tint = CanvasModulate.new()
 	_tint.name = "DayLight"
 	_layer = CanvasLayer.new()

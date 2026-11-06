@@ -4,9 +4,13 @@ extends Node
 ## True while a pixel-art level is loaded: shake snaps to whole pixels, dust and sparks are blocky.
 var pixel_art := true
 
+## Effect strips (sprites/fx.py) are drawn at this many frames a second and shown at 2 screen px per art px.
+const STRIP_FPS := 20.0
+
 var _hitstop_token := 0
 var _cameras: Array[Node] = []
 var _sparks := 0
+var _strips := {}  # effect name -> Texture2D, or null when this game has no strip for it
 
 
 func register_camera(cam: Node) -> void:
@@ -128,6 +132,63 @@ func spark(pos: Vector2, color := Color.WHITE) -> void:
 		_sparks -= 1
 		s.queue_free())
 	burst(pos, color, 4, 130.0, 0.22, 2.0, 0.0)
+
+
+## The picture strip of a world effect ("pop", "dust", "collect", "harvest", "splash", "hit", "petals",
+## "fireflies"), or null when this game was built without one (cartoon art, an older build).
+func strip_texture(effect: String) -> Texture2D:
+	if not _strips.has(effect):
+		var path := "res://sprites/art_fx_%s.png" % effect
+		_strips[effect] = load(path) if ResourceLoader.exists(path) else null
+	return _strips[effect]
+
+
+## Plays a world effect once at [param pos], tinted by [param tint]. Returns false (and does nothing) when the game
+## has no strip for it, so the caller can fall back to plain particles.
+func play(effect: String, pos: Vector2, tint := Color.WHITE, z := 11) -> bool:
+	var tex := strip_texture(effect)
+	var parent := _fx_parent()
+	if tex == null or parent == null:
+		return false
+	if _sparks >= 24:  # a swarm of enemies must not bury the screen
+		return true
+	_sparks += 1
+	var s := _strip_sprite(tex, tint, z)
+	s.position = pos
+	parent.add_child(s)
+	var n := s.hframes
+	var t := s.create_tween()
+	t.tween_method(func(v: float) -> void: s.frame = mini(n - 1, int(v)), 0.0, float(n), n / STRIP_FPS)
+	t.tween_callback(func() -> void:
+		_sparks -= 1
+		s.queue_free())
+	return true
+
+
+## A looping world effect (petals under a blossom tree, fireflies) as a child of [param host] at [param offset].
+## Returns the sprite, or null when the game has no strip for it.
+func loop(effect: String, host: Node, offset := Vector2.ZERO, z := 12) -> Sprite2D:
+	var tex := strip_texture(effect)
+	if tex == null or host == null:
+		return null
+	var s := _strip_sprite(tex, Color.WHITE, z)
+	s.position = offset
+	host.add_child(s)
+	var n := s.hframes
+	var t := s.create_tween().set_loops()
+	t.tween_method(func(v: float) -> void: s.frame = int(v) % n, 0.0, float(n), n / STRIP_FPS)
+	return s
+
+
+func _strip_sprite(tex: Texture2D, tint: Color, z: int) -> Sprite2D:
+	var s := Sprite2D.new()
+	s.texture = tex
+	s.hframes = maxi(1, int(tex.get_width() / tex.get_height()))
+	s.scale = Vector2(2, 2)
+	s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	s.modulate = tint
+	s.z_index = z
+	return s
 
 
 ## Rising, fading text (e.g. "+1") at [param pos].

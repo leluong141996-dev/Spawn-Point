@@ -58,7 +58,8 @@ func use(farmer: FarmerComponent) -> String:
 		GameState.add_score(-int(o.price))
 		farmer.add_upgrade(String(o.key))
 		GameState.message("%s upgraded: %s!" % [o.name, WHAT.get(o.key, "")])
-		FX.burst(_entity.global_position + Vector2(0, -12), Color("#ffec27"), 14, 140.0, 0.5, 3.0, 200.0)
+		if not FX.play("collect", _entity.global_position + Vector2(0, -12)):
+			FX.burst(_entity.global_position + Vector2(0, -12), Color("#ffec27"), 14, 140.0, 0.5, 3.0, 200.0)
 		bought.emit(String(o.key))
 		_shown = -1
 		return "upgrade"

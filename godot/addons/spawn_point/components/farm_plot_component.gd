@@ -73,6 +73,7 @@ func till() -> bool:
 		return false
 	tilled = true
 	FX.burst(_entity.global_position, Color("#9a6238"), 8, 90.0, 0.35, 3.0, 260.0)
+	FX.play("dust", _entity.global_position)
 	tilled_soil.emit()
 	return true
 
