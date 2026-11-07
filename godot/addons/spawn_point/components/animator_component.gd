@@ -34,6 +34,19 @@ func _ready() -> void:
 	var weapon := SP.component(_entity, &"Weapon") as WeaponComponent
 	if weapon:
 		weapon.fired.connect(_on_fired)
+	_desync.call_deferred()  # after the sprite's own autoplay
+
+
+## Things that loop in place (trees swaying in the wind, a scarecrow) start at their own point of the loop, so a
+## wood does not sway in step. Picked from where the entity stands, so a game plays the same every time.
+func _desync() -> void:
+	if _sprite == null or not _sprite.sprite_frames.has_animation(&"idle") or _sprite.animation != &"idle":
+		return
+	var n := _sprite.sprite_frames.get_frame_count(&"idle")
+	if n < 2 or not _sprite.sprite_frames.get_animation_loop(&"idle"):
+		return
+	var p := _entity.global_position
+	_sprite.set_frame_and_progress(absi(int(p.x / 32.0) * 7 + int(p.y / 32.0) * 13) % n, 0.0)
 
 
 func _on_fired() -> void:

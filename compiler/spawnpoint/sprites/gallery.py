@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from PIL import Image, ImageDraw
 
+from .farm import FENCE_KINDS
 from .generate import KINDS, features_for, generate
 from .spriteset import SpriteSet
 
@@ -46,6 +47,11 @@ CAST: list[tuple[str, str, str]] = [
     ("Workbench", "workbench", "#9a5e36"), ("ShopStall", "shop", "#3a8ad0"), ("Sprinkler", "sprinkler", "#a8a8b8"), ("Crow", "crow", "#3a3448"), ("Fox", "fox", "#e07a2a"), ("Rabbit", "rabbit", "#d8c8b8"), ("Mouse", "mouse", "#9a9aa8"),
     ("Chair", "chair", "#9a5e36"), ("Dresser", "dresser", "#9a5e36"), ("PottedPlant", "potted_plant", "#5cb84a"),
 ]
+# the cozy farm's fence pieces (corners, ends) and its smaller trees
+CAST += [("Fence" + d.upper(), k, "#8a3625") for k, d in FENCE_KINDS.items() if k not in ("fence_h", "fence_v", "fence_post")]
+CAST += [("SmallOak", "tree_oak_small", "#5cb84a"), ("SmallAppleTree", "tree_fruit_small", "#5cb84a"),
+         ("SmallCherryTree", "tree_blossom_small", "#ffa8c8"), ("SmallMaple", "tree_maple_small", "#d8402a"),
+         ("SmallPine", "tree_pine_small", "#2f8a5a")]
 
 CELL, PAD, LABEL, BG, TILE, TEXT = 96, 10, 14, (36, 40, 52, 255), (52, 58, 74, 255), (220, 224, 232, 255)
 

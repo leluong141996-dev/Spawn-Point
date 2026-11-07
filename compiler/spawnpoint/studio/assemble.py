@@ -127,19 +127,27 @@ FARM_UPGRADES = (("basket", "Big basket", 30), ("can", "Watering can", 45), ("ho
 FARM_GOODS = (("Egg", 6), ("Milk", 14), ("Fish", 10), ("Wood", 3), ("Stone", 4))
 FARM_ISLAND = {"ocean": True, "forest": False, "desert": False}  # an ocean farm is an island, a forest farm a meadow
 FARM_SEASON = {"snow": "winter", "desert": "desert", "lava": "autumn"}  # the theme sets the season (spring otherwise)
-FARM_TREE_COLORS = {"autumn": {"tree_oak": "#e8922a"}}  # the same tree in another season's colours
+FARM_TREE_COLORS = {"autumn": {"tree_oak": "#e8922a", "tree_oak_small": "#e8922a"}}  # the same tree in another season's colours
 # How the season changes the farming: crops grow slower in winter, the soil dries faster in the desert.
 FARM_SEASON_PLAY = {"spring": (1.0, 1.0), "autumn": (0.9, 1.0), "winter": (0.65, 1.3), "desert": (0.9, 0.6)}
 # object kind -> (entity name, {"base": footprint px, "gather": (item, hits, amount, chip colour)})
 FARM_OBJECTS: dict[str, tuple[str, dict]] = {
     "farmhouse": ("Farmhouse", {"base": (150, 56)}), "coop": ("Coop", {"base": (72, 30)}),
-    "fence_h": ("FenceH", {"base": (32, 12)}), "fence_v": ("FenceV", {"base": (10, 30)}),
-    "fence_post": ("FencePost", {"base": (12, 12)}),
+    # fence pieces (see farmgen._join_fences): the footprint spans the cell toward the rails, and up into the
+    # cell above when the fence runs on north, so a run of pieces is one wall with no gaps
+    **{k: ({"fence_h": "FenceH", "fence_v": "FenceV", "fence_post": "FencePost"}.get(k, "Fence" + d.upper()),
+           {"base": (32 if ("e" in d or "w" in d) else 10, 30 if "n" in d else 12)})
+       for k, d in farm_art.FENCE_KINDS.items()},
     "tree_oak": ("Oak", {"base": (22, 14), "gather": ("Wood", 3, 2, "#5cb84a")}),
     "tree_pine": ("Pine", {"base": (20, 14), "gather": ("Wood", 3, 2, "#2f8a5a")}),
     "tree_fruit": ("AppleTree", {"base": (22, 14), "gather": ("Wood", 3, 2, "#5cb84a")}),
     "tree_blossom": ("CherryTree", {"base": (22, 14), "gather": ("Wood", 3, 2, "#ffa8c8")}),
     "tree_maple": ("Maple", {"base": (22, 14), "gather": ("Wood", 3, 2, "#d8402a")}),
+    "tree_oak_small": ("SmallOak", {"base": (18, 12), "gather": ("Wood", 2, 2, "#5cb84a")}),
+    "tree_pine_small": ("SmallPine", {"base": (16, 12), "gather": ("Wood", 2, 2, "#2f8a5a")}),
+    "tree_fruit_small": ("SmallAppleTree", {"base": (18, 12), "gather": ("Wood", 2, 2, "#5cb84a")}),
+    "tree_blossom_small": ("SmallCherryTree", {"base": (18, 12), "gather": ("Wood", 2, 2, "#ffa8c8")}),
+    "tree_maple_small": ("SmallMaple", {"base": (18, 12), "gather": ("Wood", 2, 2, "#d8402a")}),
     "tree_snowy_pine": ("SnowyPine", {"base": (20, 14), "gather": ("Wood", 3, 2, "#f8fbff")}),
     "tree_bare": ("BareTree", {"base": (20, 14), "gather": ("Wood", 2, 2, "#9a5e36")}),
     "tree_palm": ("Palm", {"base": (16, 12), "gather": ("Wood", 3, 2, "#4caf50")}),
@@ -663,10 +671,10 @@ class _Assembler:
                     item, hits, amount, chips = spec["gather"]
                     ent["components"]["Gatherable"] = {"item": item, "hits": hits, "amount": amount, "chip_color": chips,
                                                        **({"leaves": "Stump"} if kind.startswith("tree") else {})}
-                if kind == "tree_blossom" and season == "spring":  # petals drift down under the blossom
+                if kind.startswith("tree_blossom") and season == "spring":  # petals drift down under the blossom
                     ent["components"]["AmbientFx"] = {"effect": "petals", "offset": [0, -24]}
-                elif kind == "tree_oak" and season != "winter":  # fireflies round the oaks after dusk
-                    ent["components"]["AmbientFx"] = {"effect": "fireflies", "offset": [0, -36], "night_only": True}
+                elif kind.startswith("tree_oak") and season != "winter":  # fireflies round the oaks after dusk
+                    ent["components"]["AmbientFx"] = {"effect": "fireflies", "offset": [0, -48], "night_only": True}
                 self.entities[name] = ent
             place(name, c)
         if fm.door_mat is not None:  # the farmhouse door and the mat inside are linked

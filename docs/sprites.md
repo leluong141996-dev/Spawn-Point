@@ -29,6 +29,19 @@ Ground tiles are drawn for their neighbours (grass on top, outlined exposed edge
 varied interiors, capped one-way planks), and pixel-art levels get pixel effects: skidding dust, hit sparks and a
 screen shake in whole pixels.
 
+**The cozy farm** (`sprites/farm.py`) has its own 16-pixel set. Tree crowns are staggered rows of leaves lit from the
+top left over a shaded lower edge, with ragged leaf tips, branches forking out of a trunk that flares into roots, and a
+six-frame sway in the wind (the top bends most, the middle a beat behind; each tree starts at its own point of the
+loop, so a wood never sways in step). Woods mix big and small trees. Fences are sixteen pieces, a post with rails
+toward each side that has fence next to it, picked from the neighbouring cells (`farmgen._join_fences`) and placed by
+their whole cell so the rails meet. Crops are drawn by hand in a little pixel grammar, one body per growth stage for
+each family of plant (bushes, blades, fronds, corn, wheat, vines, cabbages), with the produce outlined in its own dark.
+Buildings and props share the fences' wood: the farmhouse has a front gable with two tiled slopes and a ridge beam, a
+stone chimney, a cream plank wall between dark corner posts and flower-box windows; roof tiles are laid in courses
+with staggered joints, ramped from the building's colour, the slope away from the light in shade. Inside, honey
+floorboards meet a papered wall over wood panelling, with curtained windows, a patterned rug and a striped mat; the
+farm's pests (crows, foxes, rabbits, mice) are chunky, outlined and white-bellied like the farm animals.
+
 **Effects** (`sprites/vfx.py`, used by `sprites/fx.py`: the card game's skills, and in every pixel-art game an
 enemy popping, landing dust, pickup sparkles, a harvest, splashes, falling petals and fireflies) are drawn into two buffers, opaque
 colour that fades by ordered dither and additive light on top, with simulated particles: sparks that streak and

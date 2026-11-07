@@ -38,9 +38,11 @@ Ask for a farming game (`spawnpoint create "a cozy farming game with strawberrie
 Spawn Point lays out a whole farm: a farmhouse with a dirt path to its door, a fenced crop field, an animal pen with a
 coop, a pond, a shipping bin, and woods around the edge, on an island (water all round, cliffs to the south; an
 ocean-themed farm always is one) or in a meadow in the woods. The art is a 16-pixel tile set drawn from code: grass with tufts, flowers and mushrooms, paths with soft edges,
-water with lily pads and reeds, buildings, fences, four kinds of tree, chickens and cows, a farmer who walks in four
-directions, and crops with five growth stages (strawberries, carrots, potatoes, pumpkins, corn, wheat, cabbages...,
-picked from the crop's name).
+water with lily pads and reeds, buildings, fences that join into one line round each corner and stop at the gate,
+trees big and small whose crowns sway in the wind (oaks, fruit trees, cherry blossom, pines, maples, palms), chickens
+and cows, a farmer who walks in four directions, and crops with five growth stages, from a mound of seeds to a ripe
+plant carrying its produce (strawberries, carrots, potatoes, pumpkins, corn, wheat, cabbages..., picked from the
+crop's name).
 
 A farm is a season of a few days, each running from 6:00 to 22:00 with the light turning gold in the evening and dark
 at night; sleep in the farmhouse bed (or drop off in the fields at midnight) and watered crops grow overnight. Earn the
