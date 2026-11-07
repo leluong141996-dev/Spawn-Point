@@ -271,14 +271,21 @@ def terrain_image(rows: list[str], seed: int = 0, season: str = "spring") -> np.
     return img
 
 
-FLOORBOARD, FLOORBOARD_DARK, FLOORBOARD_LIGHT = _c("#b87a48"), _c("#94603a"), _c("#cc8f5a")
-WALLPAPER, WALLPAPER_STRIPE, WAINSCOT, WAINSCOT_DARK = _c("#f0dcb4"), _c("#e4c898"), _c("#9a5e36"), _c("#6e3e24")
-RUG, RUG_EDGE, RUG_PATTERN = _c("#c8503a"), _c("#8a2e24"), _c("#f0c060")
+
+
+FLOORBOARD, FLOORBOARD_DARK, FLOORBOARD_LIGHT, FLOORBOARD_SEAM = _c("#c8834e"), _c("#a86a3e"), _c("#dca068"), _c("#7e4a2e")
+WALLPAPER, WALLPAPER_STRIPE, WALLPAPER_DOT = _c("#f2dcc0"), _c("#e6c8a6"), _c("#d89a7a")
+WAINSCOT, WAINSCOT_DARK, WAINSCOT_LIGHT = _c("#8a3625"), _c("#4a2123"), _c("#ae4924")
+RUG, RUG_EDGE, RUG_PATTERN = _c("#b8402e"), _c("#7a2420"), _c("#e8b048")
+MAT, MAT_LIGHT, MAT_EDGE = _c("#38a129"), _c("#6ebd3c"), _c("#1a5a2a")
+CURTAIN, CURTAIN_DARK = _c("#0092dd"), _c("#005ba7")
 
 
 def _indoors(img: np.ndarray, grid: np.ndarray) -> None:
-    """Rooms: black outside, floorboards, a papered wall with wood panelling and a window, a rug, a door mat."""
+    """Rooms: darkness outside, honey floorboards, a papered back wall over wood panelling with windows hung with
+    curtains, wall tops seen from above, a patterned rug and a striped mat by the door."""
     hh, ww = grid.shape
+    floorish = (FLOOR_C, RUG_C, MAT_C)
     for y in range(hh):
         for x in range(ww):
             ch = grid[y, x]
@@ -290,50 +297,72 @@ def _indoors(img: np.ndarray, grid: np.ndarray) -> None:
                 tile[:] = _c("#14101c")
                 continue
             if ch == WALL_C:
-                floorish = (FLOOR_C, RUG_C, MAT_C)
                 below_floor = y + 1 < hh and grid[y + 1, x] in floorish
                 back = below_floor or (y + 2 < hh and grid[y + 1, x] == WALL_C and grid[y + 2, x] in floorish)
-                if not back:  # side walls and the bottom wall: seen from above, a dark wall top
+                if not back:  # side and bottom walls, seen from above: a dark top with a lit lip by the floor
                     tile[:] = WAINSCOT_DARK
-                    tile[:, :2] = WAINSCOT if x > 0 and grid[y, x - 1] != WALL_C else tile[:, :2]
+                    tile[::5, :] = F_DEEP
+                    for nx, ny, sl in ((1, 0, np.s_[:, -3:]), (-1, 0, np.s_[:, :3]), (0, -1, np.s_[:3, :]), (0, 1, np.s_[-3:, :])):
+                        if 0 <= x + nx < ww and 0 <= y + ny < hh and grid[y + ny, x + nx] in floorish:
+                            tile[sl] = WAINSCOT
                     continue
-                tile[:] = WALLPAPER
-                tile[:, ::4] = WALLPAPER_STRIPE
-                if below_floor:  # the lower half is wood panelling down to the floor
-                    tile[8:] = WAINSCOT
-                    tile[8] = FLOORBOARD_LIGHT
-                    tile[15] = WAINSCOT_DARK
-                    tile[8:, ::5] = WAINSCOT_DARK
-                elif (x * 7) % 4 == 1:  # a window up in the wall
-                    tile[3:13, 3:13] = WAINSCOT
-                    tile[4:12, 4:12] = GLASS
-                    tile[4:12, 8] = WAINSCOT
-                    tile[8, 4:12] = WAINSCOT
-                    tile[5:7, 5:7] = GLASS_LIGHT
+                tile[:] = WALLPAPER  # wallpaper: stripes with a little dot between
+                tile[:, 3::8] = WALLPAPER_STRIPE
+                tile[:, 4::8] = WALLPAPER_STRIPE
+                tile[4::8, 7::8] = WALLPAPER_DOT
+                tile[0::8, 0::8] = WALLPAPER_DOT
+                if below_floor:  # the lower part is panelling under a chair rail, a baseboard at the floor
+                    tile[5] = WAINSCOT_LIGHT
+                    tile[6] = WAINSCOT_DARK
+                    tile[7:] = WAINSCOT
+                    tile[7:, ::4] = WAINSCOT_DARK
+                    tile[7:, 1::4] = WAINSCOT_LIGHT
+                    tile[14:] = WAINSCOT_DARK
+                else:
+                    tile[0:2] = WAINSCOT  # the crown moulding
+                    tile[2] = WAINSCOT_DARK
+                    tile[0] = WAINSCOT_LIGHT
+                    if (x * 7) % 4 == 1:  # a window hung with curtains
+                        tile[4:15, 3:13] = WAINSCOT
+                        tile[5:14, 4:12] = GLASS
+                        tile[5:14, 8] = WAINSCOT
+                        tile[9, 4:12] = WAINSCOT
+                        tile[6:8, 5:7] = GLASS_LIGHT
+                        tile[3:15, 1:4] = CURTAIN
+                        tile[3:15, 12:15] = CURTAIN
+                        tile[3:15, 3] = CURTAIN_DARK
+                        tile[3:15, 12] = CURTAIN_DARK
+                        tile[3, 0:16] = WAINSCOT_DARK  # the curtain rod
                 continue
-            tile[:] = FLOORBOARD  # floorboards with staggered seams
+            tile[:] = FLOORBOARD  # floorboards: staggered ends, a lit edge, grain and the odd knot
             for row in range(0, CELL, 4):
-                tile[row] = FLOORBOARD_DARK
+                tile[row] = FLOORBOARD_SEAM
+                tile[row + 1] = FLOORBOARD_LIGHT
                 seam = (row * 3 + x * 5) % CELL
-                tile[row:row + 4, seam] = FLOORBOARD_DARK
-                tile[row + 1, (x * 3 + row) % 7::7] = FLOORBOARD_LIGHT
-            if y > 0 and grid[y - 1, x] == WALL_C:
-                tile[:3] = FLOORBOARD_DARK  # the wall's shadow on the floor
-            if ch == RUG_C:
+                tile[row + 1:row + 4, seam] = FLOORBOARD_SEAM
+                tile[row + 2, (x * 3 + row) % 7::7] = FLOORBOARD_DARK
+            if (x * 5 + y * 3) % 7 == 0:
+                tile[10, 6] = FLOORBOARD_SEAM
+            if y > 0 and grid[y - 1, x] == WALL_C:  # the wall's shadow on the floor
+                tile[:3] = (tile[:3].astype(int) * 0.72).astype(np.uint8)
+                tile[:3, :, 3] = 255
+            if ch == RUG_C:  # a red rug: a gold border, a diamond in each tile, fringed ends
                 tile[:] = RUG
-                tile[::5, :] = RUG_PATTERN
-                if y > 0 and grid[y - 1, x] != RUG_C:
-                    tile[:2] = RUG_EDGE
-                if y + 1 < hh and grid[y + 1, x] != RUG_C:
-                    tile[-2:] = RUG_EDGE
-                if x > 0 and grid[y, x - 1] != RUG_C:
-                    tile[:, :2] = RUG_EDGE
-                if x + 1 < ww and grid[y, x + 1] != RUG_C:
-                    tile[:, -2:] = RUG_EDGE
-            elif ch == MAT_C:
-                tile[3:13, 1:15] = _c("#6a8a3a")
-                tile[4:12, 2:14] = _c("#8aa848")
-                tile[6:10, 2:14:3] = _c("#6a8a3a")
+                for d_ in range(4):
+                    tile[8 - d_, 8 - 3 + d_] = RUG_PATTERN
+                    tile[8 + d_, 8 - 3 + d_] = RUG_PATTERN
+                    tile[8 - d_, 8 + 3 - d_] = RUG_PATTERN
+                    tile[8 + d_, 8 + 3 - d_] = RUG_PATTERN
+                tile[8, 8] = RUG_PATTERN
+                for nx, ny, edge, line in ((0, -1, np.s_[:2], np.s_[2]), (0, 1, np.s_[-2:], np.s_[-3]),
+                                           (-1, 0, np.s_[:, :2], np.s_[:, 2]), (1, 0, np.s_[:, -2:], np.s_[:, -3])):
+                    if not (0 <= x + nx < ww and 0 <= y + ny < hh and grid[y + ny, x + nx] == RUG_C):
+                        tile[edge] = RUG_EDGE
+                        tile[line] = RUG_PATTERN
+            elif ch == MAT_C:  # a striped green mat
+                tile[3:13, 1:15] = MAT_EDGE
+                tile[4:12, 2:14] = MAT
+                tile[4:12:2, 2:14] = MAT_LIGHT
 
 
 def _lily(img: np.ndarray, x: int, y: int, rnd: random.Random) -> None:
@@ -1523,82 +1552,125 @@ def paint_cow(g: Fig, color: str, anim: str, i: int) -> None:
 # pests, in the same 16 px style (side views, facing right) ---------------------------------------
 
 def paint_crow(g: Fig, color: str, anim: str, i: int) -> None:
+    """A crow: glossy black with a blue sheen, orange beak and legs; it hops and flaps when it runs."""
     d, b, l = _ramp(color)
+    sheen, deep = _c("#7a78b8"), tuple(int(c * 0.6) for c in d[:3]) + (255,)
     k = i % 4
     hop = (0, 2, 3, 1)[k] if anim == "run" else 0
     flap = anim == "run" and k in (1, 2)
-    g.ellipse(8, 15, 4, 1, _c("#2c5a30", 100))
-    g.rect(6, 12 - hop, 6, 14 - hop, _c("#e0a030"))
-    g.rect(9, 12 - hop, 9, 14 - hop, _c("#e0a030"))
-    g.ellipse(7, 9 - hop, 5, 3.6, b)
-    g.poly([(2, 8 - hop), (-1, 6 - hop), (2, 10 - hop)], d)  # tail
-    if flap:
-        g.poly([(5, 8 - hop), (2, 1 - hop), (9, 7 - hop)], d)
+    peck = anim == "idle" and i % 2 == 1
+    body = Fig(g.w, g.h)
+    for x in (6, 9):  # legs and toes
+        body.rect(x, 12 - hop, x, 13 - hop, BEAK)
+        body.rect(x, 14 - hop, x + 1, 14 - hop, BEAK_DARK)
+    body.poly([(3, 7.5 - hop), (-0.5, 6 - hop), (0, 9 - hop), (3, 10.5 - hop)], deep)  # tail
+    body.ellipse(7, 9.2 - hop, 5, 3.5, b)  # body
+    body.rect(4, 11 - hop, 10, 12 - hop, d)
+    body.rect(5, 6 - hop, 8, 6 - hop, l)
+    if flap:  # a wing raised
+        body.poly([(4.5, 8 - hop), (2, 0.5 - hop), (6, 2 - hop), (9, 7.5 - hop)], deep)
+        body.line(3, 2 - hop, 6, 7 - hop, sheen)
     else:
-        g.ellipse(6, 10 - hop, 3.2, 2, d)
-    g.ellipse(12, 6 - hop, 2.8, 2.6, b)
-    g.rect(14, 6 - hop, 15, 6 - hop, _c("#e0a030"))
-    g.set(15, 7 - hop, _c("#c08020"))
-    g.set(13, 5 - hop, WHITE)
-    g.set(13, 6 - hop, BLACK)
-    g.set(11, 4 - hop, l)
-    _out(g)
+        body.ellipse(6, 9.6 - hop, 3.4, 2.1, deep)
+        body.rect(4, 8 - hop, 8, 8 - hop, sheen)
+    hx, hy = (12, 6 - hop) if not peck else (12.5, 8.5)
+    body.ellipse(hx, hy, 2.8, 2.6, b)  # head
+    body.set(hx - 1, hy - 2, sheen)
+    body.rect(hx + 2, hy, hx + 3.5, hy, BEAK)  # beak
+    body.set(hx + 3, hy + 1, BEAK_DARK)
+    body.set(hx + 1, hy - 1, WHITE)  # eye
+    body.set(hx + 1, hy, ANIMAL_OUT)
+    _animal_out(body)
+    g.ellipse(8, 14.8, 4.4, 1.0, GROUND_SHADOW)
+    _over(g.px, body.px)
 
 
 def paint_fox(g: Fig, color: str, anim: str, i: int) -> None:
+    """A fox: orange with a white chest, muzzle and tail tip, dark socks and ears; it trots when it runs."""
     d, b, l = _ramp(color)
+    sock = _c("#4a2123")
     k = i % 4
     step = ((1, -1), (0, 0), (-1, 1), (0, 0))[k] if anim == "run" else (0, 0)
     bob = (0, 1, 0, 1)[k] if anim == "run" else 0
-    g.ellipse(9, 15, 6, 1.2, _c("#2c5a30", 100))
-    for x, s_, col in ((4, step[0], d), (6, step[1], b), (11, step[1], d), (13, step[0], b)):
-        g.rect(x + s_, 11, x + s_, 14, col)
-        g.set(x + s_, 14, BLACK)
-    g.ellipse(9, 9 + bob, 5.4, 3, b)  # body
-    g.ellipse(9, 10.5 + bob, 3.4, 1.4, WHITE)
-    g.poly([(4, 8 + bob), (-1, 4 + bob), (0, 9 + bob), (3, 11 + bob)], b)  # bushy tail with a white tip
-    g.ellipse(0.5, 5 + bob, 1.4, 1.4, WHITE)
-    g.ellipse(14, 6 + bob, 2.8, 2.6, b)  # head
-    g.poly([(15, 6 + bob), (16, 8 + bob), (17, 7 + bob)], WHITE)
-    g.poly([(12, 4 + bob), (13, 1 + bob), (14, 4 + bob)], b)  # ears
-    g.poly([(14, 4 + bob), (15, 1 + bob), (16, 4 + bob)], d)
-    g.set(15, 5 + bob, BLACK)
-    g.set(16, 7 + bob, BLACK)
-    _out(g)
+    wag = (0, 1)[i % 2] if anim == "idle" else 0
+    body = Fig(g.w, g.h)
+    for x, s_, col in ((5, step[0], d), (7, step[1], b), (11, step[1], d), (13, step[0], b)):  # legs
+        body.rect(x + s_, 11, x + s_ + 1, 12, col)
+        body.rect(x + s_, 13, x + s_ + 1, 14, sock)
+    body.ellipse(3.2, 7.5 + bob - wag, 3.2, 2.4, b)  # the bushy tail, its white tip
+    body.ellipse(3.6, 8.5 + bob - wag, 2.4, 1.2, d)
+    body.ellipse(1.0, 6.2 + bob - wag, 1.6, 1.4, WHITE)
+    body.ellipse(9.5, 9 + bob, 5.4, 3.0, b)  # body
+    body.rect(6, 7 + bob, 12, 7 + bob, l)
+    body.ellipse(10.5, 10.8 + bob, 3.2, 1.2, WHITE)  # chest and belly
+    body.ellipse(14.2, 6.4 + bob, 3.0, 2.7, b)  # head
+    body.set(13, 4 + bob, l)
+    body.poly([(13.5, 7 + bob), (18, 7.5 + bob), (17, 9.5 + bob), (13.5, 9 + bob)], WHITE)  # muzzle and cheek
+    body.set(17, 7 + bob, ANIMAL_OUT)  # nose
+    body.poly([(11.5, 4.5 + bob), (12.5, 0.5 + bob), (14.5, 4 + bob)], d)  # ears
+    body.poly([(13.5, 4.5 + bob), (15, 0.5 + bob), (16.5, 4.5 + bob)], b)
+    body.set(15, 2 + bob, sock)
+    body.set(15, 5.5 + bob, ANIMAL_OUT)  # eye
+    body.set(14, 5 + bob, WHITE)
+    _animal_out(body)
+    g.ellipse(9, 14.8, 6.5, 1.1, GROUND_SHADOW)
+    _over(g.px, body.px)
 
 
 def paint_rabbit(g: Fig, color: str, anim: str, i: int) -> None:
+    """A rabbit: long ears pink inside, a white belly and powder-puff tail; it bounds when it runs."""
     d, b, l = _ramp(color)
+    pink = _c("#ffa3b8")
     k = i % 4
     hop = (0, 2, 3, 1)[k] if anim == "run" else 0
-    g.ellipse(8, 15, 4, 1, _c("#2c5a30", 100))
-    g.ellipse(7, 11 - hop, 4.6, 3.4, b)
-    g.ellipse(3, 10 - hop, 1.6, 1.6, WHITE)  # tail
-    g.ellipse(11, 7 - hop, 2.8, 2.6, b)
-    g.rect(10, 1 - hop, 10, 5 - hop, b)  # ears
-    g.rect(12, 1 - hop, 12, 5 - hop, d)
-    g.set(10, 2 - hop, _c("#ffb0c0"))
-    g.set(12, 7 - hop, BLACK)
-    g.set(14, 8 - hop, _c("#ff8fb4"))
-    g.rect(5, 13 - hop, 9, 14 - hop, d)
-    _out(g)
+    twitch = anim == "idle" and i % 2 == 1
+    lean = 1 if anim == "run" and k in (1, 2) else 0  # ears swept back mid-leap
+    body = Fig(g.w, g.h)
+    body.ellipse(6.5, 12.6 - hop, 2.8, 1.5, d)  # hind foot
+    body.rect(10, 13 - hop, 11, 13 - hop, d)  # front paw
+    body.ellipse(7, 10.4 - hop, 4.6, 3.3, b)  # body
+    body.ellipse(7.8, 11.6 - hop, 3, 1.4, WHITE)  # belly
+    body.rect(4, 8 - hop, 8, 8 - hop, l)
+    body.ellipse(2.6, 9.4 - hop, 1.8, 1.7, WHITE)  # tail
+    body.ellipse(11.2, 7 - hop, 3, 2.7, b)  # head
+    body.ellipse(12.4, 8.2 - hop, 1.6, 1.0, WHITE)  # cheek
+    for x0, col in ((9, b), (11, d)):  # ears
+        top = 0 + (1 if twitch and x0 == 11 else 0)
+        body.line(x0 - lean, top - hop, x0, 4.5 - hop, col, 2)
+    body.line(9 - lean, 1 - hop, 9, 3.5 - hop, pink)
+    body.set(12, 6 - hop, ANIMAL_OUT)  # eye
+    body.set(12, 5 - hop, WHITE)
+    body.set(14, 7.5 - hop, pink)  # nose
+    _animal_out(body)
+    g.ellipse(8, 14.8, 4.4, 1.0, GROUND_SHADOW)
+    _over(g.px, body.px)
 
 
 def paint_mouse(g: Fig, color: str, anim: str, i: int) -> None:
+    """A field mouse: round ears pink inside, a pointed snout, a long pink tail; it scurries when it runs."""
     d, b, l = _ramp(color)
+    pink, pink_d = _c("#ffa3b8"), _c("#e07890")
     k = i % 4
     sc = (0, 1, 0, 1)[k] if anim == "run" else 0
-    g.ellipse(8, 15, 4, 1, _c("#2c5a30", 100))
-    g.line(3, 12, 0, 9 + sc, _c("#e8a0a0"))  # tail
-    g.ellipse(8, 12, 4.6, 2.8, b)
-    g.ellipse(12, 11, 2.4, 2.2, b)
-    g.ellipse(10, 8.5, 1.6, 1.6, l)  # ear
-    g.set(10, 8, _c("#ffb0c0"))
-    g.set(13, 10, BLACK)
-    g.set(14, 12, _c("#ff8fb4"))
-    g.rect(6 + sc, 14, 6 + sc, 14, d)
-    g.rect(10 - sc, 14, 10 - sc, 14, d)
-    _out(g)
+    sniff = anim == "idle" and i % 2 == 1
+    body = Fig(g.w, g.h)
+    body.line(4, 12.5, 1, 11 - sc, pink_d)  # tail
+    body.line(1, 11 - sc, 0, 8 + sc, pink_d)
+    body.rect(6 + sc, 13, 7 + sc, 13, pink)  # feet
+    body.rect(10 - sc, 13, 11 - sc, 13, pink)
+    body.ellipse(8, 11.2, 4.6, 2.8, b)  # body
+    body.ellipse(8.5, 12.4, 3, 1.0, l)  # belly
+    body.rect(6, 9, 9, 9, l)
+    body.ellipse(12, 10.6, 2.6, 2.2, b)  # head and snout
+    body.poly([(13, 9.5), (15.5 + (0.5 if sniff else 0), 11.2), (13, 12.2)], b)
+    body.set(15 + (1 if sniff else 0), 11, pink)  # nose
+    body.ellipse(10.6, 8.0, 1.9, 1.9, l)  # ear
+    body.ellipse(10.8, 8.2, 1.0, 1.0, pink)
+    body.set(12.6, 10, ANIMAL_OUT)  # eye
+    body.set(12, 9.5, WHITE)
+    _animal_out(body)
+    g.ellipse(8, 14.6, 4.6, 1.0, GROUND_SHADOW)
+    _over(g.px, body.px)
 
 
 PEST_KINDS = {"crow": ("crow", "#3a3448"), "raven": ("crow", "#3a3448"), "bird": ("crow", "#8a6a4a"),

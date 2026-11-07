@@ -38,7 +38,9 @@ their whole cell so the rails meet. Crops are drawn by hand in a little pixel gr
 each family of plant (bushes, blades, fronds, corn, wheat, vines, cabbages), with the produce outlined in its own dark.
 Buildings and props share the fences' wood: the farmhouse has a front gable with two tiled slopes and a ridge beam, a
 stone chimney, a cream plank wall between dark corner posts and flower-box windows; roof tiles are laid in courses
-with staggered joints, ramped from the building's colour, the slope away from the light in shade.
+with staggered joints, ramped from the building's colour, the slope away from the light in shade. Inside, honey
+floorboards meet a papered wall over wood panelling, with curtained windows, a patterned rug and a striped mat; the
+farm's pests (crows, foxes, rabbits, mice) are chunky, outlined and white-bellied like the farm animals.
 
 **Effects** (`sprites/vfx.py`, used by `sprites/fx.py`: the card game's skills, and in every pixel-art game an
 enemy popping, landing dust, pickup sparkles, a harvest, splashes, falling petals and fireflies) are drawn into two buffers, opaque
