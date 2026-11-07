@@ -36,7 +36,7 @@ WATER, WATER_DEEP, WATER_LIGHT, FOAM = _c("#3aa0e8"), _c("#2a82d0"), _c("#7fd0ff
 CLIFF, CLIFF_DARK, CLIFF_LIGHT = _c("#b4683c"), _c("#7c4228"), _c("#d08c56")
 SAND, SAND_DARK = _c("#f0d79a"), _c("#d9b878")
 FLOWERS = [_c("#f8f4ea"), _c("#ffd84a"), _c("#ff8fb4"), _c("#8ab0ff"), _c("#c48ae0")]
-OUTLINE = _c("#2a1e2e")
+OUTLINE = _c("#1c0a18")
 
 # The ground in each season: grass (snow, sand...), paths, water and what grows on it.
 SEASONS: dict[str, dict] = {
@@ -475,7 +475,7 @@ def _sparkle(img: np.ndarray, x: int, y: int, P: dict) -> None:
 
 from .chibi import Fig  # noqa: E402  (a small numpy canvas with an outline pass)
 
-WOOD, WOOD_DARK, WOOD_LIGHT = _c("#9a5e36"), _c("#6e3e24"), _c("#c07e4a")
+WOOD, WOOD_DARK, WOOD_LIGHT = _c("#ae4924"), _c("#6e2a22"), _c("#c46120")  # the fences' and trunks' wood
 PLANK, PLANK_DARK, PLANK_LIGHT = _c("#f0d8b0"), _c("#cfae82"), _c("#fff0d0")
 STONE, STONE_DARK, STONE_LIGHT = _c("#a8a8b8"), _c("#6e6e82"), _c("#d4d4e0")
 GLASS, GLASS_LIGHT = _c("#7fd0f0"), _c("#d8f6ff")
@@ -500,83 +500,410 @@ def _ramp(color: str) -> tuple[RGBA, RGBA, RGBA]:
     return dark, (r, g, b, 255), light
 
 
+# Buildings and props share the fences' wood (F_*), a cream plank wall, tiled roofs ramped from the building's
+# colour, cool grey stone and a dark plum outline over a soft shadow on the grass.
+WALL, WALL_LIGHT, WALL_LINE, WALL_SHADE = _c("#e8c4a8"), _c("#f7dbc6"), _c("#b07e68"), _c("#c89c84")
+METAL, METAL_LIGHT, METAL_DARK = _c("#93bab3"), _c("#bffff3"), _c("#60838a")
+STRAW, STRAW_LIGHT, STRAW_SHADE, STRAW_DEEP = _c("#e8c25a"), _c("#f8e08a"), _c("#c09038"), _c("#8a6224")
+
+
+def _roof_ramp(color: str) -> dict[str, RGBA]:
+    """Roof tiles from one colour: a sunlit edge, the face, its shade, the gap under a course, the outline."""
+    h, s, v = _hsv(_c(color))
+    return {"hi": _from_hsv(_toward(h, 0.12, 0.03), s * 0.85, v * 1.25),
+            "light": _from_hsv(h, s * 0.95, v * 1.05), "base": _from_hsv(_toward(h, 0.95, 0.01), s * 1.05, v * 0.82),
+            "dark": _from_hsv(_toward(h, 0.95, 0.02), s * 1.1, v * 0.58), "deep": _from_hsv(_toward(h, 0.95, 0.03), s, v * 0.36)}
+
+
+def _tiled(px: np.ndarray, mask: np.ndarray, along: tuple[float, float], R: dict[str, RGBA], course: int = 5,
+           tile: int = 6, shade: bool = False) -> None:
+    """Courses of roof tiles over `mask`: rows across `along` (the slope's run), staggered joints, a lit lip on
+    each course and a dark gap under it. `shade` draws the slope turned away from the light."""
+    h, w = mask.shape
+    ys, xs = np.mgrid[0:h, 0:w]
+    ax, ay = along
+    n = math.hypot(ax, ay)
+    ax, ay = ax / n, ay / n
+    t = xs * ax + ys * ay            # along the run
+    s = -xs * ay + ys * ax           # across the run
+    k = np.floor(s / course)
+    pos = s - k * course
+    joint = np.mod(np.floor(t) + k * 3, tile) == 0
+    face, lit = (R["dark"], R["base"]) if shade else (R["base"], R["light"])
+    out = np.where((pos < 1)[..., None], np.array(R["hi"] if not shade else R["light"]),
+                   np.where((pos >= course - 1)[..., None], np.array(R["deep"]),
+                            np.where(joint[..., None], np.array(R["dark"] if not shade else R["deep"]),
+                                     np.where((pos < 2)[..., None], np.array(lit), np.array(face)))))
+    px[mask] = out[mask].astype(np.uint8)
+
+
+def _planks(g: Fig, x0: int, y0: int, x1: int, y1: int, step: int = 4) -> None:
+    """A wall of cream boards laid flat: a lit top to each board, a dark seam under it, joints staggered."""
+    g.rect(x0, y0, x1, y1, WALL)
+    for k, y in enumerate(range(y0 + step - 1, y1 + 1, step)):
+        g.rect(x0, y, x1, y, WALL_LINE)
+        if y + 1 <= y1:
+            g.rect(x0, y + 1, x1, y + 1, WALL_LIGHT)
+        for x in range(x0 + (k * 7) % 13 + 4, x1, 13):
+            g.rect(x, y - step + 2, x, y - 1, WALL_LINE)
+
+
+def _bricks(g: Fig, x0: int, y0: int, x1: int, y1: int, base: RGBA, light: RGBA, mortar: RGBA) -> None:
+    g.rect(x0, y0, x1, y1, base)
+    for k, y in enumerate(range(y0, y1 + 1, 3)):
+        g.rect(x0, y + 2, x1, y + 2, mortar)
+        for x in range(x0 + (2 if k % 2 else 0), x1 + 1, 5):
+            g.rect(x, y, x, y + 1, mortar)
+            if x + 1 <= x1:
+                g.set(x + 1, y, light)
+
+
+def _post(g: Fig, x0: int, y0: int, x1: int, y1: int) -> None:
+    """An upright beam: lit on the left, shaded on the right."""
+    g.rect(x0, y0, x1, y1, F_BASE)
+    g.rect(x0, y0, x0, y1, F_LIGHT)
+    g.rect(x1, y0, x1, y1, F_DARK)
+
+
+def _beam(g: Fig, x0: int, y0: int, x1: int, y1: int) -> None:
+    """A level beam: a lit top, a shaded underside."""
+    g.rect(x0, y0, x1, y1, F_BASE)
+    g.rect(x0, y0, x1, y0, F_LIGHT)
+    g.rect(x0, y1, x1, y1, F_DARK)
+
+
+def _window(g: Fig, x0: int, y0: int, w: int, h: int, flowers: bool = False) -> None:
+    g.rect(x0, y0, x0 + w - 1, y0 + h - 1, F_DARK)
+    g.rect(x0 + 1, y0 + 1, x0 + w - 2, y0 + h - 2, F_BASE)
+    g.rect(x0 + 2, y0 + 2, x0 + w - 3, y0 + h - 3, GLASS)
+    mx, my = x0 + w // 2, y0 + h // 2
+    g.rect(mx, y0 + 2, mx, y0 + h - 3, F_BASE)
+    g.rect(x0 + 2, my, x0 + w - 3, my, F_BASE)
+    g.rect(x0 + 2, y0 + 2, x0 + 3, y0 + 2, GLASS_LIGHT)
+    g.set(x0 + 2, y0 + 3, GLASS_LIGHT)
+    g.set(mx + 1, my + 1, GLASS_LIGHT)
+    if flowers:  # a window box of flowers under the sill
+        g.rect(x0 - 1, y0 + h, x0 + w, y0 + h + 2, F_BASE)
+        g.rect(x0 - 1, y0 + h, x0 + w, y0 + h, F_LIGHT)
+        g.rect(x0 - 1, y0 + h + 2, x0 + w, y0 + h + 2, F_DARK)
+        for k, fx in enumerate(range(x0, x0 + w, 2)):
+            g.set(fx, y0 + h - 1, CROP_LEAF["B"] if k % 2 else FLOWERS[(k // 2 + x0) % len(FLOWERS)])
+            g.set(fx + 1, y0 + h - 1, CROP_LEAF["L"])
+
+
 def paint_farmhouse(g: Fig, color: str, anim: str, i: int) -> None:
-    roof_d, roof, roof_l = _ramp(color)
-    # chimney behind the roof
-    g.rect(58, 4, 66, 26, STONE)
-    g.rect(58, 4, 66, 6, STONE_DARK)
-    for y in range(9, 26, 4):
-        g.rect(58, y, 66, y, STONE_DARK)
-        g.set(62 if (y // 4) % 2 else 60, y + 2, STONE_DARK)
-    g.rect(57, 2, 67, 4, STONE_LIGHT)
-    # walls with planks
-    g.rect(6, 34, 73, 66, PLANK)
-    for y in range(37, 66, 4):
-        g.rect(6, y, 73, y, PLANK_DARK)
-    g.rect(6, 34, 8, 66, WOOD)
-    g.rect(71, 34, 73, 66, WOOD)
-    g.rect(6, 64, 73, 66, WOOD_DARK)
-    # the roof: a gable, shingle rows, a trim and a ridge cap
-    g.poly([(40, 1), (0, 36), (80, 36)], roof)
-    for k, y in enumerate(range(8, 36, 5)):
-        half = (y - 1) * 40 / 35
-        g.rect(40 - half, y, 40 + half, y, roof_d)
-        off = 2 if k % 2 else 0
-        for x in range(int(40 - half) + off, int(40 + half), 5):
-            g.set(x, y + 1, roof_d)
-            g.set(x, y + 2, roof_d)
-    for y in range(2, 36):
-        half = (y - 1) * 40 / 35
-        g.set(40 - half, y, roof_l)
-        g.set(40 - half + 1, y, roof_l)
-    g.rect(0, 35, 80, 37, WOOD_DARK)
-    g.rect(37, 0, 43, 3, roof_d)
-    # gable window
-    g.ellipse(40, 22, 5, 5, WOOD)
-    g.ellipse(40, 22, 3.5, 3.5, GLASS)
-    g.rect(40, 18, 40, 26, WOOD)
-    g.rect(36, 22, 44, 22, WOOD)
-    g.set(38, 20, GLASS_LIGHT)
-    # door and step
-    g.rect(33, 44, 46, 65, WOOD_DARK)
-    g.rect(34, 45, 45, 65, WOOD)
-    g.rect(35, 47, 39, 54, WOOD_LIGHT)
-    g.rect(40, 47, 44, 54, WOOD_LIGHT)
-    g.rect(35, 57, 39, 63, WOOD_DARK)
-    g.rect(40, 57, 44, 63, WOOD_DARK)
-    g.rect(43, 55, 44, 56, _c("#ffd84a"))
-    g.rect(31, 66, 48, 69, STONE)
-    g.rect(31, 68, 48, 69, STONE_DARK)
-    # windows with a flower box
-    for x0 in (13, 54):
-        g.rect(x0 - 1, 42, x0 + 13, 54, WOOD_DARK)
-        g.rect(x0, 43, x0 + 12, 53, GLASS)
-        g.rect(x0 + 6, 43, x0 + 6, 53, WOOD)
-        g.rect(x0, 48, x0 + 12, 48, WOOD)
-        g.rect(x0 + 1, 44, x0 + 3, 45, GLASS_LIGHT)
-        g.rect(x0 - 2, 55, x0 + 14, 57, WOOD)
-        for k, fx in enumerate(range(x0, x0 + 13, 3)):
-            g.set(fx, 54, FLOWERS[(k + x0) % len(FLOWERS)])
-            g.set(fx + 1, 54, LEAF)
+    """A cottage with a front gable: two tiled slopes and a ridge beam, a stone chimney, a cream plank wall
+    between dark corner posts, flower-box windows, a panelled door on a step."""
+    R = _roof_ramp(color)
+    w, h = g.w, g.h
+    cx = w // 2
+    g.ellipse(cx, h - 3, 38, 3, GROUND_SHADOW)
+    # the chimney, behind the left slope
+    g.rect(13, 6, 22, 30, STONE_DARK)
+    _bricks(g, 14, 8, 21, 30, STONE, STONE_LIGHT, STONE_DARK)
+    g.rect(12, 4, 23, 7, STONE_DARK)
+    g.rect(12, 4, 23, 4, STONE_LIGHT)
+    g.rect(14, 5, 21, 6, _c("#2a2230"))
+    # walls, posts and the eave beam
+    _planks(g, 8, 50, 71, 75)
+    g.rect(8, 50, 71, 52, WALL_SHADE)  # in the eave's shadow
+    for x0 in (4, 72):
+        _post(g, x0, 46, x0 + 3, 75)
+    # the gable: planks in a triangle under the slopes, a little window in it
+    gable = Fig(w, h)
+    _planks(gable, 10, 16, 69, 49)
+    tri = np.zeros((h, w), dtype=bool)
+    for y in range(16, 50):
+        half = (y - 15) * 1.0
+        tri[y, max(0, int(cx - half)):min(w, int(cx + half))] = True
+    g.px[tri] = gable.px[tri]
+    _window(g, cx - 6, 29, 12, 10)
+    _beam(g, 2, 45, 77, 49)
+    # the roof: two slopes running down from the ridge to the eaves
+    ys, xs = np.mgrid[0:h, 0:w]
+    X, Y = xs + 0.5, ys + 0.5
+    left = (X < cx - 2) & (Y < 48) & (Y > (cx - 2 - X) * 0.95 - 3) & (Y < (cx - 2 - X) * 0.95 + 19)
+    right = (X >= cx + 2) & (Y < 48) & (Y > (X - cx - 2) * 0.95 - 3) & (Y < (X - cx - 2) * 0.95 + 19)
+    _tiled(g.px, left, (-1.0, 0.95), R)
+    _tiled(g.px, right, (1.0, 0.95), R, shade=True)
+    for side in (-1, 1):  # bargeboards along the gable's edges
+        g.line(cx + side * 2, 17, cx + side * 33, 48, F_DARK, 2)
+        g.line(cx + side * 2, 16, cx + side * 32, 47, F_BASE, 1)
+    # the ridge beam, its end grain at the peak
+    _post(g, cx - 3, 0, cx + 2, 18)
+    g.ellipse(cx - 0.5, 16.5, 3.2, 2.6, F_CAP)
+    g.ellipse(cx - 0.5, 16.5, 1.6, 1.2, F_LIGHT)
+    g.set(cx, 16, F_DARK)
+    # windows with flower boxes, the door and its step
+    _window(g, 13, 56, 13, 11, flowers=True)
+    _window(g, 54, 56, 13, 11, flowers=True)
+    g.rect(cx - 7, 55, cx + 6, 75, F_DARK)
+    g.rect(cx - 6, 56, cx + 5, 75, F_BASE)
+    for y0, y1 in ((58, 64), (67, 73)):  # panels
+        g.rect(cx - 4, y0, cx + 3, y1, F_DARK)
+        g.rect(cx - 3, y0 + 1, cx + 2, y1, F_LIGHT)
+        g.rect(cx - 3, y0 + 1, cx + 2, y0 + 1, F_CAP)
+    g.rect(cx + 3, 65, cx + 4, 66, _c("#ffd84a"))
+    g.rect(cx - 9, 76, cx + 8, 78, F_BASE)
+    g.rect(cx - 9, 76, cx + 8, 76, F_LIGHT)
+    g.rect(cx - 9, 78, cx + 8, 78, F_DARK)
     _out(g)
 
 
 def paint_coop(g: Fig, color: str, anim: str, i: int) -> None:
+    """A red hen house: board-and-batten walls with white trim, a tiled roof, a dark doorway with a ramp."""
     d, b, l = _ramp(color)
-    g.poly([(20, 2), (0, 16), (40, 16)], d)
-    for y in range(6, 16, 3):
-        half = (y - 2) * 20 / 14
-        g.rect(20 - half, y, 20 + half, y, _ramp(color)[0])
+    R = _roof_ramp(_hex(d))
+    w, h = g.w, g.h
+    g.ellipse(20, 37, 18, 2.4, GROUND_SHADOW)
+    g.poly([(20, 3), (2, 16), (38, 16)], b)  # the gable and the walls: boards with battens
     g.rect(3, 15, 36, 34, b)
-    for x in range(6, 36, 4):
-        g.rect(x, 16, x, 34, d)
-    g.rect(3, 15, 36, 17, WOOD_DARK)
-    g.rect(15, 22, 24, 34, BLACK)
-    g.rect(16, 23, 23, 34, _c("#3a2a30"))
-    g.poly([(14, 34), (25, 34), (30, 39), (9, 39)], WOOD)
-    g.rect(10, 36, 29, 36, WOOD_DARK)
-    g.rect(26, 20, 32, 25, GLASS)
+    for x in range(5, 36, 4):
+        top = int(3 + abs(x - 20) * 0.7)
+        g.rect(x, max(top, 6), x, 34, d)
+        g.set(x - 1, 17, l)
+    g.rect(3, 15, 36, 15, d)  # under the eaves
+    for x0 in (3, 35):  # white corner trim
+        g.rect(x0, 15, x0 + 1, 34, WHITE)
+    g.rect(3, 33, 36, 34, d)
+    ys, xs = np.mgrid[0:h, 0:w]
+    X, Y = xs + 0.5, ys + 0.5
+    roof = (Y > 0.5 + np.abs(X - 20) * 0.62) & (Y < 8.0 + np.abs(X - 20) * 0.62) & (Y < 19)
+    _tiled(g.px, roof & (X < 20), (-1.0, 0.62), R, course=4)
+    _tiled(g.px, roof & (X >= 20), (1.0, 0.62), R, course=4, shade=True)
+    g.rect(14, 21, 25, 34, WHITE)  # the doorway in its trim, a ramp up to it
+    g.rect(15, 22, 24, 34, _c("#2a1e2e"))
+    g.rect(16, 23, 23, 34, _c("#3e2a34"))
+    g.poly([(14, 33), (25, 33), (29, 38.5), (10, 38.5)], F_BASE)
+    for y in (35, 37):
+        g.rect(11, y, 27, y, F_DARK)
+    g.rect(28, 20, 33, 25, WHITE)  # a little window
+    g.rect(29, 21, 32, 24, GLASS)
+    g.set(29, 21, GLASS_LIGHT)
+    g.rect(6, 21, 11, 24, _c("#f8e08a"))  # a straw nest box under a hatch
+    g.rect(6, 20, 11, 20, WHITE)
     _out(g)
+
+
+def _hex(c: RGBA) -> str:
+    return "#%02x%02x%02x" % c[:3]
+
+
+def paint_well(g: Fig, color: str, anim: str, i: int) -> None:
+    """A stone well: a ring of blocks round dark water, two posts, a little tiled roof, a rope and bucket."""
+    R = _roof_ramp(color)
+    w, h = g.w, g.h
+    g.ellipse(12, 28, 11, 2, GROUND_SHADOW)
+    _post(g, 3, 7, 4, 21)
+    _post(g, 19, 7, 20, 21)
+    g.rect(3, 8, 20, 8, F_DARK)  # the crossbar and the rope
+    g.rect(11, 9, 11, 13, _c("#d8c8a0"))
+    g.rect(9, 13, 13, 16, METAL_DARK)  # the bucket
+    g.rect(9, 13, 13, 13, METAL)
+    g.rect(10, 14, 12, 15, F_BASE)
+    ys, xs = np.mgrid[0:h, 0:w]
+    X, Y = xs + 0.5, ys + 0.5
+    roof = (Y > np.abs(X - 12) * 0.6 - 0.5) & (Y < np.abs(X - 12) * 0.6 + 4.5) & (X > 0) & (X < 24)
+    _tiled(g.px, roof & (X < 12), (-1.0, 0.6), R, course=3, tile=4)
+    _tiled(g.px, roof & (X >= 12), (1.0, 0.6), R, course=3, tile=4, shade=True)
+    g.rect(2, 20, 21, 27, STONE)  # the stone ring
+    for k, y in enumerate((20, 23)):
+        g.rect(2, y + 2, 21, y + 2, STONE_DARK)
+        for x in range(2 + (3 if k else 0), 22, 6):
+            g.rect(x, y, x, y + 1, STONE_DARK)
+            g.set(x + 1, y, STONE_LIGHT)
+    g.rect(2, 26, 21, 27, STONE_DARK)
+    g.ellipse(11.5, 19.5, 10, 2.8, STONE_LIGHT)
+    g.ellipse(11.5, 19.8, 7.6, 1.8, _c("#1c3a6a"))
+    g.rect(8, 19, 11, 19, _c("#3a6aa8"))
+    _out(g)
+
+
+def paint_scarecrow(g: Fig, color: str, anim: str, i: int) -> None:
+    """A straw-stuffed scarecrow on a pole: a sack face, a wide straw hat, a patched shirt that flaps."""
+    d, b, l = _ramp(color)
+    tilt = (0, 1, 0, -1)[i % 4] if anim == "idle" else 0
+    g.ellipse(8, 23, 4, 1, GROUND_SHADOW)
+    _post(g, 7, 10, 8, 23)
+    _beam(g, 1, 11, 14, 12)
+    g.rect(4, 10, 11, 17 + max(0, tilt), b)  # shirt, the hem flapping
+    g.rect(4, 10, 11, 10, l)
+    g.rect(10, 11, 11, 17, d)
+    g.rect(5, 14, 7, 16, _c("#e8c25a"))  # a patch
+    g.set(5, 14, STRAW_SHADE)
+    g.set(4 + (tilt + 1) * 3, 18 + max(0, tilt), STRAW)  # straw poking out
+    for x in (0, 1, 14, 15):  # straw hands
+        g.set(x, 12 + (x % 2), STRAW_LIGHT)
+    g.ellipse(7.5, 6.5, 3.6, 3.4, _c("#e8d0a0"))  # sack head
+    g.rect(5, 8, 10, 8, _c("#c8a878"))
+    g.set(6, 6, F_OUT)
+    g.set(9, 6, F_OUT)
+    g.rect(6, 8, 9, 8, F_DARK)  # a stitched grin
+    g.set(7, 9, F_DARK)
+    g.poly([(1, 4.5), (15, 4.5), (11, 0), (4, 0)], STRAW)  # straw hat with a band
+    g.rect(4, 1, 11, 1, STRAW_LIGHT)
+    g.rect(0, 4, 15, 4, STRAW_SHADE)
+    g.rect(4, 3, 11, 3, _c("#c84a3a"))
+    _out(g)
+
+
+def paint_hay(g: Fig, color: str, anim: str, i: int) -> None:
+    """A bale of straw: strands drawn in, two twine bands, a lit top."""
+    g.ellipse(8, 14, 8, 1.8, GROUND_SHADOW)
+    g.rect(1, 4, 14, 13, STRAW)
+    g.rect(1, 4, 14, 6, STRAW_LIGHT)
+    g.rect(1, 12, 14, 13, STRAW_SHADE)
+    for x, y in ((3, 8), (6, 10), (9, 8), (12, 10), (2, 11), (11, 6), (7, 7)):  # strands
+        g.set(x, y, STRAW_SHADE)
+        g.set(x + 1, y - 1, STRAW_LIGHT)
+    for x in (4, 11):  # twine
+        g.rect(x, 4, x, 13, F_DARK)
+        g.set(x, 4, F_BASE)
+    g.set(0, 6, STRAW_LIGHT)
+    g.set(15, 9, STRAW)
+    _out(g)
+
+
+def paint_barrel(g: Fig, color: str, anim: str, i: int) -> None:
+    """A barrel: staves lit on the left, two iron hoops, a round lid of boards."""
+    g.ellipse(8, 15, 7, 1.6, GROUND_SHADOW)
+    g.ellipse(7.5, 9, 6.4, 6, F_BASE)
+    g.rect(2, 4, 13, 14, F_BASE)
+    for x in (4, 7, 10):
+        g.rect(x, 4, x, 14, F_DARK)
+    g.rect(2, 4, 3, 14, F_LIGHT)
+    g.rect(12, 4, 13, 14, F_DARK)
+    for y in (6, 12):  # hoops
+        g.rect(1, y, 14, y, METAL_DARK)
+        g.rect(2, y, 6, y, METAL)
+    g.ellipse(7.5, 3.5, 6, 1.8, F_LIGHT)
+    g.ellipse(7.5, 3.6, 4.6, 1.1, F_CAP)
+    g.rect(5, 3, 10, 3, F_LIGHT)
+    _out(g)
+
+
+def paint_bin(g: Fig, color: str, anim: str, i: int) -> None:
+    """The shipping bin: a wooden chest with dark bands and an iron latch (open on its second frame)."""
+    open_ = anim == "idle" and i == 1
+    g.ellipse(8, 15, 8, 1.6, GROUND_SHADOW)
+    g.rect(1, 7, 14, 14, F_BASE)
+    g.rect(1, 9, 14, 9, F_LIGHT)
+    g.rect(1, 12, 14, 12, F_DARK)
+    g.rect(1, 7, 1, 14, F_LIGHT)
+    g.rect(14, 7, 14, 14, F_DARK)
+    if open_:
+        g.rect(1, 1, 14, 4, F_BASE)
+        g.rect(1, 1, 14, 1, F_CAP)
+        g.rect(2, 5, 13, 7, F_OUT)
+    else:
+        g.rect(0, 3, 15, 7, F_BASE)
+        g.rect(1, 3, 14, 4, F_CAP)
+        g.rect(1, 5, 14, 5, F_LIGHT)
+        g.rect(0, 7, 15, 7, F_DARK)
+        g.rect(7, 6, 8, 9, METAL)  # the latch
+        g.set(7, 6, METAL_LIGHT)
+        g.rect(7, 9, 8, 9, METAL_DARK)
+    _out(g)
+
+
+def paint_workbench(g: Fig, color: str, anim: str, i: int) -> None:
+    """A carpenter's bench: a thick top, legs and a shelf, a saw and a hammer on top, a can on the shelf."""
+    g.ellipse(12, 17, 11, 1.6, GROUND_SHADOW)
+    _beam(g, 1, 6, 22, 10)
+    g.rect(1, 7, 22, 7, F_CAP)
+    for x in (2, 20):
+        _post(g, x, 11, x + 1, 17)
+    g.rect(2, 14, 21, 14, F_DARK)
+    g.rect(3, 3, 10, 5, METAL)  # a saw with its handle
+    g.rect(3, 5, 10, 5, METAL_DARK)
+    g.set(3, 3, METAL_LIGHT)
+    g.rect(11, 3, 13, 5, _c("#c84a3a"))
+    g.rect(16, 2, 17, 5, F_LIGHT)  # a hammer
+    g.rect(14, 1, 19, 2, METAL_DARK)
+    g.set(14, 1, METAL)
+    g.rect(5, 12, 8, 13, _c("#4a7ad0"))  # a watering can and a sack on the shelf
+    g.set(5, 12, _c("#8ab0ff"))
+    g.rect(14, 12, 18, 13, STRAW)
+    _out(g)
+
+
+def paint_shop(g: Fig, color: str, anim: str, i: int) -> None:
+    """A market stall: a striped, scalloped awning on two posts, a plank counter with crates of produce."""
+    d, b, l = _ramp(color)
+    g.ellipse(16, 31, 15, 1.8, GROUND_SHADOW)
+    for x in (3, 27):
+        _post(g, x, 10, x + 1, 30)
+    g.rect(1, 19, 30, 29, F_BASE)  # the counter, boards across
+    for y in (22, 25):
+        g.rect(1, y, 30, y, F_DARK)
+    g.rect(1, 19, 30, 20, F_LIGHT)
+    g.rect(1, 19, 30, 19, F_CAP)
+    g.rect(1, 29, 30, 29, F_DARK)
+    for k, x in enumerate(range(0, 32, 4)):  # a striped awning with a scalloped edge
+        g.rect(x, 4, x + 3, 10, b if k % 2 == 0 else WHITE)
+        g.ellipse(x + 2, 11, 2, 1.6, b if k % 2 == 0 else WHITE)
+        g.rect(x, 4, x + 3, 4, l if k % 2 == 0 else WHITE)
+        g.set(x + 3, 9, d if k % 2 == 0 else _c("#d8d0c8"))
+    g.rect(0, 3, 31, 3, d)
+    g.rect(4, 15, 10, 18, F_LIGHT)  # a crate of carrots
+    g.rect(4, 17, 10, 17, F_DARK)
+    for x in (5, 7, 9):
+        g.set(x, 14, _c("#ff8a2a"))
+        g.set(x, 13, CROP_LEAF["L"])
+    g.ellipse(14, 17, 2, 1.6, _c("#f8f0e0"))  # eggs
+    g.ellipse(17.5, 17, 2, 1.6, _c("#f8f0e0"))
+    g.set(13, 16, WHITE)
+    g.rect(21, 15, 27, 18, STRAW)  # a basket with a chick
+    g.rect(21, 17, 27, 17, STRAW_SHADE)
+    g.ellipse(24, 14, 1.8, 1.6, _c("#ffd84a"))
+    g.set(25, 14, F_OUT)
+    g.rect(10, 22, 21, 26, WALL_LIGHT)  # a price board on the counter
+    g.rect(12, 24, 19, 24, F_DARK)
+    _out(g)
+
+
+def paint_sprinkler(g: Fig, color: str, anim: str, i: int) -> None:
+    g.ellipse(8, 14, 4, 1.2, GROUND_SHADOW)
+    g.rect(7, 7, 8, 13, METAL_DARK)
+    g.rect(5, 12, 10, 13, METAL)
+    g.rect(5, 12, 10, 12, METAL_LIGHT)
+    g.ellipse(7.5, 6, 3, 2, METAL)
+    g.ellipse(7, 5.5, 1.4, 0.8, METAL_LIGHT)
+    k = i % 4
+    for n, (dx, dy) in enumerate(((-5, -2), (5, -2), (-3, -4), (3, -4))):  # little jets of water
+        if (n + k) % 2 == 0:
+            g.set(7.5 + dx, 5 + dy, _c("#7fd0ff"))
+            g.set(7.5 + dx * 0.6, 5.5 + dy * 0.6, _c("#c8f0ff"))
+    _out(g)
+
+
+def paint_sign(g: Fig, color: str, anim: str, i: int) -> None:
+    g.ellipse(8, 15, 3, 0.8, GROUND_SHADOW)
+    _post(g, 7, 8, 8, 15)
+    g.rect(1, 2, 14, 9, F_BASE)
+    g.rect(1, 2, 14, 2, F_CAP)
+    g.rect(1, 3, 14, 3, F_LIGHT)
+    g.rect(1, 9, 14, 9, F_DARK)
+    g.rect(4, 5, 11, 5, F_DEEP)  # writing
+    g.rect(4, 7, 9, 7, F_DEEP)
+    g.set(2, 6, F_LIGHT)
+    _out(g)
+
+
+def paint_flower_bush(g: Fig, color: str, anim: str, i: int) -> None:
+    """A leafy bush dotted with flowers in its colour."""
+    rnd = _rng("bush", color)
+    d, b, l = _ramp(color)
+    bush = Fig(g.w, g.h)
+    _stamp(bush.px, PLANT_ART["bush"][1][1:], 12, CROP_LEAF)
+    for _ in range(4):
+        fx, fy = 3 + rnd.random() * 9, 4 + rnd.random() * 5
+        for ox, oy, k in _blossom(l if rnd.random() < 0.5 else b, _c("#ffe070")):
+            X, Y = int(fx) + ox, int(fy) + oy
+            if 0 <= X < g.w and 0 <= Y < g.h and bush.px[Y, X, 3]:
+                bush.px[Y, X] = k
+    g.ellipse(8, 13, 7, 1.6, GROUND_SHADOW)
+    _over(g.px, _outlined(bush.px, CROP_OUT))
 
 
 # Fences join their neighbours: one painter draws a post with rails toward each side that has fence next to it
@@ -971,168 +1298,19 @@ def paint_stump(g: Fig, color: str, anim: str, i: int) -> None:
 
 
 def paint_boulder(g: Fig, color: str, anim: str, i: int) -> None:
+    """A rock: facets lit from the top left, a crack, a little moss on top."""
     d, b, l = _ramp(color)
-    g.ellipse(8, 13, 7, 2, _c("#2c5a30", 110))
-    g.ellipse(8, 9, 7, 5.5, d)
-    g.ellipse(7.5, 8, 6.4, 4.8, b)
-    g.ellipse(6, 6.5, 3, 2, l)
-    g.set(10, 10, d)
-    g.set(11, 9, d)
-    _out(g)
-
-
-def paint_bin(g: Fig, color: str, anim: str, i: int) -> None:
-    open_ = anim == "idle" and i == 1
-    g.ellipse(8, 15, 8, 1.6, _c("#2c5a30", 110))
-    g.rect(1, 6, 14, 14, WOOD)
-    for y in (8, 11):
-        g.rect(1, y, 14, y, WOOD_DARK)
-    g.rect(1, 6, 1, 14, WOOD_LIGHT)
-    g.rect(13, 6, 14, 14, WOOD_DARK)
-    if open_:
-        g.rect(0, 1, 15, 4, WOOD_LIGHT)
-        g.rect(2, 5, 13, 6, BLACK)
-    else:
-        g.rect(0, 3, 15, 6, WOOD_LIGHT)
-        g.rect(0, 6, 15, 6, WOOD_DARK)
-    g.rect(6, 8, 9, 10, _c("#ffd84a"))
-    _out(g)
-
-
-def paint_well(g: Fig, color: str, anim: str, i: int) -> None:
-    d, b, l = _ramp(color)
-    g.poly([(12, 0), (0, 8), (24, 8)], b)
-    g.rect(0, 8, 24, 9, d)
-    g.rect(3, 9, 4, 22, WOOD)
-    g.rect(19, 9, 20, 22, WOOD_DARK)
-    g.rect(10, 9, 13, 14, WOOD_LIGHT)  # bucket rope + bucket
-    g.rect(11, 9, 11, 12, WHITE)
-    g.ellipse(12, 23, 10, 4, STONE_DARK)
-    g.rect(2, 20, 22, 28, STONE)
-    for x in range(4, 22, 5):
-        g.rect(x, 21, x, 28, STONE_DARK)
-    g.rect(2, 24, 22, 24, STONE_DARK)
-    g.ellipse(12, 20, 10, 3.2, STONE_LIGHT)
-    g.ellipse(12, 20, 8, 2.2, _c("#1f5a9a"))
-    _out(g)
-
-
-def paint_scarecrow(g: Fig, color: str, anim: str, i: int) -> None:
-    d, b, l = _ramp(color)
-    tilt = (0, 1, 0, -1)[i % 4] if anim == "idle" else 0
-    g.rect(7, 10, 8, 23, WOOD)
-    g.rect(1, 11, 14, 12, WOOD)
-    g.rect(4, 10 + tilt, 11, 17, b)  # shirt
-    g.rect(4, 15, 11, 15, d)
-    g.ellipse(7.5, 6, 3.8, 3.8, _c("#f0d79a"))  # sack head
-    g.set(6, 6, BLACK)
-    g.set(9, 6, BLACK)
-    g.rect(6, 8, 9, 8, WOOD_DARK)
-    g.poly([(1, 4), (14, 4), (11, 0), (4, 0)], _c("#d8a84a"))  # straw hat
-    g.rect(0, 4, 15, 4, _c("#b88a3a"))
-    g.rect(1, 13, 2, 15, _c("#f0d79a"))
-    g.rect(13, 13, 14, 15, _c("#f0d79a"))
-    _out(g)
-
-
-def paint_hay(g: Fig, color: str, anim: str, i: int) -> None:
-    g.ellipse(8, 14, 8, 1.8, _c("#2c5a30", 110))
-    g.rect(1, 4, 14, 13, _c("#e8c25a"))
-    g.rect(1, 4, 14, 5, _c("#f8de8a"))
-    g.rect(1, 12, 14, 13, _c("#b8902e"))
-    for x in (5, 10):
-        g.rect(x, 4, x, 13, _c("#9a6a2a"))
-    for k in range(6):
-        g.set(2 + k * 2, 7 + (k % 3), _c("#b8902e"))
-    _out(g)
-
-
-def paint_barrel(g: Fig, color: str, anim: str, i: int) -> None:
-    g.ellipse(8, 15, 7, 1.6, _c("#2c5a30", 110))
-    g.rect(2, 3, 13, 14, WOOD)
-    g.rect(2, 3, 3, 14, WOOD_LIGHT)
-    g.rect(11, 3, 13, 14, WOOD_DARK)
-    for y in (5, 11):
-        g.rect(2, y, 13, y, STONE_DARK)
-    g.ellipse(7.5, 3, 5.5, 1.6, WOOD_DARK)
-    _out(g)
-
-
-def paint_workbench(g: Fig, color: str, anim: str, i: int) -> None:
-    g.ellipse(12, 17, 11, 1.6, _c("#2c5a30", 110))
-    g.rect(1, 6, 22, 10, WOOD)  # the top
-    g.rect(1, 6, 22, 6, WOOD_LIGHT)
-    g.rect(1, 10, 22, 10, WOOD_DARK)
-    g.rect(2, 11, 3, 17, WOOD_DARK)  # legs and a shelf
-    g.rect(20, 11, 21, 17, WOOD_DARK)
-    g.rect(2, 14, 21, 14, WOOD)
-    g.rect(4, 3, 11, 5, STONE)  # a saw
-    g.rect(4, 5, 11, 5, STONE_DARK)
-    g.rect(12, 3, 14, 5, _c("#c84a3a"))
-    g.rect(16, 2, 17, 5, WOOD_LIGHT)  # a hammer
-    g.rect(14, 1, 19, 2, STONE_DARK)
-    g.rect(5, 12, 8, 13, _c("#4a7ad0"))  # a watering can on the shelf
-    g.rect(14, 12, 18, 13, _c("#e8c25a"))
-    _out(g)
-
-
-def paint_shop(g: Fig, color: str, anim: str, i: int) -> None:
-    d, b, l = _ramp(color)
-    g.ellipse(16, 31, 15, 1.8, _c("#2c5a30", 110))
-    g.rect(3, 10, 4, 30, WOOD_DARK)  # posts
-    g.rect(27, 10, 28, 30, WOOD_DARK)
-    g.rect(1, 19, 30, 29, WOOD)  # the counter
-    g.rect(1, 19, 30, 20, WOOD_LIGHT)
-    g.rect(1, 29, 30, 29, WOOD_DARK)
-    for k, x in enumerate(range(0, 32, 4)):  # a striped awning with a scalloped edge
-        g.rect(x, 4, x + 3, 10, b if k % 2 == 0 else WHITE)
-        g.ellipse(x + 2, 11, 2, 1.6, b if k % 2 == 0 else WHITE)
-    g.rect(0, 3, 31, 4, d)
-    g.rect(5, 15, 9, 18, _c("#e8c25a"))  # wares: a sack of seeds, eggs, a chick in a basket
-    g.rect(6, 14, 8, 14, _c("#c8a040"))
-    g.ellipse(14, 17, 2, 1.6, _c("#f8f0e0"))
-    g.ellipse(17.5, 17, 2, 1.6, _c("#f8f0e0"))
-    g.rect(21, 15, 26, 18, WOOD_LIGHT)
-    g.ellipse(23.5, 14, 1.8, 1.6, _c("#ffd84a"))
-    g.rect(10, 22, 21, 25, PLANK)  # a sign on the counter
-    g.rect(12, 23, 19, 23, WOOD_DARK)
-    _out(g)
-
-
-def paint_sprinkler(g: Fig, color: str, anim: str, i: int) -> None:
-    g.ellipse(8, 14, 4, 1.2, _c("#2c5a30", 110))
-    g.rect(7, 7, 8, 13, STONE_DARK)
-    g.rect(5, 12, 10, 13, STONE)
-    g.ellipse(7.5, 6, 3, 2, STONE)
-    g.ellipse(7, 5.5, 1.4, 0.8, STONE_LIGHT)
-    k = i % 4
-    for n, (dx, dy) in enumerate(((-5, -2), (5, -2), (-3, -4), (3, -4))):  # little jets of water
-        if (n + k) % 2 == 0:
-            g.set(7.5 + dx, 5 + dy, _c("#7fd0ff"))
-    _out(g)
-
-
-def paint_sign(g: Fig, color: str, anim: str, i: int) -> None:
-    g.rect(7, 8, 8, 15, WOOD_DARK)
-    g.rect(1, 2, 14, 9, WOOD)
-    g.rect(1, 2, 14, 2, WOOD_LIGHT)
-    g.rect(1, 9, 14, 9, WOOD_DARK)
-    g.rect(4, 5, 11, 5, WOOD_DARK)
-    g.rect(4, 7, 9, 7, WOOD_DARK)
-    _out(g)
-
-
-def paint_flower_bush(g: Fig, color: str, anim: str, i: int) -> None:
-    rnd = _rng("bush", color)
-    g.ellipse(8, 13, 7, 1.6, _c("#2c5a30", 110))
-    g.ellipse(8, 9, 7, 5, LEAF_DARK)
-    g.ellipse(7.5, 8, 6.4, 4.4, LEAF)
-    g.ellipse(6, 6.5, 2.5, 1.5, LEAF_LIGHT)
-    d, b, l = _ramp(color)
-    for _ in range(5):
-        fx, fy = 2 + rnd.random() * 11, 5 + rnd.random() * 6
-        g.set(fx, fy, b)
-        g.set(fx + 1, fy, l)
+    g.ellipse(8, 13.5, 7, 2, GROUND_SHADOW)
+    g.ellipse(8, 9, 7, 5.4, d)
+    g.ellipse(7.5, 8.2, 6.4, 4.6, b)
+    g.ellipse(5.8, 6.6, 3.2, 2.2, l)
+    g.rect(4, 6, 6, 6, WHITE)
+    g.line(9, 7, 11, 10, d)  # a crack
+    g.set(12, 10, d)
+    g.rect(3, 12, 13, 12, d)
+    for x, c in ((7, CROP_LEAF["B"]), (8, CROP_LEAF["L"]), (9, CROP_LEAF["B"]), (10, CROP_LEAF["M"])):  # moss
+        g.set(x, 4, c)
+    g.set(8, 3, CROP_LEAF["L"])
     _out(g)
 
 
@@ -1935,7 +2113,7 @@ def _farmer(g: Fig, color: str, anim: str, i: int, seed: int = 0) -> None:
 
 # kind -> (size, {anim: (frames, fps, loop)}, painter, default colour)
 SPRITES: dict[str, tuple[tuple[int, int], dict[str, tuple[int, float, bool]], object, str]] = {
-    "farmhouse": ((80, 72), {"idle": (1, 1, False)}, paint_farmhouse, "#b4472e"),
+    "farmhouse": ((80, 80), {"idle": (1, 1, False)}, paint_farmhouse, "#b4472e"),
     "coop": ((40, 40), {"idle": (1, 1, False)}, paint_coop, "#c0503a"),
     **{f"tree_{k}{suffix}": ((32, 44), {"idle": (TREE_FRAMES, TREE_FPS, True)}, _tree(k, size), col)
        for k, col in (("oak", "#5cb84a"), ("fruit", "#5cb84a"), ("blossom", "#ffa8c8"), ("maple", "#d8402a"))

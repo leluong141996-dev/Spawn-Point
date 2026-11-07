@@ -36,6 +36,9 @@ loop, so a wood never sways in step). Woods mix big and small trees. Fences are 
 toward each side that has fence next to it, picked from the neighbouring cells (`farmgen._join_fences`) and placed by
 their whole cell so the rails meet. Crops are drawn by hand in a little pixel grammar, one body per growth stage for
 each family of plant (bushes, blades, fronds, corn, wheat, vines, cabbages), with the produce outlined in its own dark.
+Buildings and props share the fences' wood: the farmhouse has a front gable with two tiled slopes and a ridge beam, a
+stone chimney, a cream plank wall between dark corner posts and flower-box windows; roof tiles are laid in courses
+with staggered joints, ramped from the building's colour, the slope away from the light in shade.
 
 **Effects** (`sprites/vfx.py`, used by `sprites/fx.py`: the card game's skills, and in every pixel-art game an
 enemy popping, landing dust, pickup sparkles, a harvest, splashes, falling petals and fireflies) are drawn into two buffers, opaque
